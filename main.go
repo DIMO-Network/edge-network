@@ -42,6 +42,8 @@ const (
 	signHashCommand = `crypto.sign_string `
 )
 
+// lastSignature stores the last signature computed by the process.
+// It may be empty and is not thread-safe at all.
 var lastSignature []byte
 
 type unitIDResponse struct {
@@ -112,7 +114,7 @@ func request(method, url string, reqObj, respObj any) (err error) {
 
 	if reqObj != nil {
 		buf := new(bytes.Buffer)
-		err = json.NewEncoder(buf).Encode(respObj)
+		err = json.NewEncoder(buf).Encode(reqObj)
 		if err != nil {
 			return
 		}
