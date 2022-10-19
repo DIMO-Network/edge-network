@@ -20,28 +20,27 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 )
 
+const adapterID = "hci0"
+
+const contentTypeJSON = "application/json"
+
+// The go-bluetooth library wants to construct uuids for services
+// and characteristics as follows:
+//
+// app prefix (2 bytes) + fragment (2 bytes) + app suffix (14 bytes)
 const (
-	adapterID            = "hci0"
-	serviceName          = "edge-network"
-	jsonContentType      = "application/json"
 	uuidPrefix           = "463e"
 	uuidSuffix           = "-f894-44aa-92a2-0d7338075d74"
 	serviceUUIDFragment  = "3f16"
 	getVINUUIDFragment   = "de95"
 	signHashUUIDFragment = "6fe3"
-	getVINCommand        = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
-	signHashCommand      = `crypto.sign_string `
-	autoPiBaseURL        = "http://192.168.4.1:9000"
 )
 
-// The go-bluetooth library wants to construct ids for services
-// and characteristics as follows:
-//
-// app prefix (2 bytes) + fragment (2 bytes) + app suffix (14 bytes)
-
-// We need
-// * Get VIN
-// * Sign message
+const (
+	autoPiBaseURL   = "http://192.168.4.1:9000"
+	getVINCommand   = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
+	signHashCommand = `crypto.sign_string `
+)
 
 var lastSignature []byte
 
@@ -53,60 +52,27 @@ type executeRawRequest struct {
 	Command string `json:"command"`
 }
 
+type executeRawResponse struct {
+	Value string `json:"value"`
+}
+
 func getUnitID() (unitID uuid.UUID, err error) {
-	resp, err := http.Get(autoPiBaseURL)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
 	respObj := unitIDResponse{}
 
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
+	err = request("GET", autoPiBaseURL, nil, &respObj)
 	if err != nil {
 		return
 	}
 
 	unitID, err = uuid.Parse(respObj.UnitID)
-
-	if err == nil {
-		log.Printf("Got unit id: %s", unitID)
-	}
-
 	return
 }
 
 func getVIN(unitID uuid.UUID) (vin string, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getVINCommand})
-	if err != nil {
-		return
-	}
-
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), "application/json", reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
+	reqObj := executeRawRequest{Command: getVINCommand}
 	respObj := executeRawResponse{}
 
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
+	err = request("POST", fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), reqObj, &respObj)
 	if err != nil {
 		return
 	}
@@ -119,39 +85,17 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 	return
 }
 
-type executeRawResponse struct {
-	Value string `json:"value"`
-}
-
 func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
+	if l := len(hash); l != 32 {
+		err = fmt.Errorf("hash has length %d", l)
+		return
+	}
 	hashHex := hex.EncodeToString(hash)
 
-	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID)
-
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: signHashCommand + hashHex})
-	if err != nil {
-		return
-	}
-
-	resp, err := http.Post(url, jsonContentType, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
+	reqObj := executeRawRequest{Command: signHashCommand + hashHex}
 	respObj := executeRawResponse{}
 
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
+	err = request("POST", fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), reqObj, &respObj)
 	if err != nil {
 		return
 	}
@@ -160,6 +104,42 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	value = strings.TrimPrefix(value, "0x")
 
 	sig, err = hex.DecodeString(value)
+	return
+}
+
+func request(method, url string, reqObj, respObj any) (err error) {
+	var reqBody io.Reader
+
+	if reqObj != nil {
+		buf := new(bytes.Buffer)
+		err = json.NewEncoder(buf).Encode(respObj)
+		if err != nil {
+			return
+		}
+		reqBody = buf
+	}
+
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return
+	}
+
+	if reqObj != nil {
+		req.Header.Set("Content-Type", contentTypeJSON)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if c := resp.StatusCode; c != 200 {
+		return fmt.Errorf("status code %d", c)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(respObj)
 	return
 }
 
@@ -177,8 +157,6 @@ func main() {
 	}
 
 	defer app.Close()
-
-	app.SetName(serviceName)
 
 	log.Printf("Bluetooth address: %s.", app.Adapter().Properties.Address)
 
@@ -284,6 +262,12 @@ func main() {
 	})
 
 	signChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving signature: %s.", err)
+			}
+		}()
+
 		if len(lastSignature) == 0 {
 			err = errors.New("no stored signature")
 			return
