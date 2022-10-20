@@ -1,6 +1,6 @@
 Compile for the AutoPi with
 ```
-GOARCH=arm GOOS=linux go build .
+GOARCH=arm GOOS=linux go build -ldflags="-s -w" .
 ```
 This will produce a binary named `edge-network`. For your convenience, a binary has been placed in the `bin` directory. We should switch to GitHub releases.
 
