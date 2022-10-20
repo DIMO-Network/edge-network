@@ -17,4 +17,9 @@ This should place the executable in the home directory. Then you can run it. We 
     * _Write._ Send in the 32 bytes of a hash to be signed
     * _Read._ Return the 65 bytes of the signature for the last submitted hash. If something went wrong with the signing this will error.
 
-Note that the UUIDs here only differ in bytes 3 and 4.
+We should do notifications but I assumed it would be too much of a change. Note that the UUIDs here only differ in bytes 3 and 4.
+
+Missing:
+
+* Get Ethereum address
+* Get cell signal strength
