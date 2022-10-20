@@ -1,6 +1,8 @@
 Compile for the AutoPi with
 ```
-GOARCH=arm GOOS=linux go build -ldflags="-s -w" .
+brew install --build-from-source upx
+GOARCH=arm GOOS=linux go build -ldflags="-s -w" -o edge-network && upx edge-network
+
 ```
 This will produce a binary named `edge-network`. For your convenience, a binary has been placed in the `bin` directory. We should switch to GitHub releases.
 
