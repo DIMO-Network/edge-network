@@ -19,6 +19,8 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/muka/go-bluetooth/hw"
 )
 
 const (
@@ -29,6 +31,7 @@ const (
 	uuidSuffix           = "-f894-44aa-92a2-0d7338075d74"
 	serviceUUIDFragment  = "3f16"
 	getVINUUIDFragment   = "de95"
+	getTestUUIDFragment  = "ae95"
 	signHashUUIDFragment = "6fe3"
 	getVINCommand        = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
 	signHashCommand      = `crypto.sign_string `
@@ -168,11 +171,27 @@ func main() {
 	// Used by go-bluetooth.
 	logrus.SetLevel(logrus.DebugLevel)
 
+	btmgmt := hw.NewBtMgmt(adapterID)
+	if len(os.Getenv("DOCKER")) > 0 {
+		btmgmt.BinPath = "./bin/docker-btmgmt"
+	}
+
+	// set LE mode
+	btmgmt.SetPowered(false)
+	btmgmt.SetLe(true)
+	btmgmt.SetBredr(false)
+	btmgmt.SetPowered(true)
+	btmgmt.SetConnectable(true)
+	btmgmt.SetBondable(true)
+	btmgmt.SetPairable(true)
+	btmgmt.SetSc(true)
+
 	opt := service.AppOptions{
-		AdapterID:  adapterID,
-		AgentCaps:  agent.CapNoInputNoOutput,
-		UUIDSuffix: uuidSuffix,
-		UUID:       uuidPrefix,
+		AdapterID:         adapterID,
+		AgentCaps:         agent.CapDisplayYesNo,
+		AgentSetAsDefault: true,
+		UUIDSuffix:        uuidSuffix,
+		UUID:              uuidPrefix,
 	}
 
 	app, err := service.NewApp(opt)
@@ -205,12 +224,30 @@ func main() {
 		log.Fatal(err)
 	}
 
+	testChar, err := svc.NewChar(getTestUUIDFragment)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	testChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
+
+	testChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		resp = []byte("1234")
+		return resp, nil
+	})
+
+	err = svc.AddChar(testChar)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	vinChar, err := svc.NewChar(getVINUUIDFragment)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
 	vinChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
@@ -248,8 +285,8 @@ func main() {
 	}
 
 	signChar.Properties.Flags = []string{
-		gatt.FlagCharacteristicWrite,
-		gatt.FlagCharacteristicRead,
+		gatt.FlagCharacteristicEncryptAuthenticatedWrite,
+		gatt.FlagCharacteristicEncryptAuthenticatedRead,
 	}
 
 	signChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
