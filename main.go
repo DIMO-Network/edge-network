@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -289,11 +288,6 @@ func main() {
 	})
 
 	signChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
-		if len(lastSignature) == 0 {
-			err = errors.New("no stored signature")
-			return
-		}
-
 		resp = lastSignature
 		return
 	})
