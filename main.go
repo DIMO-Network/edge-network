@@ -18,6 +18,8 @@ import (
 	"github.com/muka/go-bluetooth/api/service"
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -164,6 +166,9 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 }
 
 func main() {
+	// Used by go-bluetooth.
+	logrus.SetLevel(logrus.DebugLevel)
+
 	opt := service.AppOptions{
 		AdapterID:  adapterID,
 		AgentCaps:  agent.CapNoInputNoOutput,
