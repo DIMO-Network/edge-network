@@ -24,18 +24,20 @@ import (
 )
 
 const (
-	adapterID            = "hci0"
-	serviceName          = "edge-network"
-	jsonContentType      = "application/json"
-	uuidPrefix           = "463e"
-	uuidSuffix           = "-f894-44aa-92a2-0d7338075d74"
-	serviceUUIDFragment  = "3f16"
-	getVINUUIDFragment   = "de95"
-	getTestUUIDFragment  = "ae95"
-	signHashUUIDFragment = "6fe3"
-	getVINCommand        = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
-	signHashCommand      = `crypto.sign_string `
-	autoPiBaseURL        = "http://192.168.4.1:9000"
+	adapterID                 = "hci0"
+	serviceName               = "edge-network"
+	contentTypeJSON           = "application/json"
+	uuidPrefix                = "463e"
+	uuidSuffix                = "-f894-44aa-92a2-0d7338075d74"
+	serviceUUIDFragment       = "3f16"
+	getVINUUIDFragment        = "de95"
+	getTestUUIDFragment       = "ae95"
+	signHashUUIDFragment      = "6fe3"
+	getVINCommand             = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
+	getEthereumAddressCommand = `crypto.query ethereum_address`
+
+	signHashCommand = `crypto.sign_string `
+	autoPiBaseURL   = "http://192.168.4.1:9000"
 )
 
 // The go-bluetooth library wants to construct ids for services
@@ -56,6 +58,8 @@ type unitIDResponse struct {
 type executeRawRequest struct {
 	Command string `json:"command"`
 }
+
+type ethereumAddress [20]byte
 
 func getUnitID() (unitID uuid.UUID, err error) {
 	resp, err := http.Get(autoPiBaseURL)
@@ -93,7 +97,7 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), "application/json", reqBody)
+	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
 	if err != nil {
 		return
 	}
@@ -138,7 +142,7 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 		return
 	}
 
-	resp, err := http.Post(url, jsonContentType, reqBody)
+	resp, err := http.Post(url, contentTypeJSON, reqBody)
 	if err != nil {
 		return
 	}
@@ -167,6 +171,51 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	return
 }
 
+func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
+	reqBody := new(bytes.Buffer)
+	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getEthereumAddressCommand})
+	if err != nil {
+		return
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		bs, _ := io.ReadAll(resp.Body)
+		fmt.Print(string(bs))
+
+		err = fmt.Errorf("status code %d", resp.StatusCode)
+		return
+	}
+
+	respObj := executeRawResponse{}
+
+	err = json.NewDecoder(resp.Body).Decode(&respObj)
+	if err != nil {
+		return
+	}
+
+	log.Printf("Got from crypto.query ethereum_address: %s", respObj.Value)
+
+	addrString := respObj.Value
+	strings.TrimPrefix(addrString, "0x") // Might not be necessary.
+
+	addrSlice, err := hex.DecodeString(addrString)
+	if l := len(addrSlice); l != 20 {
+		err = fmt.Errorf("address has %d bytes", l)
+		return
+	}
+
+	addr = *(*ethereumAddress)(addrSlice)
+
+	return
+}
+
 func main() {
 	// Used by go-bluetooth.
 	logrus.SetLevel(logrus.DebugLevel)
@@ -186,65 +235,50 @@ func main() {
 	btmgmt.SetPairable(true)
 	btmgmt.SetSc(true)
 
-	opt := service.AppOptions{
-		AdapterID:         adapterID,
-		AgentCaps:         agent.CapDisplayYesNo,
-		AgentSetAsDefault: true,
-		UUIDSuffix:        uuidSuffix,
-		UUID:              uuidPrefix,
-	}
-
-	app, err := service.NewApp(opt)
+	app, err := service.NewApp(adapterID)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer app.Close()
 
-	app.SetName(serviceName)
+	app.AgentCaps = agent.CapDisplayYesNo
+	app.AgentSetAsDefault = true // Already set in NewApp, but just to be explicit..
 
-	log.Printf("Bluetooth address: %s.", app.Adapter().Properties.Address)
+	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
 
 	if !app.Adapter().Properties.Powered {
-		log.Print("Bluetooth not powered, attempting to change.")
+		log.Print("Adapter not powered.")
 		err = app.Adapter().SetPowered(true)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to power adapter: %s", err)
 		}
 	}
 
-	// Unclear whether we should split this up.
-	svc, err := app.NewService(serviceUUIDFragment)
+	// Presently unused, but will hold things like cell and wifi status and settings.
+	deviceService, err := app.NewService()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create device service: %s", err)
 	}
 
-	err = app.AddService(svc)
+	err = app.AddService(deviceService)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to add device service to app: %s", err)
 	}
 
-	testChar, err := svc.NewChar(getTestUUIDFragment)
+	vehicleService, err := app.NewService()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create vehicle service: %s", err)
 	}
 
-	testChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
-
-	testChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
-		resp = []byte("1234")
-		return resp, nil
-	})
-
-	err = svc.AddChar(testChar)
-
+	err = app.AddService(vehicleService)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to add vehicle service to app: %s", err)
 	}
 
-	vinChar, err := svc.NewChar(getVINUUIDFragment)
+	vinChar, err := vehicleService.NewChar()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create VIN characteristic: %s", err)
 	}
 
 	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
@@ -252,7 +286,7 @@ func main() {
 	vinChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				log.Printf("Error retrieving VIN: %s.", err)
+				log.Printf("Error retrieving VIN: %s", err)
 			}
 		}()
 
@@ -268,20 +302,52 @@ func main() {
 			return
 		}
 
-		log.Printf("Got VIN: %s.", vin)
+		log.Printf("Got VIN: %s", vin)
 
 		resp = []byte(vin)
 		return
 	})
 
-	err = svc.AddChar(vinChar)
+	err = vehicleService.AddChar(vinChar)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
 	}
 
-	signChar, err := svc.NewChar(signHashUUIDFragment)
+	transactionsService, err := app.NewService()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create transaction service: %s", err)
+	}
+
+	addrChar, err := transactionsService.NewChar()
+	if err != nil {
+		log.Fatalf("Failed to create get ethereum address characteristic: %s", err)
+	}
+
+	addrChar.Properties.Flags = []string{
+		gatt.FlagCharacteristicEncryptAuthenticatedRead,
+	}
+
+	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		log.Print("Got address request.")
+
+		unitID, err := getUnitID()
+		if err != nil {
+			return
+		}
+
+		addr, err := getEthereumAddress(unitID)
+		if err != nil {
+			return
+		}
+
+		resp = addr[:]
+
+		return
+	})
+
+	signChar, err := transactionsService.NewChar()
+	if err != nil {
+		log.Fatalf("Failed to create sign hash characteristic: %s", err)
 	}
 
 	signChar.Properties.Flags = []string{
@@ -329,7 +395,7 @@ func main() {
 		return
 	})
 
-	err = svc.AddChar(signChar)
+	err = transactionsService.AddChar(signChar)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -339,7 +405,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// First argument is a cancel function.
 	cancel, err := app.Advertise(math.MaxUint32)
 	if err != nil {
 		log.Fatal(err)
@@ -350,10 +415,13 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
-	log.Printf("Exposed service: %s.", svc.UUID)
-	log.Printf("Get VIN characteristic: %s.", vinChar.UUID)
-	log.Printf("Sign hash characteristic: %s.", signChar.UUID)
+	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
+	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
+
+	log.Printf("Transactions service: %s", transactionsService.Properties.UUID)
+	log.Printf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
+	log.Printf("  Sign hash characteristic: %s", signChar.Properties.UUID)
 
 	sig := <-sigChan
-	log.Printf("Got signal %s, terminating.", sig)
+	log.Printf("Terminating from signal: %s", sig)
 }
