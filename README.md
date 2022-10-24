@@ -12,6 +12,8 @@ scp bin/edge-network pi@192.168.4.1:~
 ```
 This should place the executable in the home directory. Then you can run it. We need to make it into a systemd service. The device should be discoverable under thr usual `autopi`-prefixed name.
 
+For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` capability.
+
 * Device service `5c307fa4-6859-4d6c-a87b-8d2c98c9f6f0` (no characteristics yet)
 * Vehicle service `5c30d387-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get VIN characteristic `5c300acc-6859-4d6c-a87b-8d2c98c9f6f0`
