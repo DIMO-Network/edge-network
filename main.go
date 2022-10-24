@@ -233,12 +233,13 @@ func main() {
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
 		AgentSetAsDefault: true,
-		UUIDSuffix:        "-f894-44aa-92a2-0d7338075d74",
+		UUIDSuffix:        appUUIDSuffix,
+		UUID:              appUUIDPrefix,
 	}
 
 	app, err := service.NewApp(opt)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create app: %s", err)
 	}
 
 	defer app.Close()
@@ -395,17 +396,17 @@ func main() {
 
 	err = transactionsService.AddChar(signChar)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to add hash signing characteristic: %s", err)
 	}
 
 	err = app.Run()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to initialize app: %s", err)
 	}
 
 	cancel, err := app.Advertise(math.MaxUint32)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed advertising: %s", err)
 	}
 
 	defer cancel()
