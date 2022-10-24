@@ -2,10 +2,10 @@ module github.com/DIMO-Network/edge-network
 
 go 1.19
 
-require github.com/muka/go-bluetooth v0.0.0-20200413093727-1187a0bdffdc
+require github.com/muka/go-bluetooth v0.0.0-20200903202100-13616d14eca5
 
 require (
-	github.com/godbus/dbus v4.1.0+incompatible // indirect
+	github.com/godbus/dbus/v5 v5.0.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.8.0 // indirect
 )
