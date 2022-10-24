@@ -317,6 +317,11 @@ func main() {
 		log.Fatalf("Failed to create transaction service: %s", err)
 	}
 
+	err = app.AddService(transactionsService)
+	if err != nil {
+		log.Fatalf("Failed to add transaction service to app: %s", err)
+	}
+
 	addrChar, err := transactionsService.NewChar(addrCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create get ethereum address characteristic: %s", err)
