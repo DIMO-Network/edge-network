@@ -27,17 +27,10 @@ const (
 	adapterID                 = "hci0"
 	serviceName               = "edge-network"
 	contentTypeJSON           = "application/json"
-	uuidPrefix                = "463e"
-	uuidSuffix                = "-f894-44aa-92a2-0d7338075d74"
-	serviceUUIDFragment       = "3f16"
-	getVINUUIDFragment        = "de95"
-	getTestUUIDFragment       = "ae95"
-	signHashUUIDFragment      = "6fe3"
 	getVINCommand             = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
 	getEthereumAddressCommand = `crypto.query ethereum_address`
-
-	signHashCommand = `crypto.sign_string `
-	autoPiBaseURL   = "http://192.168.4.1:9000"
+	signHashCommand           = `crypto.sign_string `
+	autoPiBaseURL             = "http://192.168.4.1:9000"
 )
 
 // The go-bluetooth library wants to construct ids for services
