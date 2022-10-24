@@ -33,15 +33,6 @@ const (
 	autoPiBaseURL             = "http://192.168.4.1:9000"
 )
 
-// The go-bluetooth library wants to construct ids for services
-// and characteristics as follows:
-//
-// app prefix (2 bytes) + fragment (2 bytes) + app suffix (14 bytes)
-
-// We need
-// * Get VIN
-// * Sign message
-
 var lastSignature []byte
 
 type unitIDResponse struct {
