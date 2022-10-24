@@ -31,6 +31,16 @@ const (
 	getEthereumAddressCommand = `crypto.query ethereum_address`
 	signHashCommand           = `crypto.sign_string `
 	autoPiBaseURL             = "http://192.168.4.1:9000"
+
+	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
+	appUUIDPrefix = "5c30"
+
+	deviceServiceUUIDFragment       = "7fa4"
+	vehicleServiceUUIDFragment      = "d387"
+	vinCharUUIDFragment             = "0acc"
+	transactionsServiceUUIDFragment = "aade"
+	addrCharUUIDFragment            = "1dd2"
+	signCharUUIDFragment            = "e60f"
 )
 
 var lastSignature []byte
@@ -219,20 +229,24 @@ func main() {
 	btmgmt.SetPairable(true)
 	btmgmt.SetSc(true)
 
-	app, err := service.NewApp(adapterID)
+	opt := service.AppOptions{
+		AdapterID:         adapterID,
+		AgentCaps:         agent.CapDisplayYesNo,
+		AgentSetAsDefault: true,
+		UUIDSuffix:        "-f894-44aa-92a2-0d7338075d74",
+	}
+
+	app, err := service.NewApp(opt)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer app.Close()
 
-	app.AgentCaps = agent.CapDisplayYesNo
-	app.AgentSetAsDefault = true // Already set in NewApp, but just to be explicit..
-
 	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
 
 	if !app.Adapter().Properties.Powered {
-		log.Print("Adapter not powered.")
+		log.Print("Adapter not powered, attempting to power")
 		err = app.Adapter().SetPowered(true)
 		if err != nil {
 			log.Fatalf("Failed to power adapter: %s", err)
@@ -240,7 +254,7 @@ func main() {
 	}
 
 	// Presently unused, but will hold things like cell and wifi status and settings.
-	deviceService, err := app.NewService()
+	deviceService, err := app.NewService(deviceServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create device service: %s", err)
 	}
@@ -250,7 +264,7 @@ func main() {
 		log.Fatalf("Failed to add device service to app: %s", err)
 	}
 
-	vehicleService, err := app.NewService()
+	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create vehicle service: %s", err)
 	}
@@ -260,7 +274,7 @@ func main() {
 		log.Fatalf("Failed to add vehicle service to app: %s", err)
 	}
 
-	vinChar, err := vehicleService.NewChar()
+	vinChar, err := vehicleService.NewChar(vinCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create VIN characteristic: %s", err)
 	}
@@ -297,12 +311,12 @@ func main() {
 		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
 	}
 
-	transactionsService, err := app.NewService()
+	transactionsService, err := app.NewService(transactionsServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create transaction service: %s", err)
 	}
 
-	addrChar, err := transactionsService.NewChar()
+	addrChar, err := transactionsService.NewChar(addrCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create get ethereum address characteristic: %s", err)
 	}
@@ -329,7 +343,7 @@ func main() {
 		return
 	})
 
-	signChar, err := transactionsService.NewChar()
+	signChar, err := transactionsService.NewChar(signCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create sign hash characteristic: %s", err)
 	}
