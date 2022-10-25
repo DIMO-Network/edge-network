@@ -1,0 +1,17 @@
+on:
+  release:
+    types: [created]
+
+jobs:
+  release-autopi:
+    name: Release AutoPi binary
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: wangyoucao577/go-release-action@v1.32
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: linux
+        goarch: arm
+        executable_compression: upx
+        ldflags: -s -w
