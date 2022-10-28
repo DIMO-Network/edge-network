@@ -197,9 +197,13 @@ func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
 	log.Printf("Got from crypto.query ethereum_address: %s", respObj.Value)
 
 	addrString := respObj.Value
-	strings.TrimPrefix(addrString, "0x")
+	addrString = strings.TrimPrefix(addrString, "0x")
 
 	addrSlice, err := hex.DecodeString(addrString)
+	if err != nil {
+		return
+	}
+
 	if l := len(addrSlice); l != 20 {
 		err = fmt.Errorf("address has %d bytes", l)
 		return
