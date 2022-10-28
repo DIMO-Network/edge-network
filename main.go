@@ -349,6 +349,11 @@ func main() {
 		return
 	})
 
+	err = transactionsService.AddChar(addrChar)
+	if err != nil {
+		log.Fatalf("Failed to add Ethereum address characteristic: %s", err)
+	}
+
 	signChar, err := transactionsService.NewChar(signCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create sign hash characteristic: %s", err)
