@@ -20,8 +20,6 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/muka/go-bluetooth/hw"
 )
 
 const (
@@ -61,141 +59,100 @@ type executeRawRequest struct {
 
 type ethereumAddress [20]byte
 
-func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getHardwareRevisionCommand})
+func executeRequest(method, path string, reqVal, respVal any) (err error) {
+	var reqBody io.Reader
+
+	if reqVal != nil {
+		reqBuf := new(bytes.Buffer)
+		err = json.NewEncoder(reqBuf).Encode(reqVal)
+		if err != nil {
+			return
+		}
+		reqBody = reqBuf
+	}
+
+	req, err := http.NewRequest(method, autoPiBaseURL+path, reqBody)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	if reqVal != nil {
+		req.Header.Set("Content-Type", contentTypeJSON)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
+	if c := resp.StatusCode; c >= 400 {
+		return fmt.Errorf("status code %d", c)
+	}
 
-		err = fmt.Errorf("status code %d", resp.StatusCode)
+	if respVal == nil {
 		return
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	hwRevision = string(body)
-
-	if err == nil {
-		log.Printf("Got hardware revision id: %s", hwRevision)
-	}
-
+	err = json.NewDecoder(resp.Body).Decode(respVal)
 	return
 }
 
-func getSecondary(unitID uuid.UUID) (id uuid.UUID, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getSecondaryIdCommand})
+func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	req := executeRawRequest{Command: getHardwareRevisionCommand}
+
+	var version float64
+
+	err = executeRequest("POST", path, req, &version)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	hwRevision = fmt.Sprint(version)
+	return
+}
+
+func getSecondarySerialNumber(unitID uuid.UUID) (id uuid.UUID, err error) {
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	req := executeRawRequest{Command: getSecondaryIdCommand}
+
+	var strID string
+
+	err = executeRequest("POST", path, req, &strID)
 	if err != nil {
 		return
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	secondaryId := string(body)
-
-	log.Printf("Got secondary id: %s", secondaryId)
-	secondaryId = strings.ReplaceAll(secondaryId, "\"", "")
-	id, err = uuid.Parse(strings.TrimSpace(secondaryId))
-
-	if err == nil {
-		log.Printf("Got secondary id: %s", id)
-	}
-
+	id, err = uuid.Parse(strID)
 	return
 }
 
 func getUnitID() (unitID uuid.UUID, err error) {
-	resp, err := http.Get(autoPiBaseURL)
+	resp := unitIDResponse{}
+
+	err = executeRequest("GET", autoPiBaseURL, nil, &resp)
 	if err != nil {
 		return
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := unitIDResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	unitID, err = uuid.Parse(respObj.UnitID)
-
-	if err == nil {
-		log.Printf("Got unit id: %s", unitID)
-	}
-
+	unitID, err = uuid.Parse(resp.UnitID)
 	return
 }
 
 func getVIN(unitID uuid.UUID) (vin string, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getVINCommand})
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	req := executeRawRequest{Command: getVINCommand}
+
+	resp := executeRawResponse{}
+
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	vin = respObj.Value
+	vin = resp.Value
 	if len(vin) != 17 {
 		err = fmt.Errorf("response contained a VIN with %s characters", vin)
 	}
@@ -208,39 +165,19 @@ type executeRawResponse struct {
 }
 
 func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	hashHex := hex.EncodeToString(hash)
 
-	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID)
+	req := executeRawRequest{Command: signHashCommand + hashHex}
 
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: signHashCommand + hashHex})
+	resp := executeRawResponse{}
+
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(url, contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	value := respObj.Value
+	value := resp.Value
 	value = strings.TrimPrefix(value, "0x")
 
 	sig, err = hex.DecodeString(value)
@@ -248,37 +185,18 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 }
 
 func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getEthereumAddressCommand})
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	req := executeRawRequest{Command: getEthereumAddressCommand}
+
+	resp := executeRawResponse{}
+
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	log.Printf("Got from crypto.query ethereum_address: %s", respObj.Value)
-
-	addrString := respObj.Value
+	addrString := resp.Value
 	addrString = strings.TrimPrefix(addrString, "0x")
 
 	addrSlice, err := hex.DecodeString(addrString)
@@ -294,60 +212,6 @@ func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
 	addr = *(*ethereumAddress)(addrSlice)
 
 	return
-}
-
-func setupBluez() error {
-	btmgmt := hw.NewBtMgmt(adapterID)
-
-	// TODO(elffjs): What's this for?
-	if os.Getenv("DOCKER") != "" {
-		btmgmt.BinPath = "./bin/docker-btmgmt"
-	}
-
-	// Need to turn off the controller to be able to modify the next few settings.
-	err := btmgmt.SetPowered(false)
-	if err != nil {
-		return fmt.Errorf("failed to power off the controller: %w", err)
-	}
-
-	err = btmgmt.SetLe(true)
-	if err != nil {
-		return fmt.Errorf("failed to enable LE: %w", err)
-	}
-
-	err = btmgmt.SetBredr(false)
-	if err != nil {
-		return fmt.Errorf("failed to disable BR/EDR: %w", err)
-	}
-
-	time.Sleep(2 * time.Second)
-
-	err = btmgmt.SetPowered(true)
-	if err != nil {
-		return fmt.Errorf("failed to power on the controller: %w", err)
-	}
-
-	err = btmgmt.SetConnectable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as connectable: %w", err)
-	}
-
-	err = btmgmt.SetBondable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as bondable: %w", err)
-	}
-
-	err = btmgmt.SetSc(true)
-	if err != nil {
-		return fmt.Errorf("failed to enable Secure Connections: %w", err)
-	}
-
-	err = btmgmt.SetDiscoverable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as discoverable: %w", err)
-	}
-
-	return nil
 }
 
 func main() {
@@ -455,7 +319,7 @@ func main() {
 			return
 		}
 
-		deviceId, err := getSecondary(unitID)
+		deviceId, err := getSecondarySerialNumber(unitID)
 		if err != nil {
 			return
 		}
