@@ -214,24 +214,66 @@ func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
 	return
 }
 
+func setupBluez() error {
+	btmgmt := hw.NewBtMgmt(adapterID)
+
+	// TODO(elffjs): What's this for?
+	if os.Getenv("DOCKER") != "" {
+		btmgmt.BinPath = "./bin/docker-btmgmt"
+	}
+
+	// Need to turn off the controller to be able to modify the next few settings.
+	err := btmgmt.SetPowered(false)
+	if err != nil {
+		return fmt.Errorf("failed to power off the controller: %w", err)
+	}
+
+	err = btmgmt.SetLe(true)
+	if err != nil {
+		return fmt.Errorf("failed to enable LE: %w", err)
+	}
+
+	btmgmt.SetBredr(false)
+	if err != nil {
+		return fmt.Errorf("failed to disable BR/EDR: %w", err)
+	}
+
+	btmgmt.SetPowered(true)
+	if err != nil {
+		return fmt.Errorf("failed to power on the controller: %w", err)
+	}
+
+	btmgmt.SetConnectable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as connectable: %w", err)
+	}
+
+	btmgmt.SetBondable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as bondable: %w", err)
+	}
+
+	btmgmt.SetPairable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as pairable: %w", err)
+	}
+
+	btmgmt.SetSc(true)
+	if err != nil {
+		return fmt.Errorf("failed to enable Secure Connections: %w", err)
+	}
+
+	return nil
+}
+
 func main() {
 	// Used by go-bluetooth.
 	logrus.SetLevel(logrus.DebugLevel)
 
-	btmgmt := hw.NewBtMgmt(adapterID)
-	if len(os.Getenv("DOCKER")) > 0 {
-		btmgmt.BinPath = "./bin/docker-btmgmt"
+	err := setupBluez()
+	if err != nil {
+		log.Fatalf("Failed to setup BlueZ: %s", err)
 	}
-
-	// set LE mode
-	btmgmt.SetPowered(false)
-	btmgmt.SetLe(true)
-	btmgmt.SetBredr(false)
-	btmgmt.SetPowered(true)
-	btmgmt.SetConnectable(true)
-	btmgmt.SetBondable(true)
-	btmgmt.SetPairable(true)
-	btmgmt.SetSc(true)
 
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
