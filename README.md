@@ -14,7 +14,7 @@ This should place the executable in the home directory. Then you can run it. We 
 
 For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` capability.
 
-* Device service `5c307fa4-6859-4d6c-a87b-8d2c98c9f6f0` (no characteristics yet)
+* Device service `5c307fa4-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get Serial Number characteristic `5c305a11-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded Serial Number of the Unit
   * Get Secondary Serial Number characteristic `5c305a12-6859-4d6c-a87b-8d2c98c9f6f0`

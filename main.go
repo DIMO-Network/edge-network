@@ -279,9 +279,13 @@ func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
 	log.Printf("Got from crypto.query ethereum_address: %s", respObj.Value)
 
 	addrString := respObj.Value
-	strings.TrimPrefix(addrString, "0x")
+	addrString = strings.TrimPrefix(addrString, "0x")
 
 	addrSlice, err := hex.DecodeString(addrString)
+	if err != nil {
+		return
+	}
+
 	if l := len(addrSlice); l != 20 {
 		err = fmt.Errorf("address has %d bytes", l)
 		return
@@ -292,28 +296,73 @@ func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
 	return
 }
 
-func main() {
-	log.Printf("DIMO Edge Network Started")
-	time.Sleep(30 * time.Second)
-	// Used by go-bluetooth.
-	logrus.SetLevel(logrus.DebugLevel)
-
+func setupBluez() error {
 	btmgmt := hw.NewBtMgmt(adapterID)
-	if len(os.Getenv("DOCKER")) > 0 {
+
+	// TODO(elffjs): What's this for?
+	if os.Getenv("DOCKER") != "" {
 		btmgmt.BinPath = "./bin/docker-btmgmt"
 	}
-	log.Printf("DIMO Edge Network Hardware Configuration Started")
-	btmgmt.SetPowered(false)
-	btmgmt.SetLe(true)
-	btmgmt.SetBredr(false)
-	time.Sleep(2 * time.Second)
-	btmgmt.SetPowered(true)
-	btmgmt.SetConnectable(true)
-	btmgmt.SetBondable(true)
-	btmgmt.SetSc(true)
 
-	btmgmt.SetDiscoverable(true)
-	log.Printf("DIMO Edge Network Hardware Configuration Completed")
+	// Need to turn off the controller to be able to modify the next few settings.
+	err := btmgmt.SetPowered(false)
+	if err != nil {
+		return fmt.Errorf("failed to power off the controller: %w", err)
+	}
+
+	err = btmgmt.SetLe(true)
+	if err != nil {
+		return fmt.Errorf("failed to enable LE: %w", err)
+	}
+
+	err = btmgmt.SetBredr(false)
+	if err != nil {
+		return fmt.Errorf("failed to disable BR/EDR: %w", err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	err = btmgmt.SetPowered(true)
+	if err != nil {
+		return fmt.Errorf("failed to power on the controller: %w", err)
+	}
+
+	err = btmgmt.SetConnectable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as connectable: %w", err)
+	}
+
+	err = btmgmt.SetBondable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as bondable: %w", err)
+	}
+
+	err = btmgmt.SetSc(true)
+	if err != nil {
+		return fmt.Errorf("failed to enable Secure Connections: %w", err)
+	}
+
+	err = btmgmt.SetDiscoverable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as discoverable: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	log.Printf("Starting DIMO Edge Network")
+	log.Printf("Sleeping for 30 seconds to allow D-Bus and BlueZ to start up")
+	time.Sleep(30 * time.Second)
+
+	// Used by go-bluetooth.
+	// TODO(elffjs): Turn this off?
+	logrus.SetLevel(logrus.DebugLevel)
+
+	err := setupBluez()
+	if err != nil {
+		log.Fatalf("Failed to setup BlueZ: %s", err)
+	}
 
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
@@ -340,7 +389,7 @@ func main() {
 		}
 	}
 
-	//Device Service
+	// Device service
 	deviceService, err := app.NewService(deviceServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create device service: %s", err)
@@ -350,7 +399,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to add device service to app: %s", err)
 	}
-	//get serial number
+
+	// Get serial number
 	unitSerialChar, err := deviceService.NewChar(primaryIdCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Unit ID characteristic: %s", err)
@@ -382,8 +432,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
 	}
-	//get secondary number
 
+	// Get secondary serial number
 	secondSerialChar, err := deviceService.NewChar(secondaryIdCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Secondary ID characteristic: %s", err)
@@ -421,7 +471,7 @@ func main() {
 		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
 	}
 
-	//hw revision
+	// Hardware revision
 	hwRevisionChar, err := deviceService.NewChar(hwVersionUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Hardwware Revision characteristic: %s", err)
@@ -459,7 +509,7 @@ func main() {
 		log.Fatalf("Failed to add Hardware Revision characteristic to device service: %s", err)
 	}
 
-	//vehicle service
+	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create vehicle service: %s", err)
@@ -470,6 +520,7 @@ func main() {
 		log.Fatalf("Failed to add vehicle service to app: %s", err)
 	}
 
+	// Get VIN
 	vinChar, err := vehicleService.NewChar(vinCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create VIN characteristic: %s", err)
@@ -506,7 +557,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
 	}
-	//Transactions Service
+
+	// Transactions service
 	transactionsService, err := app.NewService(transactionsServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create transaction service: %s", err)
@@ -517,6 +569,7 @@ func main() {
 		log.Fatalf("Failed to add transaction service to app: %s", err)
 	}
 
+	// Get Ethereum address
 	addrChar, err := transactionsService.NewChar(addrCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create get ethereum address characteristic: %s", err)
@@ -544,6 +597,12 @@ func main() {
 		return
 	})
 
+	err = transactionsService.AddChar(addrChar)
+	if err != nil {
+		log.Fatalf("Failed to add Ethereum address characteristic: %s", err)
+	}
+
+	// Sign hash
 	signChar, err := transactionsService.NewChar(signCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create sign hash characteristic: %s", err)
@@ -618,6 +677,7 @@ func main() {
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
+
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
 
