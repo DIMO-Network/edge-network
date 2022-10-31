@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/muka/go-bluetooth/api/service"
@@ -24,19 +25,24 @@ import (
 )
 
 const (
-	adapterID                 = "hci0"
-	serviceName               = "edge-network"
-	contentTypeJSON           = "application/json"
-	getVINCommand             = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
-	getEthereumAddressCommand = `crypto.query ethereum_address`
-	signHashCommand           = `crypto.sign_string `
-	autoPiBaseURL             = "http://192.168.4.1:9000"
+	adapterID                  = "hci0"
+	serviceName                = "edge-network"
+	contentTypeJSON            = "application/json"
+	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
+	getEthereumAddressCommand  = `crypto.query ethereum_address`
+	signHashCommand            = `crypto.sign_string `
+	getSecondaryIdCommand      = `config.get device.id`
+	getHardwareRevisionCommand = `config.get hw.version`
+	autoPiBaseURL              = "http://192.168.4.1:9000"
 
 	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
 	appUUIDPrefix = "5c30"
 
 	deviceServiceUUIDFragment       = "7fa4"
 	vehicleServiceUUIDFragment      = "d387"
+	primaryIdCharUUIDFragment       = "5a11"
+	secondaryIdCharUUIDFragment     = "5a12"
+	hwVersionUUIDFragment           = "5a13"
 	vinCharUUIDFragment             = "0acc"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
@@ -54,6 +60,82 @@ type executeRawRequest struct {
 }
 
 type ethereumAddress [20]byte
+
+func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
+	reqBody := new(bytes.Buffer)
+	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getHardwareRevisionCommand})
+	if err != nil {
+		return
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		bs, _ := io.ReadAll(resp.Body)
+		fmt.Print(string(bs))
+
+		err = fmt.Errorf("status code %d", resp.StatusCode)
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	hwRevision = string(body)
+
+	if err == nil {
+		log.Printf("Got hardware revision id: %s", hwRevision)
+	}
+
+	return
+}
+
+func getSecondary(unitID uuid.UUID) (id uuid.UUID, err error) {
+	reqBody := new(bytes.Buffer)
+	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getSecondaryIdCommand})
+	if err != nil {
+		return
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	if err != nil {
+		return
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		bs, _ := io.ReadAll(resp.Body)
+		fmt.Print(string(bs))
+
+		err = fmt.Errorf("status code %d", resp.StatusCode)
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	secondaryId := string(body)
+
+	log.Printf("Got secondary id: %s", secondaryId)
+	secondaryId = strings.ReplaceAll(secondaryId, "\"", "")
+	id, err = uuid.Parse(strings.TrimSpace(secondaryId))
+
+	if err == nil {
+		log.Printf("Got secondary id: %s", id)
+	}
+
+	return
+}
 
 func getUnitID() (unitID uuid.UUID, err error) {
 	resp, err := http.Get(autoPiBaseURL)
@@ -233,41 +315,48 @@ func setupBluez() error {
 		return fmt.Errorf("failed to enable LE: %w", err)
 	}
 
-	btmgmt.SetBredr(false)
+	err = btmgmt.SetBredr(false)
 	if err != nil {
 		return fmt.Errorf("failed to disable BR/EDR: %w", err)
 	}
 
-	btmgmt.SetPowered(true)
+	time.Sleep(2 * time.Second)
+
+	err = btmgmt.SetPowered(true)
 	if err != nil {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
 
-	btmgmt.SetConnectable(true)
+	err = btmgmt.SetConnectable(true)
 	if err != nil {
 		return fmt.Errorf("failed to set the controller as connectable: %w", err)
 	}
 
-	btmgmt.SetBondable(true)
+	err = btmgmt.SetBondable(true)
 	if err != nil {
 		return fmt.Errorf("failed to set the controller as bondable: %w", err)
 	}
 
-	btmgmt.SetPairable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as pairable: %w", err)
-	}
-
-	btmgmt.SetSc(true)
+	err = btmgmt.SetSc(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable Secure Connections: %w", err)
+	}
+
+	err = btmgmt.SetDiscoverable(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as discoverable: %w", err)
 	}
 
 	return nil
 }
 
 func main() {
+	log.Printf("Starting DIMO Edge Network")
+	log.Printf("Sleeping for 30 seconds to allow D-Bus and BlueZ to start up")
+	time.Sleep(30 * time.Second)
+
 	// Used by go-bluetooth.
+	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.DebugLevel)
 
 	err := setupBluez()
@@ -300,7 +389,7 @@ func main() {
 		}
 	}
 
-	// Presently unused, but will hold things like cell and wifi status and settings.
+	// Device service
 	deviceService, err := app.NewService(deviceServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create device service: %s", err)
@@ -311,6 +400,116 @@ func main() {
 		log.Fatalf("Failed to add device service to app: %s", err)
 	}
 
+	// Get serial number
+	unitSerialChar, err := deviceService.NewChar(primaryIdCharUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Unit ID characteristic: %s", err)
+	}
+
+	unitSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	unitSerialChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving unit serial number: %s", err)
+			}
+		}()
+
+		log.Print("Got Unit Serial request.")
+
+		unitID, err := getUnitID()
+		if err != nil {
+			return
+		}
+
+		log.Printf("Read UnitId: %s", unitID)
+
+		resp = []byte(unitID.String())
+		return
+	})
+
+	err = deviceService.AddChar(unitSerialChar)
+	if err != nil {
+		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+	}
+
+	// Get secondary serial number
+	secondSerialChar, err := deviceService.NewChar(secondaryIdCharUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Secondary ID characteristic: %s", err)
+	}
+
+	secondSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	secondSerialChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving secondary serial number: %s", err)
+			}
+		}()
+
+		log.Print("Got Unit Secondary Id request.")
+
+		unitID, err := getUnitID()
+		if err != nil {
+			return
+		}
+
+		deviceId, err := getSecondary(unitID)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Read Secondary: %s", deviceId)
+
+		resp = []byte(deviceId.String())
+		return
+	})
+
+	err = deviceService.AddChar(secondSerialChar)
+	if err != nil {
+		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+	}
+
+	// Hardware revision
+	hwRevisionChar, err := deviceService.NewChar(hwVersionUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Hardwware Revision characteristic: %s", err)
+	}
+
+	hwRevisionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	hwRevisionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving hardware revision: %s", err)
+			}
+		}()
+
+		log.Print("Got Hardware Revison request.")
+
+		unitID, err := getUnitID()
+		if err != nil {
+			return
+		}
+
+		hwRevision, err := getHardwareRevision(unitID)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Read Hw Revision: %s", hwRevision)
+
+		resp = []byte(hwRevision)
+		return
+	})
+
+	err = deviceService.AddChar(hwRevisionChar)
+	if err != nil {
+		log.Fatalf("Failed to add Hardware Revision characteristic to device service: %s", err)
+	}
+
+	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create vehicle service: %s", err)
@@ -321,6 +520,7 @@ func main() {
 		log.Fatalf("Failed to add vehicle service to app: %s", err)
 	}
 
+	// Get VIN
 	vinChar, err := vehicleService.NewChar(vinCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create VIN characteristic: %s", err)
@@ -358,6 +558,7 @@ func main() {
 		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
 	}
 
+	// Transactions service
 	transactionsService, err := app.NewService(transactionsServiceUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create transaction service: %s", err)
@@ -368,6 +569,7 @@ func main() {
 		log.Fatalf("Failed to add transaction service to app: %s", err)
 	}
 
+	// Get Ethereum address
 	addrChar, err := transactionsService.NewChar(addrCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create get ethereum address characteristic: %s", err)
@@ -400,6 +602,7 @@ func main() {
 		log.Fatalf("Failed to add Ethereum address characteristic: %s", err)
 	}
 
+	// Sign hash
 	signChar, err := transactionsService.NewChar(signCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create sign hash characteristic: %s", err)
@@ -471,6 +674,9 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
+	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
+	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
+	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
