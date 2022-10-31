@@ -4,7 +4,7 @@ brew install --build-from-source upx
 GOARCH=arm GOOS=linux go build -ldflags="-s -w" -o edge-network && upx edge-network
 
 ```
-Binaries will build for releases from the [workflow](.github/workflows/release.yaml).
+Binaries will build [for releases](https://github.com/DIMO-Network/edge-network/releases) from the [workflow](.github/workflows/release.yaml).
 
 Copy to the AutoPi with, e.g.,
 ```
