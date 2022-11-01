@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/muka/go-bluetooth/api/service"
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
@@ -31,7 +31,7 @@ const (
 	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
 	signHashCommand            = `crypto.sign_string `
-	getSecondaryIdCommand      = `config.get device.id`
+	getDeviceIDCommand         = `config.get device.id`
 	getHardwareRevisionCommand = `config.get hw.version`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
 
@@ -61,114 +61,88 @@ type executeRawRequest struct {
 	Command string `json:"command"`
 }
 
-type ethereumAddress [20]byte
+func executeRequest(method, path string, reqVal, respVal any) (err error) {
+	var reqBody io.Reader
 
-func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getHardwareRevisionCommand})
+	if reqVal != nil {
+		reqBuf := new(bytes.Buffer)
+		err = json.NewEncoder(reqBuf).Encode(reqVal)
+		if err != nil {
+			return
+		}
+		reqBody = reqBuf
+	}
+
+	req, err := http.NewRequest(method, autoPiBaseURL+path, reqBody)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	if reqVal != nil {
+		req.Header.Set("Content-Type", contentTypeJSON)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
+	if c := resp.StatusCode; c >= 400 {
+		return fmt.Errorf("status code %d", c)
+	}
 
-		err = fmt.Errorf("status code %d", resp.StatusCode)
+	if respVal == nil {
 		return
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	hwRevision = string(body)
-
-	if err == nil {
-		log.Printf("Got hardware revision id: %s", hwRevision)
-	}
-
+	err = json.NewDecoder(resp.Body).Decode(respVal)
 	return
 }
 
-func getSecondary(unitID uuid.UUID) (id uuid.UUID, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getSecondaryIdCommand})
+func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
+	req := executeRawRequest{Command: getHardwareRevisionCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp float64
+
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
+	hwRevision = fmt.Sprint(resp)
+	return
+}
+
+func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
+	req := executeRawRequest{Command: getDeviceIDCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp string
+
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	secondaryId := string(body)
-
-	log.Printf("Got secondary id: %s", secondaryId)
-	secondaryId = strings.ReplaceAll(secondaryId, "\"", "")
-	id, err = uuid.Parse(strings.TrimSpace(secondaryId))
-
-	if err == nil {
-		log.Printf("Got secondary id: %s", id)
-	}
-
+	deviceID, err = uuid.Parse(resp)
 	return
 }
 
 func getVIN(unitID uuid.UUID) (vin string, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getVINCommand})
+	req := executeRawRequest{Command: getVINCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	vin = respObj.Value
+	vin = resp.Value
 	if len(vin) != 17 {
 		err = fmt.Errorf("response contained a VIN with %s characters", vin)
 	}
@@ -183,89 +157,32 @@ type executeRawResponse struct {
 func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	hashHex := hex.EncodeToString(hash)
 
-	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID)
+	req := executeRawRequest{Command: signHashCommand + hashHex}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: signHashCommand + hashHex})
+	var resp executeRawResponse
+
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(url, contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	value := respObj.Value
-	value = strings.TrimPrefix(value, "0x")
-
-	sig, err = hex.DecodeString(value)
+	sig = common.FromHex(resp.Value)
 	return
 }
 
-func getEthereumAddress(unitID uuid.UUID) (addr ethereumAddress, err error) {
-	reqBody := new(bytes.Buffer)
-	err = json.NewEncoder(reqBody).Encode(executeRawRequest{Command: getEthereumAddressCommand})
+func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
+	req := executeRawRequest{Command: getEthereumAddressCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID), contentTypeJSON, reqBody)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		bs, _ := io.ReadAll(resp.Body)
-		fmt.Print(string(bs))
-
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := executeRawResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	log.Printf("Got from crypto.query ethereum_address: %s", respObj.Value)
-
-	addrString := respObj.Value
-	addrString = strings.TrimPrefix(addrString, "0x")
-
-	addrSlice, err := hex.DecodeString(addrString)
-	if err != nil {
-		return
-	}
-
-	if l := len(addrSlice); l != 20 {
-		err = fmt.Errorf("address has %d bytes", l)
-		return
-	}
-
-	addr = *(*ethereumAddress)(addrSlice)
-
+	addr = common.HexToAddress(resp.Value)
 	return
 }
 
@@ -436,14 +353,14 @@ func main() {
 
 		log.Print("Got Unit Secondary Id request.")
 
-		deviceId, err := getSecondary(unitID)
+		deviceID, err := getDeviceID(unitID)
 		if err != nil {
 			return
 		}
 
-		log.Printf("Read Secondary: %s", deviceId)
+		log.Printf("Read Secondary: %s", deviceID)
 
-		resp = []byte(deviceId.String())
+		resp = []byte(deviceID.String())
 		return
 	})
 
