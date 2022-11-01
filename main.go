@@ -51,6 +51,8 @@ const (
 
 var lastSignature []byte
 
+var unitID uuid.UUID
+
 type unitIDResponse struct {
 	UnitID string `json:"unit_id"`
 }
@@ -132,35 +134,6 @@ func getSecondary(unitID uuid.UUID) (id uuid.UUID, err error) {
 
 	if err == nil {
 		log.Printf("Got secondary id: %s", id)
-	}
-
-	return
-}
-
-func getUnitID() (unitID uuid.UUID, err error) {
-	resp, err := http.Get(autoPiBaseURL)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("status code %d", resp.StatusCode)
-		return
-	}
-
-	respObj := unitIDResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(&respObj)
-	if err != nil {
-		return
-	}
-
-	unitID, err = uuid.Parse(respObj.UnitID)
-
-	if err == nil {
-		log.Printf("Got unit id: %s", unitID)
 	}
 
 	return
@@ -356,15 +329,28 @@ func setupBluez() error {
 }
 
 func main() {
-	log.Printf("Starting DIMO Edge Network")
-	log.Printf("Sleeping for 30 seconds to allow D-Bus and BlueZ to start up")
-	time.Sleep(30 * time.Second)
+	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
+	if err != nil {
+		log.Fatalf("Could not read unit ID from file: %s", err)
+	}
+
+	unitIDBytes = bytes.TrimSpace(unitIDBytes)
+
+	unitID, err = uuid.ParseBytes(unitIDBytes)
+	if err != nil {
+		log.Fatalf("Invalid unit id: %s", err)
+	}
+
+	unitIDStr := unitID.String()
+	name := "autopi-" + unitIDStr[len(unitIDStr)-12:]
+
+	log.Printf("Bluetooth name: %s", name)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.DebugLevel)
 
-	err := setupBluez()
+	err = setupBluez()
 	if err != nil {
 		log.Fatalf("Failed to setup BlueZ: %s", err)
 	}
@@ -383,6 +369,8 @@ func main() {
 	}
 
 	defer app.Close()
+
+	app.SetName(name)
 
 	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
 
@@ -422,13 +410,6 @@ func main() {
 
 		log.Print("Got Unit Serial request.")
 
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
-
-		log.Printf("Read UnitId: %s", unitID)
-
 		resp = []byte(unitID.String())
 		return
 	})
@@ -454,11 +435,6 @@ func main() {
 		}()
 
 		log.Print("Got Unit Secondary Id request.")
-
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
 
 		deviceId, err := getSecondary(unitID)
 		if err != nil {
@@ -492,11 +468,6 @@ func main() {
 		}()
 
 		log.Print("Got Hardware Revison request.")
-
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
 
 		hwRevision, err := getHardwareRevision(unitID)
 		if err != nil {
@@ -542,11 +513,6 @@ func main() {
 
 		log.Print("Got VIN request.")
 
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
-
 		vin, err := getVIN(unitID)
 		if err != nil {
 			return
@@ -586,11 +552,6 @@ func main() {
 
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		log.Print("Got address request.")
-
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
 
 		addr, err := getEthereumAddress(unitID)
 		if err != nil {
@@ -635,11 +596,6 @@ func main() {
 		}
 
 		log.Printf("Got sign request for hash: %s.", hex.EncodeToString(value))
-
-		unitID, err := getUnitID()
-		if err != nil {
-			return
-		}
 
 		sig, err := signHash(unitID, value)
 		if err != nil {
