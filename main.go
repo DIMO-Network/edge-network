@@ -243,6 +243,7 @@ func setupBluez() error {
 }
 
 func main() {
+	log.Printf("Starting DIMO Edge Network")
 	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
 	if err != nil {
 		log.Fatalf("Could not read unit ID from file: %s", err)
@@ -259,6 +260,9 @@ func main() {
 	name := "autopi-" + unitIDStr[len(unitIDStr)-12:]
 
 	log.Printf("Bluetooth name: %s", name)
+
+	log.Printf("Sleeping for 5 seconds to allow D-Bus and BlueZ to start up")
+	time.Sleep(5 * time.Second)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
