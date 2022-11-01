@@ -322,6 +322,11 @@ func setupBluez() error {
 
 	time.Sleep(2 * time.Second)
 
+	err = btmgmt.SetSc(true)
+	if err != nil {
+		return fmt.Errorf("failed to enable Secure Connections: %w", err)
+	}
+
 	err = btmgmt.SetPowered(true)
 	if err != nil {
 		return fmt.Errorf("failed to power on the controller: %w", err)
@@ -337,14 +342,14 @@ func setupBluez() error {
 		return fmt.Errorf("failed to set the controller as bondable: %w", err)
 	}
 
-	err = btmgmt.SetSc(true)
-	if err != nil {
-		return fmt.Errorf("failed to enable Secure Connections: %w", err)
-	}
-
 	err = btmgmt.SetDiscoverable(true)
 	if err != nil {
 		return fmt.Errorf("failed to set the controller as discoverable: %w", err)
+	}
+
+	err = btmgmt.SetAdvertising(true)
+	if err != nil {
+		return fmt.Errorf("failed to set the controller as advertising: %w", err)
 	}
 
 	return nil
