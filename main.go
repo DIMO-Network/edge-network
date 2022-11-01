@@ -53,12 +53,13 @@ var lastSignature []byte
 
 var unitID uuid.UUID
 
-type unitIDResponse struct {
-	UnitID string `json:"unit_id"`
-}
-
 type executeRawRequest struct {
 	Command string `json:"command"`
+}
+
+// For some reason, this only gets returned for some calls.
+type executeRawResponse struct {
+	Value string `json:"value"`
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -148,10 +149,6 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 	}
 
 	return
-}
-
-type executeRawResponse struct {
-	Value string `json:"value"`
 }
 
 func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
