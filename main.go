@@ -26,7 +26,6 @@ import (
 
 const (
 	adapterID                  = "hci0"
-	serviceName                = "edge-network"
 	contentTypeJSON            = "application/json"
 	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
