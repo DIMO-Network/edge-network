@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,6 +50,7 @@ const (
 )
 
 var lastSignature []byte
+var lastVIN string
 
 var unitID uuid.UUID
 
@@ -132,6 +134,9 @@ func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 }
 
 func getVIN(unitID uuid.UUID) (vin string, err error) {
+	if lastVIN != "" {
+		vin = lastVIN
+	}
 	req := executeRawRequest{Command: getVINCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
@@ -143,6 +148,7 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 	}
 
 	vin = resp.Value
+	lastVIN = resp.Value
 	if len(vin) != 17 {
 		err = fmt.Errorf("response contained a VIN with %s characters", vin)
 	}
@@ -433,8 +439,17 @@ func main() {
 
 		log.Print("Got VIN request.")
 
+		fakeVin, err := os.ReadFile("/tmp/FAKE_VIN")
+		stringFakeVin := strings.Trim(string(fakeVin), "")
+		if err == nil && len(stringFakeVin) != 0 {
+			resp = []byte(stringFakeVin)
+			return
+		}
+
 		vin, err := getVIN(unitID)
 		if err != nil {
+			err = nil
+			resp = make([]byte, 17)
 			return
 		}
 
@@ -530,6 +545,7 @@ func main() {
 	})
 
 	signChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		log.Printf("Got read request for hash: %s.", hex.EncodeToString(lastSignature))
 		resp = lastSignature
 		return
 	})
