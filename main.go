@@ -33,6 +33,7 @@ const (
 	signHashCommand            = `crypto.sign_string `
 	getDeviceIDCommand         = `config.get device.id`
 	getHardwareRevisionCommand = `config.get hw.version`
+	signalStrengthCommand      = `qmi.signal_strength`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
 
 	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
@@ -43,6 +44,7 @@ const (
 	primaryIdCharUUIDFragment       = "5a11"
 	secondaryIdCharUUIDFragment     = "5a12"
 	hwVersionUUIDFragment           = "5a13"
+	signalStrengthUUIDFragment      = "5a14"
 	vinCharUUIDFragment             = "0acc"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
@@ -60,6 +62,18 @@ type executeRawRequest struct {
 // For some reason, this only gets returned for some calls.
 type executeRawResponse struct {
 	Value string `json:"value"`
+}
+
+type GenericSignalStrengthResponse struct {
+	Network string  `json:"network"`
+	Unit    string  `json:"unit"`
+	Value   float64 `json:"value"`
+}
+
+type signalStrengthResponse struct {
+	Current struct {
+		GenericSignalStrengthResponse
+	}
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -180,6 +194,21 @@ func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
 	}
 
 	addr = common.HexToAddress(resp.Value)
+	return
+}
+
+func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
+	req := executeRawRequest{Command: signalStrengthCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp signalStrengthResponse
+
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return
+	}
+
+	sigStrength = fmt.Sprint(resp.Current.Value)
 	return
 }
 
@@ -399,6 +428,39 @@ func main() {
 		log.Fatalf("Failed to add Hardware Revision characteristic to device service: %s", err)
 	}
 
+	// Get signal strength
+	signalStrengthChar, err := deviceService.NewChar(signalStrengthUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Signal Strength characteristic: %s", err)
+	}
+
+	signalStrengthChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	signalStrengthChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving signal strength: %s", err)
+			}
+		}()
+
+		log.Print("Got Signal Strength request.")
+
+		sigStrength, err := getSignalStrength(unitID)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Read Signal Strength: %s", sigStrength)
+
+		resp = []byte(sigStrength)
+		return
+	})
+
+	err = deviceService.AddChar(signalStrengthChar)
+	if err != nil {
+		log.Fatalf("Failed to add Signal Strength characteristic to device service: %s", err)
+	}
+
 	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
@@ -552,6 +614,7 @@ func main() {
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
+	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
