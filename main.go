@@ -136,6 +136,7 @@ func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 func getVIN(unitID uuid.UUID) (vin string, err error) {
 	if lastVIN != "" {
 		vin = lastVIN
+		return
 	}
 	req := executeRawRequest{Command: getVINCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -334,7 +335,7 @@ func main() {
 			}
 		}()
 
-		log.Print("Got Unit Serial request.")
+		log.Print("Got Unit Serial request")
 
 		resp = []byte(unitID.String())
 		return
@@ -360,7 +361,7 @@ func main() {
 			}
 		}()
 
-		log.Print("Got Unit Secondary Id request.")
+		log.Print("Got Unit Secondary Id request")
 
 		deviceID, err := getDeviceID(unitID)
 		if err != nil {
@@ -393,7 +394,7 @@ func main() {
 			}
 		}()
 
-		log.Print("Got Hardware Revison request.")
+		log.Print("Got Hardware Revison request")
 
 		hwRevision, err := getHardwareRevision(unitID)
 		if err != nil {
@@ -437,11 +438,12 @@ func main() {
 			}
 		}()
 
-		log.Print("Got VIN request.")
+		log.Print("Got VIN request")
 
 		fakeVin, err := os.ReadFile("/tmp/FAKE_VIN")
 		stringFakeVin := strings.Trim(string(fakeVin), "")
 		if err == nil && len(stringFakeVin) != 0 {
+			log.Printf("Fake VIN: %s", stringFakeVin)
 			resp = []byte(stringFakeVin)
 			return
 		}
@@ -449,7 +451,8 @@ func main() {
 		vin, err := getVIN(unitID)
 		if err != nil {
 			err = nil
-			resp = make([]byte, 17)
+			log.Printf("Unable to get VIN")
+			resp = []byte("00000000000000000")
 			return
 		}
 
@@ -486,7 +489,7 @@ func main() {
 	}
 
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
-		log.Print("Got address request.")
+		log.Print("Got address request")
 
 		addr, err := getEthereumAddress(unitID)
 		if err != nil {
