@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +27,6 @@ import (
 
 const (
 	adapterID                  = "hci0"
-	serviceName                = "edge-network"
 	contentTypeJSON            = "application/json"
 	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
@@ -52,6 +52,7 @@ const (
 )
 
 var lastSignature []byte
+var lastVIN string
 
 var unitID uuid.UUID
 
@@ -147,6 +148,9 @@ func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 }
 
 func getVIN(unitID uuid.UUID) (vin string, err error) {
+	if lastVIN != "" {
+		vin = lastVIN
+	}
 	req := executeRawRequest{Command: getVINCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
@@ -158,6 +162,7 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 	}
 
 	vin = resp.Value
+	lastVIN = resp.Value
 	if len(vin) != 17 {
 		err = fmt.Errorf("response contained a VIN with %s characters", vin)
 	}
@@ -212,13 +217,25 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 	return
 }
 
-func setupBluez() error {
-	btmgmt := hw.NewBtMgmt(adapterID)
-
-	// TODO(elffjs): What's this for?
-	if os.Getenv("DOCKER") != "" {
-		btmgmt.BinPath = "./bin/docker-btmgmt"
+func getDeviceName() string {
+	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
+	if err != nil {
+		log.Fatalf("Could not read unit ID from file: %s", err)
 	}
+
+	unitIDBytes = bytes.TrimSpace(unitIDBytes)
+
+	unitID, err = uuid.ParseBytes(unitIDBytes)
+	if err != nil {
+		log.Fatalf("Invalid unit id: %s", err)
+	}
+
+	unitIDStr := unitID.String()
+	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
+}
+
+func setupBluez(name string) error {
+	btmgmt := hw.NewBtMgmt(adapterID)
 
 	// Need to turn off the controller to be able to modify the next few settings.
 	err := btmgmt.SetPowered(false)
@@ -236,11 +253,14 @@ func setupBluez() error {
 		return fmt.Errorf("failed to disable BR/EDR: %w", err)
 	}
 
-	time.Sleep(2 * time.Second)
-
 	err = btmgmt.SetSc(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable Secure Connections: %w", err)
+	}
+
+	err = btmgmt.SetName(name)
+	if err != nil {
+		return fmt.Errorf("failed to set name: %w", err)
 	}
 
 	err = btmgmt.SetPowered(true)
@@ -272,28 +292,20 @@ func setupBluez() error {
 }
 
 func main() {
-	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
-	if err != nil {
-		log.Fatalf("Could not read unit ID from file: %s", err)
-	}
+	log.Printf("Starting DIMO Edge Network")
 
-	unitIDBytes = bytes.TrimSpace(unitIDBytes)
-
-	unitID, err = uuid.ParseBytes(unitIDBytes)
-	if err != nil {
-		log.Fatalf("Invalid unit id: %s", err)
-	}
-
-	unitIDStr := unitID.String()
-	name := "autopi-" + unitIDStr[len(unitIDStr)-12:]
+	name := getDeviceName()
 
 	log.Printf("Bluetooth name: %s", name)
+
+	log.Printf("Sleeping for 10 seconds to allow D-Bus and BlueZ to start up")
+	time.Sleep(10 * time.Second)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.DebugLevel)
 
-	err = setupBluez()
+	err := setupBluez(name)
 	if err != nil {
 		log.Fatalf("Failed to setup BlueZ: %s", err)
 	}
@@ -489,8 +501,17 @@ func main() {
 
 		log.Print("Got VIN request.")
 
+		fakeVin, err := os.ReadFile("/tmp/FAKE_VIN")
+		stringFakeVin := strings.Trim(string(fakeVin), "")
+		if err == nil && len(stringFakeVin) != 0 {
+			resp = []byte(stringFakeVin)
+			return
+		}
+
 		vin, err := getVIN(unitID)
 		if err != nil {
+			err = nil
+			resp = make([]byte, 17)
 			return
 		}
 
@@ -586,6 +607,7 @@ func main() {
 	})
 
 	signChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		log.Printf("Got read request for hash: %s.", hex.EncodeToString(lastSignature))
 		resp = lastSignature
 		return
 	})

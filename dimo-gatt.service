@@ -1,0 +1,14 @@
+[Unit]
+Description=DIMO Bluetooth Service
+Requires=salt-minion.service
+Requires=bluetooth.service
+Requires=hciuart.service
+
+[Service]
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+ExecStart=/usr/local/bin/edge-network
+Restart=on-failure
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
