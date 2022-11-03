@@ -72,9 +72,7 @@ type GenericSignalStrengthResponse struct {
 }
 
 type signalStrengthResponse struct {
-	Current struct {
-		GenericSignalStrengthResponse
-	}
+	Current GenericSignalStrengthResponse
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
