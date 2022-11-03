@@ -205,7 +205,6 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp signalStrengthResponse
-
 	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
