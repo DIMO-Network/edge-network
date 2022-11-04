@@ -82,6 +82,7 @@ type signalStrengthResponse struct {
 
 type wifiConnectionsResponse struct {
 	WpaState string `json:"wpa_state"`
+	SSID     string `json:"ssid"`
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -225,7 +226,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 }
 
 // Wifi
-func isWifiConnected(unitID uuid.UUID) (connectionState string, err error) {
+func isWifiConnected(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
 	req := executeRawRequest{Command: wifiStatusCommand, Arg: make([]string, 0)}
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
@@ -235,7 +236,7 @@ func isWifiConnected(unitID uuid.UUID) (connectionState string, err error) {
 		return
 	}
 
-	connectionState = fmt.Sprint(resp.WpaState)
+	connectionObject = resp
 	return
 }
 
@@ -519,12 +520,12 @@ func main() {
 
 		log.Printf("Read Wifi Status: %s", wifiConnectionState)
 
-		res := fmt.Sprintf("0x%x", 0)
-		if wifiConnectionState != "DISCONNECTED" {
-			res = fmt.Sprintf("0x%x", 1)
+		res := ""
+		if wifiConnectionState.WpaState == "COMPLETED" {
+			res = wifiConnectionState.SSID
 		}
+		
 		resp = []byte(res)
-
 		return
 	})
 
