@@ -1,8 +1,9 @@
 [Unit]
 Description=DIMO Bluetooth Service
-Requires=salt-minion.service
-Requires=bluetooth.service
-Requires=hciuart.service
+Requires=hciuart.service bluetooth.service bthelper@hci0.service
+After=hciuart.service
+After=bluetooth.service
+After=bthelper@hci0.service
 
 [Service]
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
