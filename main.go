@@ -81,7 +81,7 @@ type signalStrengthResponse struct {
 }
 
 type wifiConnectionsResponse struct {
-	WpaState string `json:"wpa_state"`
+	WPAState string `json:"wpa_state"`
 	SSID     string `json:"ssid"`
 }
 
