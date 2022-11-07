@@ -34,7 +34,6 @@ const (
 	getDeviceIDCommand         = `config.get device.id`
 	getHardwareRevisionCommand = `config.get hw.version`
 	signalStrengthCommand      = `qmi.signal_strength`
-	getConnectionListCommand   = `grains.get`
 	wifiStatusCommand          = `wifi.status`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
 
@@ -47,7 +46,7 @@ const (
 	secondaryIdCharUUIDFragment     = "5a12"
 	hwVersionUUIDFragment           = "5a13"
 	signalStrengthUUIDFragment      = "5a14"
-	connectedWifiUUIDFragment       = "5a15"
+	wifiStatusUUIDFragment          = "5a15"
 	vinCharUUIDFragment             = "0acc"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
@@ -226,7 +225,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 }
 
 // Wifi
-func isWifiConnected(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
+func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
 	req := executeRawRequest{Command: wifiStatusCommand, Arg: make([]string, 0)}
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
@@ -496,15 +495,15 @@ func main() {
 		log.Fatalf("Failed to add Signal Strength characteristic to device service: %s", err)
 	}
 
-	// Get connected wifi
-	wifiConnectedChar, err := deviceService.NewChar(connectedWifiUUIDFragment)
+	// Get wifi connection status
+	wifiStatusChar, err := deviceService.NewChar(wifiStatusUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Wifi Connection Status characteristic: %s", err)
 	}
 
-	wifiConnectedChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+	wifiStatusChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	wifiConnectedChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	wifiStatusChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				log.Printf("Error retrieving wifi connection status: %s", err)
@@ -513,7 +512,7 @@ func main() {
 
 		log.Print("Got Wifi Connection Status request.")
 
-		wifiConnectionState, err := isWifiConnected(unitID)
+		wifiConnectionState, err := getWifiStatus(unitID)
 		if err != nil {
 			return
 		}
@@ -521,15 +520,15 @@ func main() {
 		log.Printf("Read Wifi Status: %s", wifiConnectionState)
 
 		res := ""
-		if wifiConnectionState.WpaState == "COMPLETED" {
+		if wifiConnectionState.WPAState == "COMPLETED" {
 			res = wifiConnectionState.SSID
 		}
-		
+
 		resp = []byte(res)
 		return
 	})
 
-	err = deviceService.AddChar(wifiConnectedChar)
+	err = deviceService.AddChar(wifiStatusChar)
 	if err != nil {
 		log.Fatalf("Failed to add Get Wifi Status characteristic to device service: %s", err)
 	}
@@ -700,7 +699,7 @@ func main() {
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
-	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiConnectedChar.Properties.UUID)
+	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
