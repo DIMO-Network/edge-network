@@ -23,6 +23,8 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
     * _Read._ Return the ASCII-encoded HW Revision of the Unit
   * Get Signal Strength characteristic `5c305a14-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded Signal Strength of the Unit in dBm
+  * Get Wifi connection status characteristic `5c305a15-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded SSID of currently connected wifi
 * Vehicle service `5c30d387-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get VIN characteristic `5c300acc-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded VIN
