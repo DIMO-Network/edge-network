@@ -34,6 +34,8 @@ const (
 	getDeviceIDCommand         = `config.get device.id`
 	getHardwareRevisionCommand = `config.get hw.version`
 	signalStrengthCommand      = `qmi.signal_strength`
+	getDiagnosticCodeCommand   = `obd.dtc`
+	clearDiagnosticCodeCommand = `obd.dtc clear=true`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
 
 	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
@@ -46,6 +48,7 @@ const (
 	hwVersionUUIDFragment           = "5a13"
 	signalStrengthUUIDFragment      = "5a14"
 	vinCharUUIDFragment             = "0acc"
+	diagCodeCharUUIDFragment        = "0add"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
 	signCharUUIDFragment            = "e60f"
@@ -212,6 +215,33 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 	}
 
 	sigStrength = fmt.Sprint(resp.Current.Value)
+	return
+}
+
+func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
+	req := executeRawRequest{Command: getDiagnosticCodeCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return
+	}
+	log.Print("Response", resp.Value)
+
+	codes = fmt.Sprint(resp.Value)
+	return
+}
+
+func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
+	req := executeRawRequest{Command: clearDiagnosticCodeCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return err
+	}
 	return
 }
 
@@ -526,6 +556,59 @@ func main() {
 		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
 	}
 
+	// Diagnostic codes
+	dtcChar, err := vehicleService.NewChar(diagCodeCharUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create diagnostic Code characteristic: %s", err)
+	}
+
+	dtcChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead, gatt.FlagCharacteristicEncryptAuthenticatedWrite}
+
+	dtcChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving diagnostic codes: %s", err)
+			}
+		}()
+
+		log.Print("Got diagnostic request")
+
+		codes, err := getDiagnosticCodes(unitID)
+		if err != nil {
+			resp = []byte("0")
+			return
+		}
+
+		log.Printf("Got Error Codes: %s", codes)
+
+		resp = []byte(codes)
+		return
+	})
+
+	dtcChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error clearing diagnostic codes hash: %s.", err)
+			}
+		}()
+
+		log.Printf("Got clear DTC request")
+
+		err = clearDiagnosticCodes(unitID)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Cleared DTCs")
+
+		return
+	})
+
+	err = vehicleService.AddChar(dtcChar)
+	if err != nil {
+		log.Fatalf("Failed to add diagnostic characteristic to vehicle service: %s", err)
+	}
+
 	// Transactions service
 	transactionsService, err := app.NewService(transactionsServiceUUIDFragment)
 	if err != nil {
@@ -640,6 +723,8 @@ func main() {
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
+	log.Printf("  Get DTC characteristic: %s", dtcChar.Properties.UUID)
+	log.Printf("  Clear DTC characteristic: %s", dtcChar.Properties.UUID)
 
 	log.Printf("Transactions service: %s", transactionsService.Properties.UUID)
 	log.Printf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
