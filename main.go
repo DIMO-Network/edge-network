@@ -233,6 +233,29 @@ func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
 	var resp wifiConnectionsResponse
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return
+	}
+
+	connectionObject = resp
+	return
+}
+
+func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
+	req := executeRawRequest{Command: clearDiagnosticCodeCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+
+	err = executeRequest("POST", path, req, &resp)
+
+	if err != nil {
+		return err
+	}
+	return
+}
+
 func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	req := executeRawRequest{Command: getDiagnosticCodeCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -243,22 +266,9 @@ func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 		return
 	}
 
-	connectionObject = resp
 	log.Print("Response", resp.Value)
 
 	codes = fmt.Sprint(resp.Value)
-	return
-}
-
-func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
-	req := executeRawRequest{Command: clearDiagnosticCodeCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp executeRawResponse
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return err
-	}
 	return
 }
 
