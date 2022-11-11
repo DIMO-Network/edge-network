@@ -26,7 +26,7 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
   * Get Wifi connection status characteristic `5c305a15-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded SSID of current wifi connected to the unit
   * Set Wifi Connection characteristic `5c305a16-6859-4d6c-a87b-8d2c98c9f6f0`
-    * _Write._ Send in wifi SSID and Password of wifi to connect to
+    * _Write._ Send in wifi SSID and Password in the json string form e.g. "{\"network\":\"Wifi-4A91D0\",\"password\":\"somePassword\"}" response on success will be the network name
 * Vehicle service `5c30d387-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get VIN characteristic `5c300acc-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded VIN

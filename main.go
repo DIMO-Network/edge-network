@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -95,9 +96,9 @@ type wifiConnectionsResponse struct {
 }
 
 type wifiEntity struct {
-	Priority int
-	Psk      string
-	SSID     string
+	Priority int    `json:"priority"`
+	Psk      string `json:"psk"`
+	SSID     string `json:"ssid"`
 }
 
 type setWifiConnectionResponse struct {
@@ -108,6 +109,11 @@ type setWifiConnectionResponse struct {
 			Networks []wifiEntity
 		} `json:"wpa_supplicant"`
 	}
+}
+
+type setWifiRequest struct {
+	Network  string `json:"network"`
+	Password string `json:"password"`
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -252,8 +258,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 
 // Wifi
 func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
-	var arg []interface{}
-	req := executeRawRequest{Command: wifiStatusCommand, Arg: arg}
+	req := executeRawRequest{Command: wifiStatusCommand, Arg: nil}
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
 	var resp wifiConnectionsResponse
@@ -602,7 +607,6 @@ func main() {
 
 	setWifiChar.Properties.Flags = []string{
 		gatt.FlagCharacteristicEncryptAuthenticatedWrite,
-		gatt.FlagCharacteristicEncryptAuthenticatedRead,
 	}
 
 	setWifiChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
@@ -612,75 +616,47 @@ func main() {
 			}
 		}()
 
-		if SSID == "" {
-			log.Println("Please enter SSID")
+		var s string
+		err = json.Unmarshal(value, &s)
+		if err != nil {
+			log.Printf("Error setting wifi: %s", err)
+			return
+		}
+
+		var req setWifiRequest
+		err = json.Unmarshal([]byte(s), &req)
+		if err != nil {
+			log.Printf("Error setting wifi: %s", err)
+			return
+		}
+
+		if req.Network == "" || req.Password == "" {
+			log.Printf("Error setting wifi: %s", errors.New("Please provide wifi credentials!"))
+			return
+		}
+
+		newWifiList := []wifiEntity{
+			{
+				Priority: 1,
+				SSID:     req.Network,
+				Psk:      req.Password,
+			},
+		}
+
+		setWifiResp, err := setWifiConnection(unitID, newWifiList)
+		if err != nil {
+			log.Printf("Failed to set wifi connection: %s", err)
+			return
+		}
+
+		if setWifiResp.Result {
+			log.Printf("Wifi Connection set successfully: %s", SSID)
 		} else {
-			log.Println("Please enter Wifi Password")
+			log.Printf("Failed to set wifi connection: %s", err)
+			return
 		}
 
-		if SSID == "" {
-			SSID = string(value)
-		} else {
-			WifiPasswordKey = string(value)
-		}
-
-		log.Println(SSID, "SSID", WifiPasswordKey, "key")
-		if SSID != "" && WifiPasswordKey != "" {
-			var er error
-			wifiCnxnLst, er := getAvailableWifiConnections(unitID, SSID)
-			if er != nil {
-				log.Fatalf("Failed to set wifi connection: %s", er)
-			}
-
-			foundSSID := false
-			for _, v := range wifiCnxnLst {
-				if v.SSID == SSID {
-					foundSSID = true
-				}
-			}
-
-			if foundSSID {
-				log.Fatal("Wifi already on connection list")
-			} else {
-				// move priority around
-				newWifiList := []wifiEntity{}
-				for _, v := range wifiCnxnLst {
-					if len(newWifiList) == 0 { // first time, we add our preffered wifi
-						newWifiList = append(newWifiList, wifiEntity{
-							Priority: 1,
-							SSID:     SSID,
-							Psk:      WifiPasswordKey,
-						})
-					}
-					newWifiList = append(newWifiList, wifiEntity{
-						Priority: v.Priority + 1,
-						SSID:     v.SSID,
-						Psk:      v.Psk,
-					})
-				}
-
-				setWifiResp, er := setWifiConnection(unitID, newWifiList)
-				if er != nil {
-					log.Fatalf("Failed to set wifi connection: %s", er)
-				}
-
-				if setWifiResp.Result {
-					log.Printf("Wifi Connection set successfully: %s", SSID)
-				} else {
-					log.Fatalf("Failed to set wifi connection: %s", er)
-				}
-
-				resp = []byte(SSID)
-				err = er
-			}
-		}
-
-		// clear in case new values are coming in
-		if SSID != "" && WifiPasswordKey != "" {
-			SSID = ""
-			WifiPasswordKey = ""
-		}
-
+		resp = []byte(SSID)
 		return
 	})
 
