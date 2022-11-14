@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -315,7 +314,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 // Wifi
 func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
 	req := executeRawRequest{Command: wifiStatusCommand, Arg: nil}
-	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
+	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp wifiConnectionsResponse
 	err = executeRequest("POST", path, req, &resp)
@@ -399,7 +398,7 @@ func getDeviceName() string {
 
 func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err error) {
 	req := executeRawRequest{Command: powerStatusCommand}
-	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
+	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp powerStatusResponse
 	err = executeRequest("POST", path, req, &resp)
@@ -414,13 +413,8 @@ func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 // Utility Function
 func isColdBoot(unitID uuid.UUID) (result bool, err error) {
 	status, httpError := getPowerStatus(unitID)
-	counter := 0
-	for httpError != nil && counter < 30 {
-		counter++
+	for httpError != nil {
 		status, httpError = getPowerStatus(unitID)
-		log.Printf("Status: %v", status)
-		time.Sleep(1 * time.Second)
-
 	}
 
 	log.Printf("Last Start Reason: %s", status.Spm.LastTrigger.Up)
@@ -474,7 +468,7 @@ func main() {
 	log.Printf("Starting DIMO Edge Network")
 
 	name := getDeviceName()
-
+	log.Printf("Serial Number: %s", unitID)
 	bondable, err := isColdBoot(unitID)
 	if err != nil {
 		log.Fatalf("Failed to get power management status: %s", err)
