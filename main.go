@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -35,6 +36,8 @@ const (
 	getHardwareRevisionCommand = `config.get hw.version`
 	signalStrengthCommand      = `qmi.signal_strength`
 	wifiStatusCommand          = `wifi.status`
+	setWifiConnectionCommand   = `grains.set`
+	getAvailableWifiCommand    = `grains.get`
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
@@ -49,6 +52,7 @@ const (
 	hwVersionUUIDFragment           = "5a13"
 	signalStrengthUUIDFragment      = "5a14"
 	wifiStatusUUIDFragment          = "5a15"
+	setWifiUUIDFragment             = "5a16"
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
 	transactionsServiceUUIDFragment = "aade"
@@ -61,10 +65,14 @@ var lastVIN string
 
 var unitID uuid.UUID
 
+type KwargType struct {
+	Destructive bool `json:"destructive,omitempty"`
+	Force       bool `json:"force,omitempty"`
+}
 type executeRawRequest struct {
-	Command string   `json:"command"`
-	Arg     []string `json:"arg"`
-	Kwarg   struct{} `json:"kwarg"`
+	Command string        `json:"command"`
+	Arg     []interface{} `json:"arg"`
+	Kwarg   KwargType     `json:"kwarg"`
 }
 
 // For some reason, this only gets returned for some calls.
@@ -85,6 +93,27 @@ type signalStrengthResponse struct {
 type wifiConnectionsResponse struct {
 	WPAState string `json:"wpa_state"`
 	SSID     string `json:"ssid"`
+}
+
+type wifiEntity struct {
+	Priority int    `json:"priority"`
+	Psk      string `json:"psk"`
+	SSID     string `json:"ssid"`
+}
+
+type setWifiConnectionResponse struct {
+	Comment string `json:"comment"`
+	Result  bool   `json:"result"`
+	Changes struct {
+		WPASupplicant struct {
+			Networks []wifiEntity
+		} `json:"wpa_supplicant"`
+	}
+}
+
+type setWifiRequest struct {
+	Network  string `json:"network"`
+	Password string `json:"password"`
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -229,7 +258,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 
 // Wifi
 func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
-	req := executeRawRequest{Command: wifiStatusCommand, Arg: make([]string, 0)}
+	req := executeRawRequest{Command: wifiStatusCommand, Arg: nil}
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
 	var resp wifiConnectionsResponse
@@ -239,6 +268,26 @@ func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	}
 
 	connectionObject = resp
+	return
+}
+
+func setWifiConnection(unitID uuid.UUID, newConnectionList []wifiEntity) (connectionObject setWifiConnectionResponse, err error) {
+	arg := []interface{}{
+		"wpa_supplicant:networks",
+		newConnectionList,
+	}
+	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
+
+	req := executeRawRequest{Command: setWifiConnectionCommand, Arg: arg, Kwarg: KwargType{
+		Destructive: true,
+		Force:       true,
+	}}
+
+	err = executeRequest("POST", path, req, &connectionObject)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
@@ -566,6 +615,66 @@ func main() {
 		log.Fatalf("Failed to add Get Wifi Status characteristic to device service: %s", err)
 	}
 
+	// set wifi connection
+	setWifiChar, err := deviceService.NewChar(setWifiUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create set wifi characteristic: %s", err)
+	}
+
+	setWifiChar.Properties.Flags = []string{
+		gatt.FlagCharacteristicEncryptAuthenticatedWrite,
+	}
+
+	setWifiChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error setting wifi connection: %s.", err)
+			}
+		}()
+
+		var req setWifiRequest
+		err = json.Unmarshal(value, &req)
+		if err != nil {
+			log.Printf("Error unmarshaling wi-fi payload: %s", err)
+			return
+		}
+
+		if req.Network == "" || req.Password == "" {
+			log.Printf("Missing network or password in wi-fi pairing request.")
+			err = errors.New("missing network or password")
+			return
+		}
+
+		newWifiList := []wifiEntity{
+			{
+				Priority: 1,
+				SSID:     req.Network,
+				Psk:      req.Password,
+			},
+		}
+
+		setWifiResp, err := setWifiConnection(unitID, newWifiList)
+		if err != nil {
+			log.Printf("Failed to set wifi connection: %s", err)
+			return
+		}
+
+		if setWifiResp.Result {
+			log.Printf("Wifi Connection set successfully: %s", req.Network)
+		} else {
+			log.Printf("Failed to set wifi connection: %s", err)
+			return
+		}
+
+		resp = []byte(req.Network)
+		return
+	})
+
+	err = deviceService.AddChar(setWifiChar)
+	if err != nil {
+		log.Fatalf("Failed to add Set Wifi characteristic to device service: %s", err)
+	}
+
 	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
@@ -786,6 +895,7 @@ func main() {
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
+	log.Printf("  Set Wifi Connection characteristic: %s", setWifiChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)
