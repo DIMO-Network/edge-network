@@ -664,7 +664,9 @@ func main() {
 		}
 
 		if req.Network == "" || req.Password == "" {
-			log.Printf("Error setting wifi: %s", errors.New("Please provide wifi credentials!"))
+			log.Printf("Missing network or password in wi-fi pairing request.")
+			err = errors.New("missing network or password")
+			return
 			return
 		}
 
