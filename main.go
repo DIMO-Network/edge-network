@@ -63,8 +63,6 @@ const (
 var lastSignature []byte
 var lastVIN string
 
-var SSID string
-var WifiPasswordKey string
 
 var unitID uuid.UUID
 
