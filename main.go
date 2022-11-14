@@ -659,7 +659,7 @@ func main() {
 		var req setWifiRequest
 		err = json.Unmarshal([]byte(s), &req)
 		if err != nil {
-			log.Printf("Error setting wifi: %s", err)
+			log.Printf("Error unmarshaling wi-fi payload: %s", err)
 			return
 		}
 
