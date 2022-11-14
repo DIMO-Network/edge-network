@@ -1,9 +1,11 @@
 [Unit]
 Description=DIMO Bluetooth Service
-Requires=hciuart.service bluetooth.service bthelper@hci0.service
 After=hciuart.service
 After=bluetooth.service
 After=bthelper@hci0.service
+Requires=hciuart.service
+Requires=bluetooth.service
+Requires=bthelper@hci0.service
 
 [Service]
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE

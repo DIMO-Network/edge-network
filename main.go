@@ -40,6 +40,7 @@ const (
 	getAvailableWifiCommand    = `grains.get`
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
+	powerStatusCommand         = `power.status`
 	autoPiBaseURL              = "http://192.168.4.1:9000"
 
 	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
@@ -114,6 +115,61 @@ type setWifiConnectionResponse struct {
 type setWifiRequest struct {
 	Network  string `json:"network"`
 	Password string `json:"password"`
+}
+
+type dtcResponse struct {
+	Stamp  string `json:"_stamp"`
+	Type   string `json:"_type"`
+	Values []struct {
+		Code string `json:"code"`
+		Text string `json:"text"`
+	} `json:"values"`
+}
+
+type powerStatusResponse struct {
+	Rpi struct {
+		Uptime struct {
+			Days     int    `json:"days"`
+			Seconds  int    `json:"seconds"`
+			SinceIso string `json:"since_iso"`
+			SinceT   int    `json:"since_t"`
+			Time     string `json:"time"`
+			Users    int    `json:"users"`
+		} `json:"uptime"`
+	} `json:"rpi"`
+	Spm struct {
+		Battery struct {
+			Level   int     `json:"level"`
+			State   string  `json:"state"`
+			Voltage float64 `json:"voltage"`
+		} `json:"battery"`
+		CurrentState string `json:"current_state"`
+		LastState    struct {
+			Down string `json:"down"`
+			Up   string `json:"up"`
+		} `json:"last_state"`
+		LastTrigger struct {
+			Down string `json:"down"`
+			Up   string `json:"up"`
+		} `json:"last_trigger"`
+		SleepInterval int     `json:"sleep_interval"`
+		Version       string  `json:"version"`
+		VoltFactor    float64 `json:"volt_factor"`
+		VoltTriggers  struct {
+			HibernateLevel struct {
+				Duration  int     `json:"duration"`
+				Threshold float64 `json:"threshold"`
+			} `json:"hibernate_level"`
+			WakeChange struct {
+				Difference float64 `json:"difference"`
+				Period     int     `json:"period"`
+			} `json:"wake_change"`
+			WakeLevel struct {
+				Duration  int     `json:"duration"`
+				Threshold float64 `json:"threshold"`
+			} `json:"wake_level"`
+		} `json:"volt_triggers"`
+	} `json:"spm"`
 }
 
 func executeRequest(method, path string, reqVal, respVal any) (err error) {
@@ -309,15 +365,18 @@ func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	req := executeRawRequest{Command: getDiagnosticCodeCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp executeRawResponse
+	var resp dtcResponse
 	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	log.Print("Response", resp.Value)
-
-	codes = fmt.Sprint(resp.Value)
+	log.Print("Response", resp)
+	formattedResponse := ""
+	for _, s := range resp.Values {
+		formattedResponse += s.Code + ","
+	}
+	codes = strings.TrimSuffix(formattedResponse, ",")
 	return
 }
 
@@ -336,6 +395,42 @@ func getDeviceName() string {
 
 	unitIDStr := unitID.String()
 	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
+}
+
+func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err error) {
+	req := executeRawRequest{Command: powerStatusCommand}
+	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
+
+	var resp powerStatusResponse
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return
+	}
+
+	responseObject = resp
+	return
+}
+
+// Utility Function
+func isColdBoot(unitID uuid.UUID) (result bool, err error) {
+	status, httpError := getPowerStatus(unitID)
+	counter := 0
+	for httpError != nil && counter < 30 {
+		counter++
+		status, httpError = getPowerStatus(unitID)
+		log.Printf("Status: %v", status)
+		time.Sleep(1 * time.Second)
+
+	}
+
+	log.Printf("Last Start Reason: %s", status.Spm.LastTrigger.Up)
+	if status.Spm.LastTrigger.Up == "plug" {
+
+		result = true
+		return
+	}
+	result = false
+	return
 }
 
 func setupBluez(name string) error {
@@ -372,26 +467,6 @@ func setupBluez(name string) error {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
 
-	err = btmgmt.SetConnectable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as connectable: %w", err)
-	}
-
-	err = btmgmt.SetBondable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as bondable: %w", err)
-	}
-
-	err = btmgmt.SetDiscoverable(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as discoverable: %w", err)
-	}
-
-	err = btmgmt.SetAdvertising(true)
-	if err != nil {
-		return fmt.Errorf("failed to set the controller as advertising: %w", err)
-	}
-
 	return nil
 }
 
@@ -400,16 +475,17 @@ func main() {
 
 	name := getDeviceName()
 
-	log.Printf("Bluetooth name: %s", name)
-
-	log.Printf("Sleeping for 10 seconds to allow D-Bus and BlueZ to start up")
-	time.Sleep(10 * time.Second)
+	bondable, err := isColdBoot(unitID)
+	if err != nil {
+		log.Fatalf("Failed to get power management status: %s", err)
+	}
+	log.Printf("Bluetooth name: %s, Bondable: %v", name, bondable)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.DebugLevel)
 
-	err := setupBluez(name)
+	err = setupBluez(name)
 	if err != nil {
 		log.Fatalf("Failed to setup BlueZ: %s", err)
 	}
@@ -888,6 +964,14 @@ func main() {
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
+
+	if bondable == false {
+		btmgmt := hw.NewBtMgmt(adapterID)
+		err := btmgmt.SetBondable(false)
+		if err != nil {
+			log.Fatalf("Failed to set bonding status: %s", err)
+		}
+	}
 
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
