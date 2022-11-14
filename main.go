@@ -659,7 +659,7 @@ func main() {
 		log.Fatalf("Failed to create Wifi Connection Status characteristic: %s", err)
 	}
 
-	wifiStatusChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+	wifiStatusChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
 	wifiStatusChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
