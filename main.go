@@ -63,7 +63,6 @@ const (
 var lastSignature []byte
 var lastVIN string
 
-
 var unitID uuid.UUID
 
 type KwargType struct {
@@ -269,20 +268,6 @@ func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	}
 
 	connectionObject = resp
-	return
-}
-
-func getAvailableWifiConnections(unitID uuid.UUID, ssID string) (connections []wifiEntity, err error) {
-	req := executeRawRequest{Command: getAvailableWifiCommand, Arg: []interface{}{
-		"wpa_supplicant:networks",
-	}, Kwarg: KwargType{}}
-	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
-
-	err = executeRequest("POST", path, req, &connections)
-	if err != nil {
-		return
-	}
-
 	return
 }
 
@@ -647,15 +632,8 @@ func main() {
 			}
 		}()
 
-		var s string
-		err = json.Unmarshal(value, &s)
-		if err != nil {
-			log.Printf("Error setting wifi: %s", err)
-			return
-		}
-
 		var req setWifiRequest
-		err = json.Unmarshal([]byte(s), &req)
+		err = json.Unmarshal(value, &req)
 		if err != nil {
 			log.Printf("Error unmarshaling wi-fi payload: %s", err)
 			return
@@ -664,7 +642,6 @@ func main() {
 		if req.Network == "" || req.Password == "" {
 			log.Printf("Missing network or password in wi-fi pairing request.")
 			err = errors.New("missing network or password")
-			return
 			return
 		}
 
@@ -683,13 +660,13 @@ func main() {
 		}
 
 		if setWifiResp.Result {
-			log.Printf("Wifi Connection set successfully: %s", SSID)
+			log.Printf("Wifi Connection set successfully: %s", req.Network)
 		} else {
 			log.Printf("Failed to set wifi connection: %s", err)
 			return
 		}
 
-		resp = []byte(SSID)
+		resp = []byte(req.Network)
 		return
 	})
 
