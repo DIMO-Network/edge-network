@@ -461,6 +461,11 @@ func setupBluez(name string) error {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
 
+	err = btmgmt.SetAdvertising(true)
+	if err != nil {
+		return fmt.Errorf("failed to set advertising on: %w", err)
+	}
+
 	return nil
 }
 
