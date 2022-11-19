@@ -20,6 +20,7 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
 	"github.com/muka/go-bluetooth/bluez/profile/device"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
+	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
 
 	"github.com/sirupsen/logrus"
 
@@ -65,6 +66,8 @@ var lastSignature []byte
 var lastVIN string
 
 var unitID uuid.UUID
+
+var btManager btmgmt.BtMgmt
 
 type KwargType struct {
 	Destructive bool `json:"destructive,omitempty"`
@@ -412,35 +415,35 @@ func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 }
 
 func setupBluez(name string) error {
-	btmgmt := hw.NewBtMgmt(adapterID)
+	btManager = *hw.NewBtMgmt(adapterID)
 
 	// Need to turn off the controller to be able to modify the next few settings.
-	err := btmgmt.SetPowered(false)
+	err := btManager.SetPowered(false)
 	if err != nil {
 		return fmt.Errorf("failed to power off the controller: %w", err)
 	}
 
-	err = btmgmt.SetLe(true)
+	err = btManager.SetLe(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable LE: %w", err)
 	}
 
-	err = btmgmt.SetBredr(false)
+	err = btManager.SetBredr(false)
 	if err != nil {
 		return fmt.Errorf("failed to disable BR/EDR: %w", err)
 	}
 
-	err = btmgmt.SetSc(true)
+	err = btManager.SetSc(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable Secure Connections: %w", err)
 	}
 
-	err = btmgmt.SetName(name)
+	err = btManager.SetName(name)
 	if err != nil {
 		return fmt.Errorf("failed to set name: %w", err)
 	}
 
-	err = btmgmt.SetPowered(true)
+	err = btManager.SetPowered(true)
 	if err != nil {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
@@ -938,9 +941,7 @@ func main() {
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
-	btmgmt := hw.NewBtMgmt(adapterID)
-
-	err = btmgmt.SetAdvertising(true)
+	err = btManager.SetAdvertising(true)
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)
 	}
@@ -958,7 +959,7 @@ func main() {
 
 	if coldBoot == false && hasPairedDevices(devices) {
 		log.Printf("Disabling bonding")
-		err = btmgmt.SetBondable(false)
+		err = btManager.SetBondable(false)
 		if err != nil {
 			log.Fatalf("Failed to set bonding status: %s", err)
 		}
