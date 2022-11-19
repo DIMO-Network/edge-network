@@ -18,7 +18,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/muka/go-bluetooth/api/service"
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
+	"github.com/muka/go-bluetooth/bluez/profile/device"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
+	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
 
 	"github.com/sirupsen/logrus"
 
@@ -64,6 +66,8 @@ var lastSignature []byte
 var lastVIN string
 
 var unitID uuid.UUID
+
+var btManager btmgmt.BtMgmt
 
 type KwargType struct {
 	Destructive bool `json:"destructive,omitempty"`
@@ -410,53 +414,36 @@ func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 	return
 }
 
-// Utility Function
-func isColdBoot(unitID uuid.UUID) (result bool, err error) {
-	status, httpError := getPowerStatus(unitID)
-	for httpError != nil {
-		status, httpError = getPowerStatus(unitID)
-	}
-
-	log.Printf("Last Start Reason: %s", status.Spm.LastTrigger.Up)
-	if status.Spm.LastTrigger.Up == "plug" {
-
-		result = true
-		return
-	}
-	result = false
-	return
-}
-
 func setupBluez(name string) error {
-	btmgmt := hw.NewBtMgmt(adapterID)
+	btManager = *hw.NewBtMgmt(adapterID)
 
 	// Need to turn off the controller to be able to modify the next few settings.
-	err := btmgmt.SetPowered(false)
+	err := btManager.SetPowered(false)
 	if err != nil {
 		return fmt.Errorf("failed to power off the controller: %w", err)
 	}
 
-	err = btmgmt.SetLe(true)
+	err = btManager.SetLe(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable LE: %w", err)
 	}
 
-	err = btmgmt.SetBredr(false)
+	err = btManager.SetBredr(false)
 	if err != nil {
 		return fmt.Errorf("failed to disable BR/EDR: %w", err)
 	}
 
-	err = btmgmt.SetSc(true)
+	err = btManager.SetSc(true)
 	if err != nil {
 		return fmt.Errorf("failed to enable Secure Connections: %w", err)
 	}
 
-	err = btmgmt.SetName(name)
+	err = btManager.SetName(name)
 	if err != nil {
 		return fmt.Errorf("failed to set name: %w", err)
 	}
 
-	err = btmgmt.SetPowered(true)
+	err = btManager.SetPowered(true)
 	if err != nil {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
@@ -469,11 +456,11 @@ func main() {
 
 	name := getDeviceName()
 	log.Printf("Serial Number: %s", unitID)
-	bondable, err := isColdBoot(unitID)
+	coldBoot, err := isColdBoot(unitID)
 	if err != nil {
 		log.Fatalf("Failed to get power management status: %s", err)
 	}
-	log.Printf("Bluetooth name: %s, Bondable: %v", name, bondable)
+	log.Printf("Bluetooth name: %s", name)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
@@ -954,8 +941,7 @@ func main() {
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
-	btmgmt := hw.NewBtMgmt(adapterID)
-	err = btmgmt.SetAdvertising(true)
+	err = btManager.SetAdvertising(true)
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)
 	}
@@ -965,14 +951,21 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
-	if bondable == false {
+	//Check if we should disable new connections
+	devices, err := app.Adapter().GetDevices()
+	if err != nil {
+		log.Fatalf("Could not retrieve previously paired devices: %s", err)
+	}
+
+	if coldBoot == false && hasPairedDevices(devices) {
 		log.Printf("Disabling bonding")
-		err = btmgmt.SetBondable(false)
+		err = btManager.SetBondable(false)
 		if err != nil {
 			log.Fatalf("Failed to set bonding status: %s", err)
 		}
 	}
-
+	alias, err := app.Adapter().GetAlias()
+	log.Printf("System alias: %s", alias)
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
@@ -992,4 +985,32 @@ func main() {
 
 	sig := <-sigChan
 	log.Printf("Terminating from signal: %s", sig)
+}
+
+// Utility Function
+func hasPairedDevices(devices []*device.Device1) bool {
+	for _, device := range devices {
+		log.Printf("Found previously connected device: %v", device.Properties.Alias)
+		if device.Properties.Trusted && device.Properties.Paired {
+			return true
+		}
+	}
+	return false
+}
+
+// Utility Function
+func isColdBoot(unitID uuid.UUID) (result bool, err error) {
+	status, httpError := getPowerStatus(unitID)
+	for httpError != nil {
+		status, httpError = getPowerStatus(unitID)
+	}
+
+	log.Printf("Last Start Reason: %s", status.Spm.LastTrigger.Up)
+	if status.Spm.LastTrigger.Up == "plug" {
+
+		result = true
+		return
+	}
+	result = false
+	return
 }
