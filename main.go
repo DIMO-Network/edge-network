@@ -461,11 +461,6 @@ func setupBluez(name string) error {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
 
-	err = btmgmt.SetAdvertising(true)
-	if err != nil {
-		return fmt.Errorf("failed to set advertising on: %w", err)
-	}
-
 	return nil
 }
 
@@ -959,14 +954,20 @@ func main() {
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
+	btmgmt := hw.NewBtMgmt(adapterID)
+	err = btmgmt.SetAdvertising(true)
+	if err != nil {
+		log.Fatalf("Failed advertising: %s", err)
+	}
+
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
 	if bondable == false {
-		btmgmt := hw.NewBtMgmt(adapterID)
-		err := btmgmt.SetBondable(false)
+		log.Printf("Disabling bonding")
+		err = btmgmt.SetBondable(false)
 		if err != nil {
 			log.Fatalf("Failed to set bonding status: %s", err)
 		}
