@@ -224,7 +224,17 @@ func executeRequest(method, path string, isJson bool, reqVal, respVal any) (err 
 	if err != nil {
 		return
 	}
-	respVal = resBody
+
+	respValStrPtr, ok := respVal.(*string)
+	if !ok {
+		return errors.New("respVal must have type *string")
+	}
+
+	if respValStrPtr == nil {
+		return errors.New("respVal is nil")
+	}
+
+	*respValStrPtr = string(resBody)
 	return
 }
 
