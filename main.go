@@ -27,6 +27,8 @@ import (
 	"github.com/muka/go-bluetooth/hw"
 )
 
+var Version = "development"
+
 const (
 	adapterID                  = "hci0"
 	contentTypeJSON            = "application/json"
@@ -38,6 +40,7 @@ const (
 	signalStrengthCommand      = `qmi.signal_strength`
 	wifiStatusCommand          = `wifi.status`
 	setWifiConnectionCommand   = `grains.set`
+	getSoftwareVersionCommand  = `grains.get release:version`
 	getAvailableWifiCommand    = `grains.get`
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
@@ -55,6 +58,8 @@ const (
 	signalStrengthUUIDFragment      = "5a14"
 	wifiStatusUUIDFragment          = "5a15"
 	setWifiUUIDFragment             = "5a16"
+	bluetoothVersionUUIDFragment    = "5a18"
+	softwareVersionUUIDFragment     = "5a19"
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
 	transactionsServiceUUIDFragment = "aade"
@@ -175,7 +180,7 @@ type powerStatusResponse struct {
 	} `json:"spm"`
 }
 
-func executeRequest(method, path string, reqVal, respVal any) (err error) {
+func executeRequest(method, path string, isJson bool, reqVal, respVal any) (err error) {
 	var reqBody io.Reader
 
 	if reqVal != nil {
@@ -210,8 +215,16 @@ func executeRequest(method, path string, reqVal, respVal any) (err error) {
 	if respVal == nil {
 		return
 	}
+	if isJson {
+		err = json.NewDecoder(resp.Body).Decode(respVal)
+		return
+	}
 
-	err = json.NewDecoder(resp.Body).Decode(respVal)
+	resBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	respVal = resBody
 	return
 }
 
@@ -221,12 +234,28 @@ func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
 
 	var resp float64
 
-	err = executeRequest("POST", url, req, &resp)
+	err = executeRequest("POST", url, true, req, &resp)
 	if err != nil {
 		return
 	}
 
 	hwRevision = fmt.Sprint(resp)
+	return
+}
+
+func getSoftwareVersion(unitID uuid.UUID) (version string, err error) {
+	req := executeRawRequest{Command: getSoftwareVersionCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp string
+
+	err = executeRequest("POST", url, false, req, &resp)
+	if err != nil {
+		return
+	}
+
+	version = resp
+
 	return
 }
 
@@ -236,7 +265,7 @@ func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 
 	var resp string
 
-	err = executeRequest("POST", url, req, &resp)
+	err = executeRequest("POST", url, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -255,7 +284,7 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", url, req, &resp)
+	err = executeRequest("POST", url, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -277,7 +306,7 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -292,7 +321,7 @@ func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -306,7 +335,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp signalStrengthResponse
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -321,7 +350,7 @@ func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp wifiConnectionsResponse
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -342,7 +371,7 @@ func setWifiConnection(unitID uuid.UUID, newConnectionList []wifiEntity) (connec
 		Force:       true,
 	}}
 
-	err = executeRequest("POST", path, req, &connectionObject)
+	err = executeRequest("POST", path, true, req, &connectionObject)
 	if err != nil {
 		return
 	}
@@ -356,7 +385,7 @@ func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 
 	if err != nil {
 		return err
@@ -369,7 +398,7 @@ func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp dtcResponse
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -405,7 +434,7 @@ func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp powerStatusResponse
-	err = executeRequest("POST", path, req, &resp)
+	err = executeRequest("POST", path, true, req, &resp)
 	if err != nil {
 		return
 	}
@@ -461,6 +490,7 @@ func main() {
 		log.Fatalf("Failed to get power management status: %s", err)
 	}
 	log.Printf("Bluetooth name: %s", name)
+	log.Printf("Version: %s", Version)
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
@@ -599,6 +629,67 @@ func main() {
 	err = deviceService.AddChar(hwRevisionChar)
 	if err != nil {
 		log.Fatalf("Failed to add Hardware Revision characteristic to device service: %s", err)
+	}
+
+	// Hardware revision
+	bluetoothVersionChar, err := deviceService.NewChar(bluetoothVersionUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Hardwware Revision characteristic: %s", err)
+	}
+
+	bluetoothVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	bluetoothVersionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving hardware revision: %s", err)
+			}
+		}()
+
+		log.Print("Got Bluetooth Version request")
+
+		log.Printf("Read Bluetooth Version: %s", Version)
+
+		resp = []byte(Version)
+		return
+	})
+
+	err = deviceService.AddChar(bluetoothVersionChar)
+	if err != nil {
+		log.Fatalf("Failed to add Bluetooth Version characteristic to device service: %s", err)
+	}
+
+	// Software version
+	softwareVersionChar, err := deviceService.NewChar(softwareVersionUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create Hardwware Revision characteristic: %s", err)
+	}
+
+	softwareVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	softwareVersionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving software version: %s", err)
+			}
+		}()
+
+		log.Print("Got Software Revison request")
+
+		swVersion, err := getSoftwareVersion(unitID)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Read Software version Revision: %s", swVersion)
+
+		resp = []byte(swVersion)
+		return
+	})
+
+	err = deviceService.AddChar(softwareVersionChar)
+	if err != nil {
+		log.Fatalf("Failed to add Software Version characteristic to device service: %s", err)
 	}
 
 	// Get signal strength
@@ -759,15 +850,6 @@ func main() {
 		}()
 
 		log.Print("Got VIN request")
-
-		fakeVin, err := os.ReadFile("/tmp/FAKE_VIN")
-		stringFakeVin := strings.Trim(string(fakeVin), "")
-		if err == nil && len(stringFakeVin) != 0 {
-			log.Printf("Fake VIN: %s", stringFakeVin)
-			resp = []byte(stringFakeVin)
-			return
-		}
-
 		vin, err := getVIN(unitID)
 		if err != nil {
 			err = nil

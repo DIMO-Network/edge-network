@@ -8,10 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+        with:
+          strip_v: true
     - uses: wangyoucao577/go-release-action@v1.32
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
         goarch: arm
         executable_compression: upx
-        ldflags: -s -w
+        ldflags: -s -w -X 'main.Version=${{steps.tag.outputs.tag}}'

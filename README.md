@@ -1,7 +1,7 @@
 Compile for the AutoPi with
 ```
 brew install --build-from-source upx
-GOARCH=arm GOOS=linux go build -ldflags="-s -w" -o edge-network && upx edge-network
+GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network
 
 ```
 Binaries will build [for releases](https://github.com/DIMO-Network/edge-network/releases) from the [workflow](.github/workflows/release.yaml).
