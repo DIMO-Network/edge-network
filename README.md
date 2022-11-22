@@ -21,6 +21,10 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
     * _Read._ Return the ASCII-encoded Secondary Serial Number of the Unit
   * Get Hardware Revision Number characteristic `5c305a13-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded HW Revision of the Unit
+  * Get Software Version characteristic `5c305a19-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded Software Version Number of the Unit
+  * Get Bluetooth Version Number characteristic `5c305a18-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded Bluetooth Version Number of the Unit
   * Get Signal Strength characteristic `5c305a14-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded Signal Strength of the Unit in dBm
   * Get Wifi connection status characteristic `5c305a15-6859-4d6c-a87b-8d2c98c9f6f0`

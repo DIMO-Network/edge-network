@@ -1069,6 +1069,9 @@ func main() {
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
+	log.Printf("  Get Software Version characteristic: %s", softwareVersionChar.Properties.UUID)
+	log.Printf("  Set Bluetooth Version characteristic: %s", bluetoothVersionChar.Properties.UUID)
+
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
 	log.Printf("  Set Wifi Connection characteristic: %s", setWifiChar.Properties.UUID)
