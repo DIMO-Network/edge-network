@@ -180,7 +180,7 @@ type powerStatusResponse struct {
 	} `json:"spm"`
 }
 
-func executeRequest(method, path string, isJson bool, reqVal, respVal any) (err error) {
+func executeRequest(method, path string, reqVal, respVal any) (err error) {
 	var reqBody io.Reader
 
 	if reqVal != nil {
@@ -215,26 +215,7 @@ func executeRequest(method, path string, isJson bool, reqVal, respVal any) (err 
 	if respVal == nil {
 		return
 	}
-	if isJson {
-		err = json.NewDecoder(resp.Body).Decode(respVal)
-		return
-	}
-
-	resBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	respValStrPtr, ok := respVal.(*string)
-	if !ok {
-		return errors.New("respVal must have type *string")
-	}
-
-	if respValStrPtr == nil {
-		return errors.New("respVal is nil")
-	}
-
-	*respValStrPtr = string(resBody)
+	err = json.NewDecoder(resp.Body).Decode(respVal)
 	return
 }
 
@@ -244,7 +225,7 @@ func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
 
 	var resp float64
 
-	err = executeRequest("POST", url, true, req, &resp)
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -259,7 +240,7 @@ func getSoftwareVersion(unitID uuid.UUID) (version string, err error) {
 
 	var resp string
 
-	err = executeRequest("POST", url, false, req, &resp)
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -275,7 +256,7 @@ func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 
 	var resp string
 
-	err = executeRequest("POST", url, true, req, &resp)
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -294,7 +275,7 @@ func getVIN(unitID uuid.UUID) (vin string, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", url, true, req, &resp)
+	err = executeRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -316,7 +297,7 @@ func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -331,7 +312,7 @@ func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -345,7 +326,7 @@ func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp signalStrengthResponse
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -360,7 +341,7 @@ func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp wifiConnectionsResponse
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -381,7 +362,7 @@ func setWifiConnection(unitID uuid.UUID, newConnectionList []wifiEntity) (connec
 		Force:       true,
 	}}
 
-	err = executeRequest("POST", path, true, req, &connectionObject)
+	err = executeRequest("POST", path, req, &connectionObject)
 	if err != nil {
 		return
 	}
@@ -395,7 +376,7 @@ func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
 
 	var resp executeRawResponse
 
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 
 	if err != nil {
 		return err
@@ -408,7 +389,7 @@ func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp dtcResponse
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -444,7 +425,7 @@ func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp powerStatusResponse
-	err = executeRequest("POST", path, true, req, &resp)
+	err = executeRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -511,7 +492,7 @@ func main() {
 
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 
 	err = setupBluez(name)
 	if err != nil {
@@ -1044,7 +1025,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)
 	}
-
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
@@ -1063,8 +1043,18 @@ func main() {
 			log.Fatalf("Failed to set bonding status: %s", err)
 		}
 	}
-	alias, err := app.Adapter().GetAlias()
-	log.Printf("System alias: %s", alias)
+
+	adapterName, err := app.Adapter().GetName()
+	if err != nil {
+		log.Fatalf("Failed to get adapter name: %s", err)
+	}
+
+	adapterAlias, err := app.Adapter().GetAlias()
+	if err != nil {
+		log.Fatalf("Failed to get adapter alias: %s", err)
+	}
+	log.Printf("Adapter name: %s, alias: %s", adapterName, adapterAlias)
+
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
 	log.Printf("  Get Serial Number characteristic: %s", unitSerialChar.Properties.UUID)
 	log.Printf("  Get Secondary ID characteristic: %s", secondSerialChar.Properties.UUID)
