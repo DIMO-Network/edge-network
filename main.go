@@ -491,6 +491,13 @@ func setupBluez(name string) error {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		s := os.Args[1]
+		if s == "-v" {
+			log.Printf("Version: %s", Version)
+			os.Exit(0)
+		}
+	}
 	log.Printf("Starting DIMO Edge Network")
 
 	name := getDeviceName()
