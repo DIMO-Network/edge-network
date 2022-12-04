@@ -32,7 +32,8 @@ var Version = "development"
 const (
 	adapterID                  = "hci0"
 	contentTypeJSON            = "application/json"
-	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=6 verify=false force=true`
+	detectCanbusCommand        = "obd.protocol set=auto"
+	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=auto verify=false force=true`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
 	signHashCommand            = `crypto.sign_string `
 	getDeviceIDCommand         = `config.get device.id`
@@ -69,6 +70,7 @@ const (
 
 var lastSignature []byte
 var lastVIN string
+var canBusInformation CanbusInfo
 
 var unitID uuid.UUID
 
@@ -132,6 +134,19 @@ type dtcResponse struct {
 		Code string `json:"code"`
 		Text string `json:"text"`
 	} `json:"values"`
+}
+
+type CanbusInfo struct {
+	Autodetected bool   `json:"autodetected"`
+	Baudrate     int    `json:"baudrate"`
+	Ecus         []int  `json:"ecus"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+}
+
+type obdAutoDetectResponse struct {
+	Stamp      string     `json:"_stamp"`
+	CanbusInfo CanbusInfo `json:"current"`
 }
 
 type powerStatusResponse struct {
@@ -318,6 +333,21 @@ func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
 	}
 
 	addr = common.HexToAddress(resp.Value)
+	return
+}
+
+func detectCanbus(unitID uuid.UUID) (err error) {
+	req := executeRawRequest{Command: detectCanbusCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp obdAutoDetectResponse
+
+	err = executeRequest("POST", path, req, &resp)
+	if err != nil {
+		return
+	}
+
+	canBusInformation = resp.CanbusInfo
 	return
 }
 
@@ -1053,6 +1083,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get adapter alias: %s", err)
 	}
+	err = detectCanbus(unitID)
+	if err != nil {
+		log.Printf("Failed to autodetect a canbus: %s", err)
+	}
+	log.Printf("Canbus Protocol Info: %v", canBusInformation)
 	log.Printf("Adapter name: %s, alias: %s", adapterName, adapterAlias)
 
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
