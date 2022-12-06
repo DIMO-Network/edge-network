@@ -1,23 +1,20 @@
 package main
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DIMO-Network/edge-network/agent"
+	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/service"
 	"github.com/google/uuid"
-	"github.com/muka/go-bluetooth/api/service"
-	"github.com/muka/go-bluetooth/bluez/profile/agent"
 	"github.com/muka/go-bluetooth/bluez/profile/device"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
@@ -30,23 +27,7 @@ import (
 var Version = "development"
 
 const (
-	adapterID                  = "hci0"
-	contentTypeJSON            = "application/json"
-	detectCanbusCommand        = "obd.protocol set=auto"
-	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=auto verify=false force=true`
-	getEthereumAddressCommand  = `crypto.query ethereum_address`
-	signHashCommand            = `crypto.sign_string `
-	getDeviceIDCommand         = `config.get device.id`
-	getHardwareRevisionCommand = `config.get hw.version`
-	signalStrengthCommand      = `qmi.signal_strength`
-	wifiStatusCommand          = `wifi.status`
-	setWifiConnectionCommand   = `grains.set`
-	getSoftwareVersionCommand  = `grains.get release:version`
-	getAvailableWifiCommand    = `grains.get`
-	getDiagnosticCodeCommand   = `obd.dtc`
-	clearDiagnosticCodeCommand = `obd.dtc clear=true`
-	powerStatusCommand         = `power.status`
-	autoPiBaseURL              = "http://192.168.4.1:9000"
+	adapterID = "hci0"
 
 	appUUIDSuffix = "-6859-4d6c-a87b-8d2c98c9f6f0"
 	appUUIDPrefix = "5c30"
@@ -61,6 +42,7 @@ const (
 	setWifiUUIDFragment             = "5a16"
 	softwareVersionUUIDFragment     = "5a18"
 	bluetoothVersionUUIDFragment    = "5a19"
+	sleepControlUUIDFragment        = "5a20"
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
 	transactionsServiceUUIDFragment = "aade"
@@ -69,400 +51,12 @@ const (
 )
 
 var lastSignature []byte
-var lastVIN string
-var canBusInformation CanbusInfo
 
-var unitID uuid.UUID
+var lastVIN string
+var unitId uuid.UUID
+var name string
 
 var btManager btmgmt.BtMgmt
-
-type KwargType struct {
-	Destructive bool `json:"destructive,omitempty"`
-	Force       bool `json:"force,omitempty"`
-}
-type executeRawRequest struct {
-	Command string        `json:"command"`
-	Arg     []interface{} `json:"arg"`
-	Kwarg   KwargType     `json:"kwarg"`
-}
-
-// For some reason, this only gets returned for some calls.
-type executeRawResponse struct {
-	Value string `json:"value"`
-}
-
-type GenericSignalStrengthResponse struct {
-	Network string  `json:"network"`
-	Unit    string  `json:"unit"`
-	Value   float64 `json:"value"`
-}
-
-type signalStrengthResponse struct {
-	Current GenericSignalStrengthResponse
-}
-
-type wifiConnectionsResponse struct {
-	WPAState string `json:"wpa_state"`
-	SSID     string `json:"ssid"`
-}
-
-type wifiEntity struct {
-	Priority int    `json:"priority"`
-	Psk      string `json:"psk"`
-	SSID     string `json:"ssid"`
-}
-
-type setWifiConnectionResponse struct {
-	Comment string `json:"comment"`
-	Result  bool   `json:"result"`
-	Changes struct {
-		WPASupplicant struct {
-			Networks []wifiEntity
-		} `json:"wpa_supplicant"`
-	}
-}
-
-type setWifiRequest struct {
-	Network  string `json:"network"`
-	Password string `json:"password"`
-}
-
-type dtcResponse struct {
-	Stamp  string `json:"_stamp"`
-	Type   string `json:"_type"`
-	Values []struct {
-		Code string `json:"code"`
-		Text string `json:"text"`
-	} `json:"values"`
-}
-
-type CanbusInfo struct {
-	Autodetected bool   `json:"autodetected"`
-	Baudrate     int    `json:"baudrate"`
-	Ecus         []int  `json:"ecus"`
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-}
-
-type obdAutoDetectResponse struct {
-	Stamp      string     `json:"_stamp"`
-	CanbusInfo CanbusInfo `json:"current"`
-}
-
-type powerStatusResponse struct {
-	Rpi struct {
-		Uptime struct {
-			Days     int    `json:"days"`
-			Seconds  int    `json:"seconds"`
-			SinceIso string `json:"since_iso"`
-			SinceT   int    `json:"since_t"`
-			Time     string `json:"time"`
-			Users    int    `json:"users"`
-		} `json:"uptime"`
-	} `json:"rpi"`
-	Spm struct {
-		Battery struct {
-			Level   int     `json:"level"`
-			State   string  `json:"state"`
-			Voltage float64 `json:"voltage"`
-		} `json:"battery"`
-		CurrentState string `json:"current_state"`
-		LastState    struct {
-			Down string `json:"down"`
-			Up   string `json:"up"`
-		} `json:"last_state"`
-		LastTrigger struct {
-			Down string `json:"down"`
-			Up   string `json:"up"`
-		} `json:"last_trigger"`
-		SleepInterval int     `json:"sleep_interval"`
-		Version       string  `json:"version"`
-		VoltFactor    float64 `json:"volt_factor"`
-		VoltTriggers  struct {
-			HibernateLevel struct {
-				Duration  int     `json:"duration"`
-				Threshold float64 `json:"threshold"`
-			} `json:"hibernate_level"`
-			WakeChange struct {
-				Difference float64 `json:"difference"`
-				Period     int     `json:"period"`
-			} `json:"wake_change"`
-			WakeLevel struct {
-				Duration  int     `json:"duration"`
-				Threshold float64 `json:"threshold"`
-			} `json:"wake_level"`
-		} `json:"volt_triggers"`
-	} `json:"spm"`
-}
-
-func executeRequest(method, path string, reqVal, respVal any) (err error) {
-	var reqBody io.Reader
-
-	if reqVal != nil {
-		reqBuf := new(bytes.Buffer)
-		err = json.NewEncoder(reqBuf).Encode(reqVal)
-		if err != nil {
-			return
-		}
-		reqBody = reqBuf
-	}
-
-	req, err := http.NewRequest(method, autoPiBaseURL+path, reqBody)
-	if err != nil {
-		return
-	}
-
-	if reqVal != nil {
-		req.Header.Set("Content-Type", contentTypeJSON)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	}
-
-	defer resp.Body.Close()
-
-	if c := resp.StatusCode; c >= 400 {
-		return fmt.Errorf("status code %d", c)
-	}
-
-	if respVal == nil {
-		return
-	}
-	err = json.NewDecoder(resp.Body).Decode(respVal)
-	return
-}
-
-func getHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
-	req := executeRawRequest{Command: getHardwareRevisionCommand}
-	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp float64
-
-	err = executeRequest("POST", url, req, &resp)
-	if err != nil {
-		return
-	}
-
-	hwRevision = fmt.Sprint(resp)
-	return
-}
-
-func getSoftwareVersion(unitID uuid.UUID) (version string, err error) {
-	req := executeRawRequest{Command: getSoftwareVersionCommand}
-	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp string
-
-	err = executeRequest("POST", url, req, &resp)
-	if err != nil {
-		return
-	}
-
-	version = resp
-
-	return
-}
-
-func getDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
-	req := executeRawRequest{Command: getDeviceIDCommand}
-	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp string
-
-	err = executeRequest("POST", url, req, &resp)
-	if err != nil {
-		return
-	}
-
-	deviceID, err = uuid.Parse(resp)
-	return
-}
-
-func getVIN(unitID uuid.UUID) (vin string, err error) {
-	if lastVIN != "" {
-		vin = lastVIN
-		return
-	}
-	req := executeRawRequest{Command: getVINCommand}
-	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp executeRawResponse
-
-	err = executeRequest("POST", url, req, &resp)
-	if err != nil {
-		return
-	}
-
-	vin = resp.Value
-	lastVIN = resp.Value
-	if len(vin) != 17 {
-		err = fmt.Errorf("response contained a VIN with %s characters", vin)
-	}
-
-	return
-}
-
-func signHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
-	hashHex := hex.EncodeToString(hash)
-
-	req := executeRawRequest{Command: signHashCommand + hashHex}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp executeRawResponse
-
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	sig = common.FromHex(resp.Value)
-	return
-}
-
-func getEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
-	req := executeRawRequest{Command: getEthereumAddressCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp executeRawResponse
-
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	addr = common.HexToAddress(resp.Value)
-	return
-}
-
-func detectCanbus(unitID uuid.UUID) (err error) {
-	req := executeRawRequest{Command: detectCanbusCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp obdAutoDetectResponse
-
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	canBusInformation = resp.CanbusInfo
-	return
-}
-
-func getSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
-	req := executeRawRequest{Command: signalStrengthCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp signalStrengthResponse
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	sigStrength = fmt.Sprint(resp.Current.Value)
-	return
-}
-
-// Wifi
-func getWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
-	req := executeRawRequest{Command: wifiStatusCommand, Arg: nil}
-	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
-
-	var resp wifiConnectionsResponse
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	connectionObject = resp
-	return
-}
-
-func setWifiConnection(unitID uuid.UUID, newConnectionList []wifiEntity) (connectionObject setWifiConnectionResponse, err error) {
-	arg := []interface{}{
-		"wpa_supplicant:networks",
-		newConnectionList,
-	}
-	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
-
-	req := executeRawRequest{Command: setWifiConnectionCommand, Arg: arg, Kwarg: KwargType{
-		Destructive: true,
-		Force:       true,
-	}}
-
-	err = executeRequest("POST", path, req, &connectionObject)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-func clearDiagnosticCodes(unitID uuid.UUID) (err error) {
-	req := executeRawRequest{Command: clearDiagnosticCodeCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp executeRawResponse
-
-	err = executeRequest("POST", path, req, &resp)
-
-	if err != nil {
-		return err
-	}
-	return
-}
-
-func getDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
-	req := executeRawRequest{Command: getDiagnosticCodeCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-	var resp dtcResponse
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	log.Print("Response", resp)
-	formattedResponse := ""
-	for _, s := range resp.Values {
-		formattedResponse += s.Code + ","
-	}
-	codes = strings.TrimSuffix(formattedResponse, ",")
-	return
-}
-
-func getDeviceName() string {
-	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
-	if err != nil {
-		log.Fatalf("Could not read unit ID from file: %s", err)
-	}
-
-	unitIDBytes = bytes.TrimSpace(unitIDBytes)
-
-	unitID, err = uuid.ParseBytes(unitIDBytes)
-	if err != nil {
-		log.Fatalf("Invalid unit id: %s", err)
-	}
-
-	unitIDStr := unitID.String()
-	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
-}
-
-func getPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err error) {
-	req := executeRawRequest{Command: powerStatusCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
-
-	var resp powerStatusResponse
-	err = executeRequest("POST", path, req, &resp)
-	if err != nil {
-		return
-	}
-
-	responseObject = resp
-	return
-}
 
 func setupBluez(name string) error {
 	btManager = *hw.NewBtMgmt(adapterID)
@@ -494,6 +88,7 @@ func setupBluez(name string) error {
 	}
 
 	err = btManager.SetPowered(true)
+
 	if err != nil {
 		return fmt.Errorf("failed to power on the controller: %w", err)
 	}
@@ -511,15 +106,17 @@ func main() {
 	}
 	log.Printf("Starting DIMO Edge Network")
 
-	name := getDeviceName()
-	log.Printf("Serial Number: %s", unitID)
-	coldBoot, err := isColdBoot(unitID)
+	name, unitId = commands.GetDeviceName()
+	log.Printf("Serial Number: %s", unitId)
+
+	coldBoot, err := isColdBoot(unitId)
 	if err != nil {
 		log.Fatalf("Failed to get power management status: %s", err)
 	}
 	log.Printf("Bluetooth name: %s", name)
 	log.Printf("Version: %s", Version)
-
+	log.Printf("Sleeping 7 seconds before setting up bluez.")
+	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.TraceLevel)
@@ -545,16 +142,6 @@ func main() {
 	defer app.Close()
 
 	app.SetName(name)
-
-	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
-
-	if !app.Adapter().Properties.Powered {
-		log.Print("Adapter not powered, attempting to power")
-		err = app.Adapter().SetPowered(true)
-		if err != nil {
-			log.Fatalf("Failed to power adapter: %s", err)
-		}
-	}
 
 	// Device service
 	deviceService, err := app.NewService(deviceServiceUUIDFragment)
@@ -584,7 +171,7 @@ func main() {
 
 		log.Print("Got Unit Serial request")
 
-		resp = []byte(unitID.String())
+		resp = []byte(unitId.String())
 		return
 	})
 
@@ -610,7 +197,7 @@ func main() {
 
 		log.Print("Got Unit Secondary Id request")
 
-		deviceID, err := getDeviceID(unitID)
+		deviceID, err := commands.GetDeviceID(unitId)
 		if err != nil {
 			return
 		}
@@ -643,7 +230,7 @@ func main() {
 
 		log.Print("Got Hardware Revison request")
 
-		hwRevision, err := getHardwareRevision(unitID)
+		hwRevision, err := commands.GetHardwareRevision(unitId)
 		if err != nil {
 			return
 		}
@@ -659,7 +246,7 @@ func main() {
 		log.Fatalf("Failed to add Hardware Revision characteristic to device service: %s", err)
 	}
 
-	// Hardware revision
+	// Bluetooth revision
 	bluetoothVersionChar, err := deviceService.NewChar(bluetoothVersionUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Hardwware Revision characteristic: %s", err)
@@ -704,7 +291,7 @@ func main() {
 
 		log.Print("Got Software Revison request")
 
-		swVersion, err := getSoftwareVersion(unitID)
+		swVersion, err := commands.GetSoftwareVersion(unitId)
 		if err != nil {
 			return
 		}
@@ -737,7 +324,7 @@ func main() {
 
 		log.Print("Got Signal Strength request.")
 
-		sigStrength, err := getSignalStrength(unitID)
+		sigStrength, err := commands.GetSignalStrength(unitId)
 		if err != nil {
 			return
 		}
@@ -770,7 +357,7 @@ func main() {
 
 		log.Print("Got Wifi Connection Status request.")
 
-		wifiConnectionState, err := getWifiStatus(unitID)
+		wifiConnectionState, err := commands.GetWifiStatus(unitId)
 		if err != nil {
 			return
 		}
@@ -808,7 +395,7 @@ func main() {
 			}
 		}()
 
-		var req setWifiRequest
+		var req commands.SetWifiRequest
 		err = json.Unmarshal(value, &req)
 		if err != nil {
 			log.Printf("Error unmarshaling wi-fi payload: %s", err)
@@ -821,7 +408,7 @@ func main() {
 			return
 		}
 
-		newWifiList := []wifiEntity{
+		newWifiList := []commands.WifiEntity{
 			{
 				Priority: 1,
 				SSID:     req.Network,
@@ -829,7 +416,7 @@ func main() {
 			},
 		}
 
-		setWifiResp, err := setWifiConnection(unitID, newWifiList)
+		setWifiResp, err := commands.SetWifiConnection(unitId, newWifiList)
 		if err != nil {
 			log.Printf("Failed to set wifi connection: %s", err)
 			return
@@ -877,8 +464,13 @@ func main() {
 			}
 		}()
 
-		log.Print("Got VIN request")
-		vin, err := getVIN(unitID)
+		if lastVIN != "" {
+			resp = []byte(lastVIN)
+			log.Printf("Returning cached VIN: %s", lastVIN)
+			return
+		}
+
+		vin, err := commands.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -887,7 +479,7 @@ func main() {
 		}
 
 		log.Printf("Got VIN: %s", vin)
-
+		lastVIN = vin
 		resp = []byte(vin)
 		return
 	})
@@ -914,7 +506,7 @@ func main() {
 
 		log.Print("Got diagnostic request")
 
-		codes, err := getDiagnosticCodes(unitID)
+		codes, err := commands.GetDiagnosticCodes(unitId)
 		if err != nil {
 			resp = []byte("0")
 			return
@@ -935,7 +527,7 @@ func main() {
 
 		log.Printf("Got clear DTC request")
 
-		err = clearDiagnosticCodes(unitID)
+		err = commands.ClearDiagnosticCodes(unitId)
 		if err != nil {
 			return
 		}
@@ -948,6 +540,38 @@ func main() {
 	err = vehicleService.AddChar(dtcChar)
 	if err != nil {
 		log.Fatalf("Failed to add diagnostic characteristic to vehicle service: %s", err)
+	}
+
+	// Sleep Control
+	sleepControlChar, err := deviceService.NewChar(sleepControlUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create sleep control characteristic: %s", err)
+	}
+
+	sleepControlChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedWrite}
+
+	sleepControlChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error extending sleep time: %s.", err)
+			}
+		}()
+
+		log.Printf("Got extend sleep request")
+
+		err = commands.ExtendSleepTimer(unitId)
+		if err != nil {
+			return
+		}
+
+		log.Printf("Extended sleep time to 900 seconds")
+
+		return
+	})
+
+	err = deviceService.AddChar(sleepControlChar)
+	if err != nil {
+		log.Fatalf("Failed to add sleep control characteristic to device service: %s", err)
 	}
 
 	// Transactions service
@@ -974,7 +598,7 @@ func main() {
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		log.Print("Got address request")
 
-		addr, err := getEthereumAddress(unitID)
+		addr, err := commands.GetEthereumAddress(unitId)
 		if err != nil {
 			return
 		}
@@ -1018,7 +642,7 @@ func main() {
 
 		log.Printf("Got sign request for hash: %s.", hex.EncodeToString(value))
 
-		sig, err := signHash(unitID, value)
+		sig, err := commands.SignHash(unitId, value)
 		if err != nil {
 			return
 		}
@@ -1051,10 +675,6 @@ func main() {
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
-	err = btManager.SetAdvertising(true)
-	if err != nil {
-		log.Fatalf("Failed advertising: %s", err)
-	}
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
@@ -1083,11 +703,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get adapter alias: %s", err)
 	}
-	err = detectCanbus(unitID)
+
+	canBusInformation, err := commands.DetectCanbus(unitId)
 	if err != nil {
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}
+
+	err = btManager.SetAdvertising(true)
+	if err != nil {
+		log.Fatalf("failed to set advertising on the controller: %s", err)
+	}
+
 	log.Printf("Canbus Protocol Info: %v", canBusInformation)
+	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
 	log.Printf("Adapter name: %s, alias: %s", adapterName, adapterAlias)
 
 	log.Printf("Device service: %s", deviceService.Properties.UUID)
@@ -1096,6 +724,7 @@ func main() {
 	log.Printf("  Get Hardware Revision characteristic: %s", hwRevisionChar.Properties.UUID)
 	log.Printf("  Get Software Version characteristic: %s", softwareVersionChar.Properties.UUID)
 	log.Printf("  Set Bluetooth Version characteristic: %s", bluetoothVersionChar.Properties.UUID)
+	log.Printf("  Sleep Control characteristic: %s", sleepControlChar.Properties.UUID)
 
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
@@ -1127,9 +756,10 @@ func hasPairedDevices(devices []*device.Device1) bool {
 
 // Utility Function
 func isColdBoot(unitID uuid.UUID) (result bool, err error) {
-	status, httpError := getPowerStatus(unitID)
+	status, httpError := commands.GetPowerStatus(unitID)
 	for httpError != nil {
-		status, httpError = getPowerStatus(unitID)
+		status, httpError = commands.GetPowerStatus(unitID)
+		time.Sleep(1 * time.Second)
 	}
 
 	log.Printf("Last Start Reason: %s", status.Spm.LastTrigger.Up)
