@@ -121,6 +121,24 @@ func (simpleAgent *SimpleAgent) RequestPasskey(path dbus.ObjectPath) (uint32, *d
 
 func (simpleAgent *SimpleAgent) DisplayPasskey(device dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
 	log.Debugf("SimpleAgent: DisplayPasskey %s, %06d entered %d", device, passkey, entered)
+
+	_, unitId := commands.GetDeviceName()
+
+	err := commands.AnnounceCode(unitId, passkey)
+	if err != nil {
+		log.Warnf("Unable to announce the pairing code %s", err)
+	}
+
+	err = commands.AnnounceCode(unitId, passkey)
+	if err != nil {
+		log.Warnf("Unable to announce the pairing code %s", err)
+	}
+
+	err = commands.AnnounceCode(unitId, passkey)
+	if err != nil {
+		log.Warnf("Unable to announce the pairing code %s", err)
+	}
+
 	return nil
 }
 

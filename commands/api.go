@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	detectCanbusCommand        = "obd.protocol set=auto"
-	sleepTimerDelayCommand     = "power.sleep_timer add=pairing period=900 clear=*"
+	detectCanbusCommand        = `obd.protocol set=auto`
+	sleepTimerDelayCommand     = `power.sleep_timer add=pairing period=900 clear=*`
 	getVINCommand              = `obd.query vin mode=09 pid=02 header=7DF bytes=20 formula='messages[0].data[3:].decode("ascii")' baudrate=500000 protocol=auto verify=false force=true`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
 	signHashCommand            = `crypto.sign_string `

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -74,6 +75,30 @@ func GetDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 
 func ExtendSleepTimer(unitID uuid.UUID) (err error) {
 	req := executeRawRequest{Command: sleepTimerDelayCommand}
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp executeRawResponse
+
+	err = executeRequest("POST", path, req, &resp)
+
+	if err != nil {
+		return err
+	}
+	return
+}
+
+func AnnounceCode(unitID uuid.UUID, code uint32) (err error) {
+	announcement := `audio.speak 'Pin Code , `
+
+	stringCode := strconv.Itoa(int(code))
+
+	for _, digit := range stringCode {
+		announcement += string(digit) + ` , `
+	}
+
+	announcement += `'`
+	log.Printf("Announcement Command: %s", announcement)
+	req := executeRawRequest{Command: announcement}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp executeRawResponse
