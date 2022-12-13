@@ -87,8 +87,8 @@ func ExtendSleepTimer(unitID uuid.UUID) (err error) {
 	return
 }
 
-func AnnounceCode(unitID uuid.UUID, code uint32) (err error) {
-	announcement := `audio.speak 'Pin Code , `
+func AnnounceCode(unitID uuid.UUID, intro string, code uint32) (err error) {
+	announcement := `audio.speak '` + intro + ` , `
 
 	stringCode := strconv.Itoa(int(code))
 
