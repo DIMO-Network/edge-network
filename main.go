@@ -470,7 +470,7 @@ func main() {
 			return
 		}
 
-		vin, err := commands.GetVIN(unitId)
+		vin, protocol, err := commands.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -478,6 +478,7 @@ func main() {
 			return
 		}
 
+		log.Printf("Got Protocol: %s", protocol) // need to do something with protocol to set right template
 		log.Printf("Got VIN: %s", vin)
 		lastVIN = vin
 		resp = []byte(vin)

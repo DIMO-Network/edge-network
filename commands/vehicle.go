@@ -24,7 +24,7 @@ func DetectCanbus(unitID uuid.UUID) (canbusInfo CanbusInfo, err error) {
 	return
 }
 
-func GetVIN(unitID uuid.UUID) (vin string, err error) {
+func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 	for _, part := range getVinCommandParts() {
 		// likely may not need bytes=20 or decode ascii
 		cmd := fmt.Sprintf(`obd.query vin mode=%s pid=%s bytes=20 formula='%s.decode("ascii")' force=True protocol=%s`,
@@ -41,8 +41,8 @@ func GetVIN(unitID uuid.UUID) (vin string, err error) {
 		}
 		// if no error, we want to make sure we get a semblance of a vin back
 		vin = resp.Value
-		if validateVIN(resp.Value) {
-			return vin, nil
+		if validateVIN(vin) {
+			return vin, part.Protocol, nil
 		} else {
 			err = fmt.Errorf("response contained an invalid vin: %s", vin)
 		}
