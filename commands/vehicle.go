@@ -99,14 +99,13 @@ func validateVIN(vin string) bool {
 	return true
 }
 
+// getVinCommandParts the PID command is composed of the protocol, header, PID and Mode. The Formula is just for
+// software interpretation. TODO: investigate if we can do the formula in software on our end to reduce the number of requests.
 func getVinCommandParts() []vinCommandParts {
 	return []vinCommandParts{
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7DF", PID: "02", Mode: "09", VINCode: "vin_7DF_09_02"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7e0", PID: "02", Mode: "09", VINCode: "vin_7e0_09_02"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
-		{Formula: `'int(messages[0].data[4:],16)/10'`, Protocol: "6", Header: "7DF", PID: "A6", Mode: "01", VINCode: "vin_7DF_A6"},
-		{Formula: `'int(messages[0].data[4:],16)/10'`, Protocol: "6", Header: "7DF", PID: "A6", Mode: "01", VINCode: "vin_7e0_A6"},
-		{Formula: `'int(messages[0].data[4:],16)/10'`, Protocol: "7", Header: "18DB33F1", PID: "A6", Mode: "01", VINCode: "vin_18DB33F1_A6"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_3"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_3"},
 		{Formula: `'messages[0].data[4:21]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_4"},
