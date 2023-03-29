@@ -46,3 +46,10 @@ We should do notifications but I assumed it would be too much of a change. Note 
 Missing:
 
 * Get cell signal strength
+
+## Deploying for production
+1. Release a build, wait for Github action to complete
+2. Go to advanced settings in AutoPi admin - https://dimo.autopi.io/#/advanced-settings
+3. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
+github because we were getting rate limited. So would need to download the tar.gz release from GH and upload to 
+Cloudflare. This process could be automated with CF API keys to copy automatically if find we do this often enough.
