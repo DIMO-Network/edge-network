@@ -127,6 +127,8 @@ func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 		cleaned := ""
 		// need to find start of clean character
 		for pos, ch := range asciiStr {
+			// todo investigate: is the byte being expanded to eg. \x02 instead of a single unicode character, thus blowing up the length?
+			// todo: subaru example payload had good example of \x02\x01 as ascii but in short is just a single unicode char.
 			if unicode.IsUpper(ch) || unicode.IsDigit(ch) {
 				cleaned = asciiStr[pos:]
 				if len(decodedVin) == 0 {
@@ -139,6 +141,11 @@ func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 		if len(decodedVin) < 17 {
 			decodedVin += cleaned
 		}
+	}
+	strLen := len(decodedVin)
+	if strLen > 17 {
+		startPosition = startPosition + (strLen - 17)
+		decodedVin = decodedVin[strLen-17:]
 	}
 	return decodedVin, startPosition - 4, nil // subtract 4 from start position to make up for random crap, not sure how this will work
 }
