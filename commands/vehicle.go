@@ -53,7 +53,7 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 		// if no error, we want to make sure we get a semblance of a vin back
 		if len(part.Formula) == 0 {
 			// if no formula, means we got raw hex back so lets try extracting vin from that
-			vin, err = extractVIN(resp.Value)
+			vin, _, err = extractVIN(resp.Value) // todo: do something with the pid vin start position - persist for later to backend
 			if err != nil {
 				fmt.Println("could not extract vin from hex: " + err.Error())
 				continue // try again on next loop with different command
@@ -104,7 +104,7 @@ func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	return
 }
 
-func extractVIN(hexValue string) (vin string, err error) {
+func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 	// loop for each line, ignore what we don't want
 	// start on the first 6th char,  cut out the first 5 of each line, convert that hex to ascii, remove any bad chars
 	// use regexp to look for only good characters
@@ -118,7 +118,7 @@ func extractVIN(hexValue string) (vin string, err error) {
 		// convert to ascii
 		hexBytes, err := hex.DecodeString(hx)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		asciiStr := ""
 		for _, b := range hexBytes {
@@ -129,6 +129,9 @@ func extractVIN(hexValue string) (vin string, err error) {
 		for pos, ch := range asciiStr {
 			if unicode.IsUpper(ch) || unicode.IsDigit(ch) {
 				cleaned = asciiStr[pos:]
+				if len(decodedVin) == 0 {
+					startPosition = pos // store the vin start position so we know when setting up pid logger
+				}
 				break
 			}
 		}
@@ -137,7 +140,7 @@ func extractVIN(hexValue string) (vin string, err error) {
 			decodedVin += cleaned
 		}
 	}
-	return decodedVin, nil
+	return decodedVin, startPosition - 4, nil // subtract 4 from start position to make up for random crap, not sure how this will work
 }
 
 func validateVIN(vin string) bool {
@@ -159,22 +162,21 @@ func validateVIN(vin string) bool {
 // software interpretation. If remove formula need to interpret it in software, will be raw hex
 func getVinCommandParts() []vinCommandParts {
 	return []vinCommandParts{
-		// todo remove formula once can extract vin
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7DF", PID: "02", Mode: "09", VINCode: "vin_7DF_09_02"},
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7e0", PID: "02", Mode: "09", VINCode: "vin_7e0_09_02"},
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_3"},
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_3"},
-		{Formula: `'messages[0].data[4:21]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_4"},
-		{Formula: `'messages[0].data[4:21]'`, Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_4"},
-		{Formula: `'messages[0].data[3:20]'`, Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_3"},
-		{Formula: `'messages[0].data[4:21]'`, Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_4"},
-		{Formula: `'messages[0].data[2:19]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_2"},
-		{Formula: `'messages[0].data[2:19]'`, Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
-		{Formula: `'messages[0].data[5:22]'`, Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_5"},
-		{Formula: `'messages[0].data[5:22]'`, Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
-		{Formula: `'messages[0].data[2:19]'`, Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_2"},
-		{Formula: `'messages[0].data[5:22]'`, Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_5"},
+		{Protocol: "6", Header: "7DF", PID: "02", Mode: "09", VINCode: "vin_7DF_09_02"},
+		{Protocol: "6", Header: "7e0", PID: "02", Mode: "09", VINCode: "vin_7e0_09_02"},
+		{Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
+		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS"},
+		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS"},
+		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_4"},
+		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_4"},
+		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS"},
+		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_4"},
+		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_2"},
+		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
+		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_5"},
+		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
+		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_2"},
+		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_5"},
 	}
 }
 
