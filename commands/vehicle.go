@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -103,7 +105,39 @@ func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 }
 
 func extractVIN(hexValue string) (vin string, err error) {
-	return "", nil
+	// loop for each line, ignore what we don't want
+	// start on the first 6th char,  cut out the first 5 of each line, convert that hex to ascii, remove any bad chars
+	// use regexp to look for only good characters
+	lines := strings.Split(hexValue, "\n")
+	decodedVin := ""
+	for _, line := range lines {
+		if len(line) < 6 {
+			continue
+		}
+		hx := line[5:] // remove start, why is this again, big endian vs little endian?
+		// convert to ascii
+		hexBytes, err := hex.DecodeString(hx)
+		if err != nil {
+			return "", err
+		}
+		asciiStr := ""
+		for _, b := range hexBytes {
+			asciiStr += string(b)
+		}
+		cleaned := ""
+		// need to find start of clean character
+		for pos, ch := range asciiStr {
+			if unicode.IsUpper(ch) || unicode.IsDigit(ch) {
+				cleaned = asciiStr[pos:]
+				break
+			}
+		}
+
+		if len(decodedVin) < 17 {
+			decodedVin += cleaned
+		}
+	}
+	return decodedVin, nil
 }
 
 func validateVIN(vin string) bool {

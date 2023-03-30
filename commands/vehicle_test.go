@@ -1,29 +1,36 @@
 package commands
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func Test_extractVIN(t *testing.T) {
-	type args struct {
-		hexValue string
-	}
 	tests := []struct {
-		name    string
-		args    args
-		wantVin string
-		wantErr bool
+		name     string
+		hexValue string
+		wantVin  string
+		wantErr  bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "2022_Ford_F150_7DF_22_F190_P6",
+			hexValue: `|-
+  7e8101b62f190314654
+  7e8214557314350334e
+  7e8224b453638353933
+  7e82300000000000000`,
+			wantVin: "1FTEW1CP3NKE68593",
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotVin, err := extractVIN(tt.args.hexValue)
+			gotVin, err := extractVIN(tt.hexValue)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("extractVIN() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if gotVin != tt.wantVin {
-				t.Errorf("extractVIN() gotVin = %v, want %v", gotVin, tt.wantVin)
-			}
+			assert.Equal(t, tt.wantVin, gotVin)
 		})
 	}
 }
