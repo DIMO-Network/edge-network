@@ -26,9 +26,16 @@ func DetectCanbus(unitID uuid.UUID) (canbusInfo CanbusInfo, err error) {
 
 func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 	for _, part := range getVinCommandParts() {
-		// likely may not need bytes=20 or decode ascii
-		cmd := fmt.Sprintf(`obd.query vin mode=%s pid=%s bytes=20 formula='%s.decode("ascii")' force=True protocol=%s`,
-			part.Mode, part.PID, part.Formula, part.Protocol)
+		hdr := ""
+		formula := ""
+		if len(part.Header) > 0 {
+			hdr = "header=" + part.Header
+		}
+		if len(part.Formula) > 0 {
+			formula = fmt.Sprintf(`formula='%s.decode("ascii")'`, part.Formula)
+		}
+		cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
+			hdr, part.Mode, part.PID, formula, part.Protocol)
 
 		req := executeRawRequest{Command: cmd}
 		url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -37,10 +44,21 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 
 		err = executeRequest("POST", url, req, &resp)
 		if err != nil {
+			fmt.Println("failed to execute POST request to get vin: " + err.Error())
 			continue // try again with different command if err
 		}
+		fmt.Println("received GetVIN response value: \n" + resp.Value) // for debugging - will want this to validate.
 		// if no error, we want to make sure we get a semblance of a vin back
-		vin = resp.Value
+		if len(part.Formula) == 0 {
+			// if no formula, means we got raw hex back so lets try extracting vin from that
+			vin, err = extractVIN(resp.Value)
+			if err != nil {
+				fmt.Println("could not extract vin from hex: " + err.Error())
+				continue // try again on next loop with different command
+			}
+		} else {
+			vin = resp.Value
+		}
 		if validateVIN(vin) {
 			return vin, part.Protocol, nil
 		} else {
@@ -84,6 +102,10 @@ func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 	return
 }
 
+func extractVIN(hexValue string) (vin string, err error) {
+	return "", nil
+}
+
 func validateVIN(vin string) bool {
 	if len(vin) != 17 {
 		return false
@@ -100,9 +122,10 @@ func validateVIN(vin string) bool {
 }
 
 // getVinCommandParts the PID command is composed of the protocol, header, PID and Mode. The Formula is just for
-// software interpretation. TODO: investigate if we can do the formula in software on our end to reduce the number of requests.
+// software interpretation. If remove formula need to interpret it in software, will be raw hex
 func getVinCommandParts() []vinCommandParts {
 	return []vinCommandParts{
+		// todo remove formula once can extract vin
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7DF", PID: "02", Mode: "09", VINCode: "vin_7DF_09_02"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "6", Header: "7e0", PID: "02", Mode: "09", VINCode: "vin_7e0_09_02"},
 		{Formula: `'messages[0].data[3:20]'`, Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
