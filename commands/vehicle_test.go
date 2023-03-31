@@ -106,7 +106,7 @@ func Test_extractVIN(t *testing.T) {
   7e82135534447473535
   7e82230343237313333`,
 			wantVin:         "UU15SDGG550427133",
-			wantVinStartPos: 1,
+			wantVinStartPos: 3,
 			wantErr:         false,
 		},
 		{
