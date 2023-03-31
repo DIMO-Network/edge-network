@@ -223,7 +223,7 @@ func (app *App) Close() {
 		}
 
 		// err =
-		app.agent.Release()
+		_ = app.agent.Release()
 		// if err != nil {
 		// 	log.Warnf("Agent1.Release: %s", err)
 		// }

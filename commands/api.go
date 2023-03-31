@@ -11,7 +11,6 @@ import (
 const (
 	detectCanbusCommand        = `obd.protocol set=auto`
 	sleepTimerDelayCommand     = `power.sleep_timer add=pairing period=900 clear=*`
-	getVINCommand              = `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
 	getEthereumAddressCommand  = `crypto.query ethereum_address`
 	signHashCommand            = `crypto.sign_string `
 	getDeviceIDCommand         = `config.get device.id`

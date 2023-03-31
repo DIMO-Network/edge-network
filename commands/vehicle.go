@@ -27,6 +27,8 @@ func DetectCanbus(unitID uuid.UUID) (canbusInfo CanbusInfo, err error) {
 }
 
 func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
+	// original vin command `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
+	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
 	for _, part := range getVinCommandParts() {
 		hdr := ""
 		formula := ""
@@ -170,10 +172,7 @@ func validateVIN(vin string) bool {
 }
 
 func isEven(num int) bool {
-	if num%2 == 0 {
-		return true
-	}
-	return false
+	return num%2 == 0
 }
 
 func findVINLineStart(lines []string) int {

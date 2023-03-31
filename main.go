@@ -687,7 +687,7 @@ func main() {
 		log.Fatalf("Could not retrieve previously paired devices: %s", err)
 	}
 
-	if coldBoot == false && hasPairedDevices(devices) {
+	if !coldBoot && hasPairedDevices(devices) {
 		log.Printf("Disabling bonding")
 		err = btManager.SetBondable(false)
 		if err != nil {

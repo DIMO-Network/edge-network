@@ -18,7 +18,7 @@ const SimpleAgentPassKey uint32 = 1024
 
 func NextAgentPath() dbus.ObjectPath {
 	p := dbus.ObjectPath(fmt.Sprintf(AgentBasePath, agentInstances))
-	agentInstances += 1
+	agentInstances++
 	return p
 }
 
@@ -121,24 +121,24 @@ func (simpleAgent *SimpleAgent) RequestPasskey(path dbus.ObjectPath) (uint32, *d
 
 func (simpleAgent *SimpleAgent) DisplayPasskey(device dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
 	log.Debugf("SimpleAgent: DisplayPasskey %s, %06d entered %d", device, passkey, entered)
-	_, unitId := commands.GetDeviceName()
+	_, unitID := commands.GetDeviceName()
 
-	err := commands.ExtendSleepTimer(unitId)
+	err := commands.ExtendSleepTimer(unitID)
 	if err != nil {
 		log.Warnf("Unable to extend sleep timer %s", err)
 	}
 
-	err = commands.AnnounceCode(unitId, "Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Pin Code", passkey)
 	if err != nil {
 		log.Warnf("Unable to announce the pairing code %s", err)
 	}
 
-	err = commands.AnnounceCode(unitId, "Repeating Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Repeating Pin Code", passkey)
 	if err != nil {
 		log.Warnf("Unable to announce the pairing code %s", err)
 	}
 
-	err = commands.AnnounceCode(unitId, "Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Pin Code", passkey)
 	if err != nil {
 		log.Warnf("Unable to announce the pairing code %s", err)
 	}
