@@ -16,17 +16,21 @@ Copy to the AutoPi with, e.g.,
 ```
 scp bin/edge-network pi@192.168.4.1:~
 ```
-Replace the IP address with the IP of the AutoPi on your local network. You'll need to have it [connect to your local wifi.](https://docs.autopi.io/guides/guides-intro/#6-connect-to-wifi) 
+Note that IP is the default IP address of the AutoPi when you connect to it's wifi. You'll need to [connect to the AP local wifi.](https://docs.autopi.io/guides/guides-intro/#6-connect-to-wifi) 
+to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
 This should place the executable in the home directory. Then you can run it. We need to make it into a systemd service. The device should be discoverable under thr usual `autopi`-prefixed name.
 
 ### How this works / testing it
 
 Install [BLE Scanner](https://apps.apple.com/us/app/ble-scanner-4-0/id1221763603) on the Mac/iOS.
-The when the AutoPi is on, start up that app and find the autopi, connect to it. 
-You'll see the advertised services match what is below. Click on the one you want to ge the value.
+The when the AutoPi is on, with your vehicle ON, start up that app and find the autopi, connect to it - prefixed by `autopi-`.
+You'll see the advertised services match what is below in Commands. Click on the one you want to get the value.
 
 Instead of building locally, you can also build in Github and then set the release URL for a specific 
 device in the AutoPi cloud (ie. your device). Then do above again with BLE scanner to connect and test your changes.
+Note that you will only be able to pull data from the vehicle if it is on. 
+Also, if the AutoPi is unable to connect to the network for whatever reason edge-network won't return data eg. the VIN. For example
+if you connec the AP to wifi, but it can't get an internet connection, this stuff won't work. 
 
 To view logs, from the AP cloud terminal, run the following: `journalctl -u edge-network`
 
