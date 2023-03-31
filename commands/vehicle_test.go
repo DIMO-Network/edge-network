@@ -74,6 +74,44 @@ func Test_extractVIN(t *testing.T) {
 			wantVinStartPos: 1,
 			wantErr:         false,
 		},
+		{
+			name: "2018_Ford_F-150_7DF_09_02 stdPID",
+			hexValue: `|-
+  7e81014490201314654
+  7e8214557314342324a
+  7e8224b443338353331`,
+			wantVin:         "1FTEW1CB2JKD38531",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: "2017_Hyundai_Tucson_7DF_09_02 stdPID",
+			hexValue: `|-
+  7e810144902014b4d38
+  7e8214a334341323948
+  7e82255323938343437`,
+			wantVin:         "KM8J3CA29HU298447",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: " 2015_Dacia_Sandero_7DF_22_F190_P6 UDS",
+			hexValue: `|-
+  7e8101462f190555531
+  7e82135534447473535
+  7e82230343237313333`,
+			wantVin:         "UU15SDGG550427133",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: "Dacia error",
+			hexValue: `|-
+7e81014490201202020
+7e82120202020202020
+7e82220202020202020`,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

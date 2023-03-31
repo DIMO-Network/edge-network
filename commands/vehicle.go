@@ -153,6 +153,9 @@ func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 		startPosition = startPosition + (strLen - 17)
 		decodedVin = decodedVin[strLen-17:]
 	}
+	if !validateVIN(decodedVin) {
+		return "", 0, fmt.Errorf("could not extract a valid VIN, result was: %s", decodedVin)
+	}
 	return decodedVin, startPosition - 4, nil // subtract 4 from start position to make up for random crap, not sure how this will work
 }
 
