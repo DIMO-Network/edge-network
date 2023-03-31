@@ -34,6 +34,46 @@ func Test_extractVIN(t *testing.T) {
 			wantVinStartPos: 1, // this doesn't make sense, should be higher like 2 or 3
 			wantErr:         false,
 		},
+		{
+			name: "2008_Nissan_Altima_7DF_09_02_P6 stdPID",
+			hexValue: `|-
+  7e81014490201314e34
+  7e821414c3231453738
+  7e8224e353139313437`,
+			wantVin:         "1N4AL21E78N519147",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: "2020_Chevrolet_Silverado_1500_7e0_09_02_P6 stdPID",
+			hexValue: `|-
+  7e81014490201314743
+  7e821525942454b324c
+  7e8225a333239323338`,
+			wantVin:         "1GCRYBEK2LZ329238",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: "2019_Volvo_XC60_7df_09_02_P6 stdPID",
+			hexValue: `|-
+  7e81014490201595634
+  7e821425230444d304a
+  7e82231303232353139`,
+			wantVin:         "YV4BR0DM0J1022519",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
+		{
+			name: "2019_Honda_CR-V_18DB33F1_09_02_P7 stdPID",
+			hexValue: `|-
+  18daf1101014490201354a36
+  18daf110215257324838394b
+  18daf110224c303132333032`,
+			wantVin:         "5J6RW2H89KL012302",
+			wantVinStartPos: 1,
+			wantErr:         false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

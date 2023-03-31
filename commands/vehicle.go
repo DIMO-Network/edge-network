@@ -109,12 +109,16 @@ func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 	// start on the first 6th char,  cut out the first 5 of each line, convert that hex to ascii, remove any bad chars
 	// use regexp to look for only good characters
 	lines := strings.Split(hexValue, "\n")
+	cutStartPos := findVINLineStart(lines)
 	decodedVin := ""
 	for _, line := range lines {
 		if len(line) < 6 {
 			continue
 		}
-		hx := line[5:] // remove start, why is this again, big endian vs little endian?
+		hx := line[cutStartPos:] // remove start, why is this again, big endian vs little endian? Protocol 7 may be different
+		if !isEven(len(hx)) {
+			hx = hx[1:] // cut one more if we get an odd length
+		}
 		// convert to ascii
 		hexBytes, err := hex.DecodeString(hx)
 		if err != nil {
@@ -163,6 +167,40 @@ func validateVIN(vin string) bool {
 	// consider validating parts, eg. bring in shared vin library and then some basic validation for each part, or call out to service?
 
 	return true
+}
+
+func isEven(num int) bool {
+	if num%2 == 0 {
+		return true
+	}
+	return false
+}
+
+func findVINLineStart(lines []string) int {
+	const defaultPosition = 5
+	pos := defaultPosition
+	var contentLines []string
+	// remove lines that aren't core part
+	for _, line := range lines {
+		if len(line) < 5 {
+			continue
+		}
+		contentLines = append(contentLines, line)
+	}
+	// for each character on the first line, up to what position do the rest of lines have the same characters in order.
+	for i, ch := range contentLines[0] {
+		for _, line2 := range contentLines[1:] {
+			if ch != int32(line2[i]) {
+				pos = i
+				break
+			}
+		}
+		if pos != defaultPosition {
+			break
+		}
+	}
+
+	return pos - 1
 }
 
 // getVinCommandParts the PID command is composed of the protocol, header, PID and Mode. The Formula is just for
