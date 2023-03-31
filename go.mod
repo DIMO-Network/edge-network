@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/godbus/dbus/v5 v5.0.3
 	github.com/google/uuid v1.3.0
+	github.com/jarcoal/httpmock v1.3.0
 	github.com/muka/go-bluetooth v0.0.0-20200903202100-13616d14eca5
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0

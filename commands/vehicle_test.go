@@ -1,7 +1,12 @@
 package commands
 
 import (
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"net/http"
 	"testing"
 )
 
@@ -124,4 +129,22 @@ func Test_extractVIN(t *testing.T) {
 			assert.Equal(t, tt.wantVinStartPos, gotStartPos)
 		})
 	}
+}
+
+func TestGetVIN(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+	const testVIN = "1FTEW1CP3NKE68593"
+	// mock http
+	v := `|-\n7e8101b62f190314654\n7e8214557314350334e\n7e8224b453638353933\n7e82300000000000000`
+	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
+	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID.String())
+	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
+
+	vin, protocol, err := GetVIN(unitID)
+	require.NoError(t, err)
+	assert.Equal(t, "6", protocol)
+	assert.Equal(t, testVIN, vin)
 }

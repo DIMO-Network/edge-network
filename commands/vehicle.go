@@ -189,16 +189,18 @@ func findVINLineStart(lines []string) int {
 		}
 		contentLines = append(contentLines, line)
 	}
-	// for each character on the first line, up to what position do the rest of lines have the same characters in order.
-	for i, ch := range contentLines[0] {
-		for _, line2 := range contentLines[1:] {
-			if ch != int32(line2[i]) {
-				pos = i
+	if len(contentLines) > 0 {
+		// for each character on the first line, up to what position do the rest of lines have the same characters in order.
+		for i, ch := range contentLines[0] {
+			for _, line2 := range contentLines[1:] {
+				if ch != int32(line2[i]) {
+					pos = i
+					break
+				}
+			}
+			if pos != defaultPosition {
 				break
 			}
-		}
-		if pos != defaultPosition {
-			break
 		}
 	}
 
