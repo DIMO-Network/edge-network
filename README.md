@@ -1,6 +1,6 @@
 # Edge-Network app
 
-This application is meant to run on an autopi, to get a variety of information from the device over BTE.
+This application is meant to run on an autopi, to get a variety of information from the device over BTE (leveraging devices that have it, not 5.2 hw). 
 
 ## Building and deploying locally
 
@@ -18,11 +18,15 @@ scp bin/edge-network pi@192.168.4.1:~
 ```
 Note that IP is the default IP address of the AutoPi when you connect to it's wifi. You'll need to [connect to the AP local wifi.](https://docs.autopi.io/guides/guides-intro/#6-connect-to-wifi) 
 to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
-This should place the executable in the home directory. Then you can run it. We need to make it into a systemd service. The device should be discoverable under thr usual `autopi`-prefixed name.
+This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running. 
+The device should be discoverable under thr usual `autopi`-prefixed name via Bluetooth.
 
 ### How this works / testing it
 
-Install [BLE Scanner](https://apps.apple.com/us/app/ble-scanner-4-0/id1221763603) on the Mac/iOS.
+This runs as a systemd service. To see it's status: 
+`cmd.run 'systemctl status edge-network'`
+
+To check it out, Install [BLE Scanner](https://apps.apple.com/us/app/ble-scanner-4-0/id1221763603) on the Mac/iOS.
 The when the AutoPi is on, with your vehicle ON, start up that app and find the autopi, connect to it - prefixed by `autopi-`.
 You'll see the advertised services match what is below in Commands. Click on the one you want to get the value.
 
@@ -78,3 +82,22 @@ Missing:
 3. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
 github because we were getting rate limited. So would need to download the tar.gz release from GH and upload to 
 Cloudflare. This process could be automated with CF API keys to copy automatically if find we do this often enough.
+
+## Re-installing edge-network on an autopi
+
+Remove the current install:
+`cmd.run 'rm /opt/autopi/edge-network_release.tar.gz'` 
+
+Install the newest version of the edge-network, uses the URL configured in autopi cloud to download tar.gz
+`state.sls dimo.install`
+
+Check to see if it is running:
+`cmd.run 'systemctl status edge-network'`
+
+If you see this result:
+  edge-network.service - DIMO Bluetooth Service
+  Loaded: loaded (/lib/systemd/system/edge-network.service; disabled; vendor preset: enabled)
+  Active: inactive (dead)
+
+Start the service manually if didn't start after install:
+`cmd.run 'systemctl start edge-network'` 
