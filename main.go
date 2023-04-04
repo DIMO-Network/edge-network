@@ -53,6 +53,7 @@ const (
 var lastSignature []byte
 
 var lastVIN string
+var lastProtocol string
 var unitId uuid.UUID
 var name string
 
@@ -481,6 +482,7 @@ func main() {
 		log.Printf("Got Protocol: %s", protocol) // need to do something with protocol to set right template
 		log.Printf("Got VIN: %s", vin)
 		lastVIN = vin
+		lastProtocol = protocol
 		resp = []byte(vin)
 		return
 	})
