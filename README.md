@@ -62,6 +62,8 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
 * Vehicle service `5c30d387-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get VIN characteristic `5c300acc-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded VIN
+  * Get Protocol characteristic `5c300adc-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded Protocol supported, either "06" or "07"
 * Transactions service `5c30aade-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get Ethereum address characteristic `5c301dd2-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the 20 bytes of the Ethereum address for the device.

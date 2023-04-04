@@ -45,6 +45,7 @@ const (
 	sleepControlUUIDFragment        = "5a20"
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
+	protocolCharUUIDFragment        = "0adc"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
 	signCharUUIDFragment            = "e60f"
@@ -53,6 +54,7 @@ const (
 var lastSignature []byte
 
 var lastVIN string
+var lastProtocol string
 var unitId uuid.UUID
 var name string
 
@@ -481,6 +483,7 @@ func main() {
 		log.Printf("Got Protocol: %s", protocol) // need to do something with protocol to set right template
 		log.Printf("Got VIN: %s", vin)
 		lastVIN = vin
+		lastProtocol = protocol
 		resp = []byte(vin)
 		return
 	})
@@ -488,6 +491,44 @@ func main() {
 	err = vehicleService.AddChar(vinChar)
 	if err != nil {
 		log.Fatalf("Failed to add VIN characteristic to vehicle service: %s", err)
+	}
+
+	// Get Protocol (based on what query worked to get the VIN, must Get VIN before)
+	protocolChar, err := vehicleService.NewChar(protocolCharUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create protocol characteristic: %s", err)
+	}
+	protocolChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
+
+	protocolChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving Protocol: %s", err)
+			}
+		}()
+		if lastProtocol != "" {
+			resp = []byte(lastProtocol)
+			log.Printf("Returning protocol from last VIN query: %s", lastProtocol)
+			return
+		}
+		// just re-query for VIN
+		vin, protocol, err := commands.GetVIN(unitId)
+		if err != nil {
+			err = nil
+			log.Printf("Unable to get VIN")
+			resp = []byte("00")
+			return
+		}
+
+		log.Printf("Got Protocol: %s", protocol)
+		lastVIN = vin
+		lastProtocol = protocol
+		resp = []byte(protocol)
+		return
+	})
+	err = vehicleService.AddChar(protocolChar)
+	if err != nil {
+		log.Fatalf("Failed to add protocol characteristic to vehicle service: %s", err)
 	}
 
 	// Diagnostic codes
