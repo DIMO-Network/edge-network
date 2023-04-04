@@ -149,9 +149,9 @@ func (simpleAgent *SimpleAgent) DisplayPasskey(device dbus.ObjectPath, passkey u
 func (simpleAgent *SimpleAgent) RequestConfirmation(path dbus.ObjectPath, passkey uint32) *dbus.Error {
 
 	log.Debugf("SimpleAgent: RequestConfirmation (%s, %06d)", path, passkey)
-	_, unitId := commands.GetDeviceName()
+	_, unitID := commands.GetDeviceName()
 
-	err := commands.ExtendSleepTimer(unitId)
+	err := commands.ExtendSleepTimer(unitID)
 	if err != nil {
 		log.Warnf("Unable to extend sleep timer %s", err)
 	}

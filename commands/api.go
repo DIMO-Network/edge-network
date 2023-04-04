@@ -19,7 +19,6 @@ const (
 	wifiStatusCommand          = `wifi.status`
 	setWifiConnectionCommand   = `grains.set`
 	getSoftwareVersionCommand  = `grains.get release:version`
-	getAvailableWifiCommand    = `grains.get`
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
 	powerStatusCommand         = `power.status`
