@@ -18,12 +18,18 @@ scp bin/edge-network pi@192.168.4.1:~
 ```
 Note that IP is the default IP address of the AutoPi when you connect to it's wifi. You'll need to [connect to the AP local wifi.](https://docs.autopi.io/guides/guides-intro/#6-connect-to-wifi) 
 to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
-This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running. 
+This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running by:
+
+- `which edge-control`
+- `systemctl stop edge-network`
+- replace the binary (you'll need to decompres `tar -xzvf` the binary if needed)
+- `systemctl start edge-network`
+
 The device should be discoverable under thr usual `autopi`-prefixed name via Bluetooth.
 
 ### How this works / testing it
 
-This runs as a systemd service. To see it's status: 
+This runs as a systemd service. To see it's status from ap cloud: 
 `cmd.run 'systemctl status edge-network'`
 
 To check it out, Install [BLE Scanner](https://apps.apple.com/us/app/ble-scanner-4-0/id1221763603) on the Mac/iOS.
@@ -77,13 +83,21 @@ Missing:
 
 * Get cell signal strength
 
-## Deploying for production
+## Deploying for production (single vehicle)
 
 1. Release a build, wait for Github action to complete
-2. Go to advanced settings in AutoPi admin - https://dimo.autopi.io/#/advanced-settings
-3. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
-github because we were getting rate limited. So would need to download the tar.gz release from GH and upload to 
-Cloudflare. This process could be automated with CF API keys to copy automatically if find we do this often enough.
+2. Select the desired vehicle in top right selector.
+3. Go to advanced settings in AutoPi admin - https://dimo.autopi.io/#/advanced-settings
+4. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
+github because we were getting rate limited. The proxy code [is here](https://github.com/DIMO-Network/assets-proxy/blob/main/src/index.js) that automatically pulls binaries.dimo.zone from GH. 
+
+### Deploying to all vehicles or specific templates
+
+1. Release a build, wait for Github action to complete
+2. Templates https://dimo.autopi.io/#/template
+3. Select the Base template, or other specific templates
+4. Configuration tab
+5. Edit the `Dimo > Edge-network > Url` property updating the version portion of it.
 
 ## Re-installing edge-network on an autopi
 
