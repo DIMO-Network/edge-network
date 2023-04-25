@@ -41,7 +41,9 @@ func main() {
 VIN SAMPLES:
 			CitroenVinTypeA:
 					Models: 2017 Citroën Berlingo Multispace 2017 (ex. VF77FBHY6HJ734213)
-							//ex. "autoPiUnitId": "3ba9494d-22bc-249e-616c-dc4e1ebc45d4",
+								//ex. "autoPiUnitId": "3ba9494d-22bc-249e-616c-dc4e1ebc45d4",
+							Citroen C3 2021 -
+								//ex. 7768ab5d-ce1b-f0de-2178-687c836daae4
 					Protocol: 6
 					Sample VIN data:
 						CitroenVinTypeAsegA:   4d2#564637
