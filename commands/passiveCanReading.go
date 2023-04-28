@@ -1,4 +1,4 @@
-package passive_can_reading
+package commands
 
 import (
 	"context"

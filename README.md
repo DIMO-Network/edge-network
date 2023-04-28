@@ -117,3 +117,9 @@ If you see this result:
 
 Start the service manually if didn't start after install:
 `cmd.run 'systemctl start edge-network'` 
+
+# Research
+
+Other CAN libraries: https://github.com/go-daq/canbus 
+supports sending data on the bus
+eg PID fuel tank level: `can-send vcan0 7DF#02012F5555555555`

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -67,6 +68,18 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 			return vin, part.Protocol, nil
 		} else {
 			err = fmt.Errorf("response contained an invalid vin: %s", vin)
+		}
+	}
+
+	if err != nil {
+		// unable to get VIN via PID queries, so try passive scan
+		myVinReader := newPassiveVinReader()
+		protocolInt := 0
+		// todo cleanup logging in this method
+		vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000)
+		if validateVIN(vin) {
+			err = nil
+			protocol = strconv.Itoa(protocolInt)
 		}
 	}
 
@@ -211,16 +224,7 @@ func getVinCommandParts() []vinCommandParts {
 		{Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
 		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS"},
 		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS"},
-		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_4"},
-		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_4"},
 		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS"},
-		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_4"},
-		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_2"},
-		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
-		//{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS_5"},
-		//{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS_2"},
-		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_2"},
-		//{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS_5"},
 	}
 }
 
