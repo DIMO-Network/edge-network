@@ -33,11 +33,6 @@ func newPassiveVinReader() *passiveVinReader {
 	return &passiveVinReader{}
 }
 
-func (a passiveVinReader) StopExecution() {
-	a.stopRunning = true
-	//this is a placeholder for multi-threaded utility if we go in that direction
-}
-
 func (a passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
 	d, _ := candevice.New("can0")
 	_ = d.SetBitrate(500000)
@@ -110,7 +105,6 @@ func (a passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
 		if loopNumber > cycles || a.stopRunning {
 			break
 		}
-
 	}
 	//println("message count:")
 	//println(loopNumber)
