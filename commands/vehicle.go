@@ -66,9 +66,8 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 		}
 		if validateVIN(vin) {
 			return vin, part.Protocol, nil
-		} else {
-			err = fmt.Errorf("response contained an invalid vin: %s", vin)
 		}
+		err = fmt.Errorf("response contained an invalid vin: %s", vin)
 	}
 
 	if err != nil {
