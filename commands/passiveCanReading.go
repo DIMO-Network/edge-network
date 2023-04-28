@@ -21,23 +21,6 @@ type passiveVinReader struct {
 }
 
 /*
-func main() {
-	var test , VinType string
-	var protocol int
-	myVinReader := newPassiveVinReader()
-	test, protocol, VinType = myVinReader.ReadCitroenVIN(10000)
-	fmt.Println("VIN: " + test)
-	fmt.Println("Protocol: " + string(protocol))
-	fmt.Println(VinType)
-	if protocol == 6 {
-		println("protocol 6")
-	} else if protocol == 7 {
-		println("protocol 7")
-	}
-}
-*/
-
-/*
 VIN SAMPLES:
 			CitroenVinTypeA:
 					Models: 2017 Citroën Berlingo Multispace 2017 (ex. VF77FBHY6HJ734213)
