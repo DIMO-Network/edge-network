@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/agent"
@@ -107,6 +108,9 @@ func main() {
 		}
 	}
 	log.Printf("Starting DIMO Edge Network")
+	if info, ok := debug.ReadBuildInfo(); ok {
+		log.Printf("Build Info\n" + info.String())
+	}
 
 	name, unitId = commands.GetDeviceName()
 	log.Printf("Serial Number: %s", unitId)
