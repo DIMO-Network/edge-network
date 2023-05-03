@@ -1,16 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/google/subcommands"
 	"log"
 	"math"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/agent"
@@ -101,16 +102,21 @@ func setupBluez(name string) error {
 }
 
 func main() {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		log.Printf("Build Info\n" + info.String())
-	}
 	name, unitId = commands.GetDeviceName()
 	log.Printf("Serial Number: %s", unitId)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
+
 	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
+	subcommands.Register(&buildInfoCmd{}, "info")
+
+	if len(os.Args) > 1 {
+		ctx := context.Background()
+		flag.Parse()
+		os.Exit(int(subcommands.Execute(ctx)))
+	}
 
 	log.Printf("Starting DIMO Edge Network")
 
