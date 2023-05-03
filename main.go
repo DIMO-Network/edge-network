@@ -10,7 +10,6 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/agent"
@@ -105,13 +104,11 @@ func main() {
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
 
-	if info, ok := debug.ReadBuildInfo(); ok {
-		log.Printf("Build Info\n" + info.String())
-	}
 	name, unitId = commands.GetDeviceName()
 	log.Printf("Serial Number: %s", unitId)
 
 	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
+	subcommands.Register(&buildInfoCmd{}, "decode loggers")
 	// temporary
 	os.Exit(0)
 
