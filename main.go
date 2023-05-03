@@ -101,16 +101,19 @@ func setupBluez(name string) error {
 }
 
 func main() {
+	subcommands.Register(subcommands.HelpCommand(), "")
+	subcommands.Register(subcommands.FlagsCommand(), "")
+	subcommands.Register(subcommands.CommandsCommand(), "")
+
 	if info, ok := debug.ReadBuildInfo(); ok {
 		log.Printf("Build Info\n" + info.String())
 	}
 	name, unitId = commands.GetDeviceName()
 	log.Printf("Serial Number: %s", unitId)
 
-	subcommands.Register(subcommands.HelpCommand(), "")
-	subcommands.Register(subcommands.FlagsCommand(), "")
-	subcommands.Register(subcommands.CommandsCommand(), "")
 	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
+	// temporary
+	os.Exit(0)
 
 	log.Printf("Starting DIMO Edge Network")
 
