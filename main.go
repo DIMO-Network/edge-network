@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/google/subcommands"
 	"log"
@@ -100,17 +102,21 @@ func setupBluez(name string) error {
 }
 
 func main() {
+	name, unitId = commands.GetDeviceName()
+	log.Printf("Serial Number: %s", unitId)
+
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
 
-	name, unitId = commands.GetDeviceName()
-	log.Printf("Serial Number: %s", unitId)
-
 	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
-	subcommands.Register(&buildInfoCmd{}, "decode loggers")
-	// temporary
-	os.Exit(0)
+	subcommands.Register(&buildInfoCmd{}, "info")
+
+	if len(os.Args) > 1 {
+		ctx := context.Background()
+		flag.Parse()
+		os.Exit(int(subcommands.Execute(ctx)))
+	}
 
 	log.Printf("Starting DIMO Edge Network")
 
