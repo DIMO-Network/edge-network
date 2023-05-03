@@ -18,6 +18,7 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/subcommands v1.2.0 // indirect
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/mdlayher/netlink v1.7.1 // indirect
 	github.com/mdlayher/socket v0.4.0 // indirect
