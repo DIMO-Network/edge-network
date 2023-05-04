@@ -59,6 +59,8 @@ type StatusUpdateData struct {
 
 	VinTest      string `json:"canbus_vin_test"`
 	ProtocolTest string `json:"canbus_protocol_test"`
+
+	Signals StatusUpdateSignals `json:"signals"`
 }
 
 type StatusUpdateDevice struct {
@@ -66,4 +68,14 @@ type StatusUpdateDevice struct {
 	Timestamp int64 `json:"timestamp"`
 	// UnitID is the autopi unit id
 	UnitID string `json:"unit_id"`
+}
+
+// StatusUpdateSignals not sure if need this but jic
+type StatusUpdateSignals struct {
+	VinTest      StringSignal `json:"canbus_vin_test"`
+	ProtocolTest StringSignal `json:"canbus_protocol_test"`
+}
+
+type StringSignal struct {
+	Value string `json:"value"`
 }
