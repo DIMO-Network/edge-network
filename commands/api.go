@@ -22,6 +22,9 @@ const (
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
 	powerStatusCommand         = `power.status`
+	getModemCommand            = `config.get modem`
+	ec2xIMSICommand            = `ec2x.query AT+CIMI`
+	normalIMSICommand          = `modem.connection execute AT+CIMI`
 )
 
 const autoPiBaseURL = "http://192.168.4.1:9000"
