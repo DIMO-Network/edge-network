@@ -27,7 +27,7 @@ func DetectCanbus(unitID uuid.UUID) (canbusInfo CanbusInfo, err error) {
 	return
 }
 
-func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
+func GetVIN(unitID uuid.UUID) (vin, protocol string, VINCode string, err error) {
 	// original vin command `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
 	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
 	for _, part := range getVinCommandParts() {
@@ -65,7 +65,7 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 			vin = resp.Value
 		}
 		if validateVIN(vin) {
-			return vin, part.Protocol, nil
+			return vin, part.Protocol, part.VINCode, nil
 		}
 		err = fmt.Errorf("response contained an invalid vin: %s", vin)
 	}
