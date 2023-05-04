@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -17,6 +18,9 @@ func SendPayload(status *StatusUpdatePayload) error {
 	if err != nil {
 		return err
 	}
+	log.Infof("sending payload:\n")
+	log.Infof("%s", string(payload))
+
 	// Setup mqtt connection
 	broker := "tcp://localhost:1883"
 	opts := mqtt.NewClientOptions()
@@ -55,7 +59,7 @@ type StatusUpdatePayload struct {
 }
 
 type StatusUpdateData struct {
-	Device StatusUpdateDevice `json:"device"`
+	Device StatusUpdateDevice `json:"meta"`
 
 	VinTest      string `json:"canbus_vin_test"`
 	ProtocolTest string `json:"canbus_protocol_test"`

@@ -37,7 +37,10 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
 	if p.send {
-		sendStatusVIN(vin, protocol, p.unitID.String())
+		err = sendStatusVIN(vin, protocol, p.unitID.String())
+		if err != nil {
+			log.Errorf("failed to send vin over mqtt: %s", err.Error())
+		}
 	}
 
 	return subcommands.ExitSuccess
