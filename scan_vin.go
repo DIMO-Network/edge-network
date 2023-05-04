@@ -28,12 +28,13 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
-	vin, protocol, err := commands.GetVIN(p.unitID)
+	vin, protocol, VINCode, err := commands.GetVIN(p.unitID)
 	if err != nil {
 		log.Panicf("could not get vin %s", err.Error())
 	}
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
+	log.Infof("VINCode: %s\n", VINCode)
 
 	return subcommands.ExitSuccess
 }
