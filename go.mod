@@ -3,8 +3,10 @@ module github.com/DIMO-Network/edge-network
 go 1.19
 
 require (
+	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/godbus/dbus/v5 v5.0.3
+	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.3.0
 	github.com/jarcoal/httpmock v1.3.0
 	github.com/muka/go-bluetooth v0.0.0-20200903202100-13616d14eca5
@@ -18,7 +20,7 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/subcommands v1.2.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/mdlayher/netlink v1.7.1 // indirect
 	github.com/mdlayher/socket v0.4.0 // indirect

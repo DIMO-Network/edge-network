@@ -34,6 +34,7 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	}
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
+	// todo send the vin
 
 	return subcommands.ExitSuccess
 }
