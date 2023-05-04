@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const topic = "reactor"
+const topic = "raw"
 
 // SendPayload sends a filled in status update via mqtt to localhost server
 func SendPayload(status *StatusUpdatePayload) error {
