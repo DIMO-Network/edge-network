@@ -18,7 +18,7 @@ const (
 	signalStrengthCommand      = `qmi.signal_strength`
 	wifiStatusCommand          = `wifi.status`
 	setWifiConnectionCommand   = `grains.set`
-	getSoftwareVersionCommand  = `grains.get release:version`
+	getSoftwareVersionCommand  = `config.get latest_release_version`
 	getDiagnosticCodeCommand   = `obd.dtc`
 	clearDiagnosticCodeCommand = `obd.dtc clear=true`
 	powerStatusCommand         = `power.status`
