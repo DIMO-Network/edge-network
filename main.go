@@ -49,6 +49,7 @@ const (
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
 	protocolCharUUIDFragment        = "0adc"
+	vinReadTypeUUIDFragment         = "0ade"
 	transactionsServiceUUIDFragment = "aade"
 	addrCharUUIDFragment            = "1dd2"
 	signCharUUIDFragment            = "e60f"
@@ -58,6 +59,7 @@ var lastSignature []byte
 
 var lastVIN string
 var lastProtocol string
+var lastVINCode string
 var unitId uuid.UUID
 var name string
 
@@ -533,12 +535,52 @@ func main() {
 		log.Printf("Got Protocol: %s", protocol)
 		lastVIN = vin
 		lastProtocol = protocol
+		lastVINCode = VINCode
 		resp = []byte(protocol)
 		return
 	})
 	err = vehicleService.AddChar(protocolChar)
 	if err != nil {
 		log.Fatalf("Failed to add protocol characteristic to vehicle service: %s", err)
+	}
+
+	// Get VINReadType (based on what query worked to get the VIN, must Get VIN before)
+	VINReadType, err := vehicleService.NewChar(vinReadTypeUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create protocol characteristic: %s", err)
+	}
+	VINReadType.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
+
+	VINReadType.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving VINReadType: %s", err)
+			}
+		}()
+		if lastProtocol != "" {
+			resp = []byte(lastProtocol)
+			log.Printf("Returning VINReadType from last VIN query: %s", lastVINCode)
+			return
+		}
+		// just re-query for VIN
+		vin, protocol, VINCode, err := commands.GetVIN(unitId)
+		if err != nil {
+			err = nil
+			log.Printf("Unable to get VIN")
+			resp = []byte("00")
+			return
+		}
+
+		log.Printf("Got VINReadType: %s", VINCode)
+		lastVIN = vin
+		lastProtocol = protocol
+		lastVINCode = VINCode
+		resp = []byte(VINCode)
+		return
+	})
+	err = vehicleService.AddChar(protocolChar)
+	if err != nil {
+		log.Fatalf("Failed to add VINReadType characteristic to vehicle service: %s", err)
 	}
 
 	// Diagnostic codes
