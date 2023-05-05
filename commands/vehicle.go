@@ -75,7 +75,7 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, VINCode string, err error) 
 		myVinReader := newPassiveVinReader()
 		protocolInt := 0
 		// todo cleanup logging in this method
-		vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000)
+		vin, protocolInt, VINCode = myVinReader.ReadCitroenVIN(10000)
 		if validateVIN(vin) {
 			err = nil
 			protocol = strconv.Itoa(protocolInt)
