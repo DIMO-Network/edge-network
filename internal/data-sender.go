@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// thought: should we have another topic for errors? ie. signals we could not get
 const topic = "raw"
 
 // SendPayload sends a filled in status update via mqtt to localhost server
