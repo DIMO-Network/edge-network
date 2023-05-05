@@ -1,10 +1,14 @@
 package internal
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"github.com/DIMO-Network/edge-network/commands"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/sjson"
 	"time"
 )
 
@@ -41,7 +45,17 @@ func SendPayload(status *StatusUpdatePayload) error {
 	// Disconnect from the MQTT broker
 	defer client.Disconnect(250)
 
+	// signature for the payload
+	sig, err := commands.SignHash(status.UnitID, payload)
+	if err != nil {
+		return errors.Wrap(err, "failed to sign the status update")
+	}
+
 	// Publish the MQTT message
+	payload, err = sjson.SetBytes(payload, "signature", hex.EncodeToString(sig)) // todo is this how we want the signature in the json?
+	if err != nil {
+		return errors.Wrap(err, "failed to add signature to status update")
+	}
 	token := client.Publish(topic, 0, false, string(payload))
 	token.Wait() // just waits up until message goes through
 
@@ -55,32 +69,17 @@ func SendPayload(status *StatusUpdatePayload) error {
 
 type StatusUpdatePayload struct {
 	// Subject here subject means autopi unit id (it will get converted after ingestion)
-	Subject string           `json:"subject"`
-	Data    StatusUpdateData `json:"data"`
-}
-
-type StatusUpdateData struct {
-	Device StatusUpdateDevice `json:"meta"`
-
-	VinTest      string `json:"canbus_vin_test"`
-	ProtocolTest string `json:"canbus_protocol_test"`
-
-	Signals StatusUpdateSignals `json:"signals"`
-}
-
-type StatusUpdateDevice struct {
+	Subject string `json:"subject"`
 	// Timestamp the signal timestamp, in unix millis
 	Timestamp int64 `json:"timestamp"`
 	// UnitID is the autopi unit id
-	UnitID string `json:"unit_id"`
+	UnitID          uuid.UUID        `json:"unit_id"`
+	Data            StatusUpdateData `json:"data"`
+	EthereumAddress string           `json:"ethereum_address"`
 }
 
-// StatusUpdateSignals not sure if need this but jic
-type StatusUpdateSignals struct {
-	VinTest      StringSignal `json:"canbus_vin_test"`
-	ProtocolTest StringSignal `json:"canbus_protocol_test"`
-}
-
-type StringSignal struct {
-	Value string `json:"value"`
+type StatusUpdateData struct {
+	Vin      string  `json:"vin"`
+	Protocol string  `json:"protocol"` // todo should we just post this to endpoint in vehicle-signal-decoding api
+	Odometer float64 `json:"odometer,omitempty"`
 }

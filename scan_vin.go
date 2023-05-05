@@ -5,15 +5,16 @@ import (
 	"flag"
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 type scanVINCmd struct {
-	unitID uuid.UUID
-	send   bool
+	unitID  uuid.UUID
+	ethAddr common.Address
+	send    bool
 }
 
 func (*scanVINCmd) Name() string { return "scan-vin" }
@@ -37,7 +38,7 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
 	if p.send {
-		err = sendStatusVIN(vin, protocol, p.unitID.String())
+		err = sendStatusVIN(vin, protocol, p.unitID.String(), p.ethAddr.String())
 		if err != nil {
 			log.Errorf("failed to send vin over mqtt: %s", err.Error())
 		}
@@ -46,20 +47,13 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	return subcommands.ExitSuccess
 }
 
-func sendStatusVIN(vin, protocol, autopiUnitID string) error {
+func sendStatusVIN(vin, protocol, autopiUnitID, ethAddress string) error {
 	payload := internal.StatusUpdatePayload{
-		Subject: autopiUnitID,
+		Subject:         autopiUnitID,
+		EthereumAddress: ethAddress,
 		Data: internal.StatusUpdateData{
-			Device: internal.StatusUpdateDevice{
-				Timestamp: time.Now().UnixMilli(),
-				UnitID:    autopiUnitID,
-			},
-			VinTest:      vin,
-			ProtocolTest: protocol,
-			Signals: internal.StatusUpdateSignals{
-				VinTest:      internal.StringSignal{Value: vin},
-				ProtocolTest: internal.StringSignal{Value: protocol},
-			},
+			Vin:      vin,
+			Protocol: protocol,
 		},
 	}
 	err := internal.SendPayload(&payload)
