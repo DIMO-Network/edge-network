@@ -12,9 +12,8 @@ import (
 )
 
 type scanVINCmd struct {
-	unitID  uuid.UUID
-	ethAddr common.Address
-	send    bool
+	unitID uuid.UUID
+	send   bool
 }
 
 func (*scanVINCmd) Name() string { return "scan-vin" }
@@ -38,7 +37,12 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
 	if p.send {
-		err = sendStatusVIN(vin, protocol, p.unitID.String(), p.ethAddr.String())
+		addr, err := commands.GetEthereumAddress(p.unitID)
+		if err != nil {
+			log.Panicf("could not get eth address %s", err.Error())
+		}
+
+		err = sendStatusVIN(vin, protocol, addr, p.unitID)
 		if err != nil {
 			log.Errorf("failed to send vin over mqtt: %s", err.Error())
 		}
@@ -47,16 +51,16 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	return subcommands.ExitSuccess
 }
 
-func sendStatusVIN(vin, protocol, autopiUnitID, ethAddress string) error {
+func sendStatusVIN(vin, protocol string, ethAddress common.Address, autopiUnitID uuid.UUID) error {
 	payload := internal.StatusUpdatePayload{
-		Subject:         autopiUnitID,
-		EthereumAddress: ethAddress,
+		Subject:         autopiUnitID.String(),
+		EthereumAddress: ethAddress.Hex(),
 		Data: internal.StatusUpdateData{
 			Vin:      vin,
 			Protocol: protocol,
 		},
 	}
-	err := internal.SendPayload(&payload)
+	err := internal.SendPayload(&payload, autopiUnitID)
 	if err != nil {
 		return err
 	}

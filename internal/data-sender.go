@@ -16,7 +16,7 @@ import (
 const topic = "raw"
 
 // SendPayload sends a filled in status update via mqtt to localhost server
-func SendPayload(status *StatusUpdatePayload) error {
+func SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
 	// todo: determin if we want to be connecting and disconnecting from mqtt broker for every status update we send
 
 	payload, err := json.Marshal(status)
@@ -46,7 +46,7 @@ func SendPayload(status *StatusUpdatePayload) error {
 	defer client.Disconnect(250)
 
 	// signature for the payload
-	sig, err := commands.SignHash(status.UnitID, payload)
+	sig, err := commands.SignHash(unitID, payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to sign the status update")
 	}
@@ -73,7 +73,7 @@ type StatusUpdatePayload struct {
 	// Timestamp the signal timestamp, in unix millis
 	Timestamp int64 `json:"timestamp"`
 	// UnitID is the autopi unit id
-	UnitID          uuid.UUID        `json:"unit_id"`
+	UnitID          string           `json:"unit_id"`
 	Data            StatusUpdateData `json:"data"`
 	EthereumAddress string           `json:"ethereum_address"`
 }
