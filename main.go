@@ -643,7 +643,7 @@ func main() {
 	}
 
 	addrChar.Properties.Flags = []string{
-		gatt.FlagCharacteristicEncryptAuthenticatedRead,
+		gatt.FlagCharacteristicRead,
 	}
 
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
