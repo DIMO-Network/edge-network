@@ -184,12 +184,18 @@ func GetIMSI(unitID uuid.UUID) (imsi string, err error) {
 		return
 	}
 
+	var resp executeRawResponse
 	if modem == "ec2x" {
 		req = executeRawRequest{Command: ec2xIMSICommand}
 	} else {
 		req = executeRawRequest{Command: normalIMSICommand}
 	}
 
-	err = executeRequest("POST", url, req, &imsi)
+	err = executeRequest("POST", url, req, &resp)
+	if err != nil {
+		return
+	}
+
+	imsi = resp.Data
 	return
 }

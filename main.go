@@ -7,12 +7,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/google/subcommands"
 	"log"
 	"math"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/google/subcommands"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
@@ -807,10 +808,10 @@ func main() {
 	log.Printf("  Get Software Version characteristic: %s", softwareVersionChar.Properties.UUID)
 	log.Printf("  Set Bluetooth Version characteristic: %s", bluetoothVersionChar.Properties.UUID)
 	log.Printf("  Sleep Control characteristic: %s", sleepControlChar.Properties.UUID)
-
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
 	log.Printf("  Set Wifi Connection characteristic: %s", setWifiChar.Properties.UUID)
+	log.Printf("  Get IMSI characteristic: %s", imsiChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)

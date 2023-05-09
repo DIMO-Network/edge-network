@@ -41,8 +41,10 @@ type executeRawRequest struct {
 }
 
 // For some reason, this only gets returned for some calls.
+// Sometimes it's "value", sometimes "data".
 type executeRawResponse struct {
 	Value string `json:"value"`
+	Data  string `json:"data"`
 }
 
 type GenericSignalStrengthResponse struct {
@@ -181,9 +183,16 @@ func executeRequest(method, path string, reqVal, respVal any) (err error) {
 		return fmt.Errorf("status code %d", c)
 	}
 
+	// Ignore any response.
 	if respVal == nil {
 		return
 	}
-	err = json.NewDecoder(resp.Body).Decode(respVal)
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(b, respVal)
 	return
 }
