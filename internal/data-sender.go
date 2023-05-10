@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/DIMO-Network/edge-network/commands"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -46,7 +47,8 @@ func SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
 	defer client.Disconnect(250)
 
 	// signature for the payload
-	sig, err := commands.SignHash(unitID, payload)
+	keccak256Hash := crypto.Keccak256Hash(payload)
+	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "failed to sign the status update")
 	}
