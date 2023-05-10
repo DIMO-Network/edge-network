@@ -9,6 +9,7 @@ import (
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 type scanVINCmd struct {
@@ -55,6 +56,8 @@ func sendStatusVIN(vin, protocol string, ethAddress common.Address, autopiUnitID
 	payload := internal.StatusUpdatePayload{
 		Subject:         autopiUnitID.String(),
 		EthereumAddress: ethAddress.Hex(),
+		UnitID:          autopiUnitID.String(),
+		Timestamp:       time.Now().UTC().UnixMilli(),
 		Data: internal.StatusUpdateData{
 			Vin:      vin,
 			Protocol: protocol,
