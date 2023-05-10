@@ -175,7 +175,11 @@ func executeRequest(method, path string, reqVal, respVal any) (err error) {
 	defer resp.Body.Close()
 
 	if c := resp.StatusCode; c >= 400 {
-		return fmt.Errorf("status code %d", c)
+		body, _ := io.ReadAll(resp.Body)
+		if body == nil {
+			body = []byte("no body response.")
+		}
+		return fmt.Errorf("status code %d. bdoy: %s", c, string(body))
 	}
 
 	if respVal == nil {
