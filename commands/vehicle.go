@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -27,9 +28,10 @@ func DetectCanbus(unitID uuid.UUID) (canbusInfo CanbusInfo, err error) {
 	return
 }
 
-func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
+func GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error) {
 	// original vin command `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
 	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
+	vin := ""
 	for _, part := range getVinCommandParts() {
 		hdr := ""
 		formula := ""
@@ -65,7 +67,11 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 			vin = resp.Value
 		}
 		if validateVIN(vin) {
-			return vin, part.Protocol, nil
+			return &VINResponse{
+				VIN:       vin,
+				Protocol:  part.Protocol,
+				QueryName: part.QueryName,
+			}, nil
 		}
 		err = fmt.Errorf("response contained an invalid vin: %s", vin)
 	}
@@ -74,11 +80,34 @@ func GetVIN(unitID uuid.UUID) (vin, protocol string, err error) {
 		// unable to get VIN via PID queries, so try passive scan
 		myVinReader := newPassiveVinReader()
 		protocolInt := 0
-		// todo cleanup logging in this method
-		vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000)
-		if validateVIN(vin) {
-			err = nil
-			protocol = strconv.Itoa(protocolInt)
+
+		// Create a channel to receive the result
+		resultChan := make(chan string)
+		// Create a channel for the timeout signal
+		timeoutChan := make(chan bool)
+		go func() {
+			vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000) // todo cleanup logging in this method
+			resultChan <- vin
+		}()
+		// Start a goroutine to wait for the timeout
+		go func() {
+			time.Sleep(10 * time.Second) // Set your desired timeout duration
+			timeoutChan <- true
+		}()
+
+		// Wait for either the function result or the timeout signal
+		select {
+		case vinResult := <-resultChan:
+			fmt.Println("Citroen VIN scan completed within timeout:", vinResult)
+			if validateVIN(vin) {
+				return &VINResponse{
+					VIN:       vinResult,
+					Protocol:  strconv.Itoa(protocolInt),
+					QueryName: "citroen",
+				}, nil
+			}
+		case <-timeoutChan:
+			err = fmt.Errorf("citroen VIN scan timed out")
 		}
 	}
 
@@ -218,20 +247,26 @@ func findVINLineStart(lines []string) int {
 // software interpretation. If remove formula need to interpret it in software, will be raw hex
 func getVinCommandParts() []vinCommandParts {
 	return []vinCommandParts{
-		{Protocol: "6", Header: "7DF", PID: "02", Mode: "09", VINCode: "vin_7DF_09_02"},
-		{Protocol: "6", Header: "7e0", PID: "02", Mode: "09", VINCode: "vin_7e0_09_02"},
-		{Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", VINCode: "vin_18DB33F1_09_02"},
-		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", VINCode: "vin_7DF_UDS"},
-		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", VINCode: "vin_7e0_UDS"},
-		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", VINCode: "vin_18DB33F1_UDS"},
+		{Protocol: "6", Header: "7DF", PID: "02", Mode: "09", QueryName: "vin_7DF_09_02"},
+		{Protocol: "6", Header: "7e0", PID: "02", Mode: "09", QueryName: "vin_7e0_09_02"},
+		{Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", QueryName: "vin_18DB33F1_09_02"},
+		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", QueryName: "vin_7DF_UDS"},
+		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", QueryName: "vin_7e0_UDS"},
+		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", QueryName: "vin_18DB33F1_UDS"},
 	}
 }
 
 type vinCommandParts struct {
-	Formula  string
-	Protocol string
-	Header   string
-	PID      string
-	Mode     string
-	VINCode  string
+	Formula   string
+	Protocol  string
+	Header    string
+	PID       string
+	Mode      string
+	QueryName string
+}
+
+type VINResponse struct {
+	VIN       string
+	Protocol  string
+	QueryName string
 }
