@@ -5,11 +5,9 @@ import (
 	"flag"
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 type scanVINCmd struct {
@@ -31,41 +29,34 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
-	vin, protocol, err := commands.GetVIN(p.unitID)
-	if err != nil {
-		log.Panicf("could not get vin %s", err.Error())
+	vin, protocol, vinErr := commands.GetVIN(p.unitID)
+	if vinErr != nil {
+		err := internal.SendErrorPayload(p.unitID, nil, vinErr)
+		log.Errorf("failed to send mqtt payload: %s", err.Error())
+		log.Panicf("could not get vin %s", vinErr.Error())
 	}
 	log.Infof("VIN: %s\n", vin)
 	log.Infof("Protocol: %s\n", protocol)
 	if p.send {
 		addr, err := commands.GetEthereumAddress(p.unitID)
 		if err != nil {
+			// todo retry logic?
+			errSend := internal.SendErrorPayload(p.unitID, nil, err)
+			log.Errorf("failed to send mqtt payload: %s", errSend.Error())
 			log.Panicf("could not get eth address %s", err.Error())
 		}
 
-		err = sendStatusVIN(vin, protocol, addr, p.unitID)
+		payload := internal.NewStatusUpdatePayload(p.unitID, &addr)
+		payload.Data = internal.StatusUpdateData{
+			Vin:      vin,
+			Protocol: protocol,
+		}
+		err = internal.SendPayload(&payload, p.unitID)
 		if err != nil {
 			log.Errorf("failed to send vin over mqtt: %s", err.Error())
+			return subcommands.ExitFailure
 		}
 	}
 
 	return subcommands.ExitSuccess
-}
-
-func sendStatusVIN(vin, protocol string, ethAddress common.Address, autopiUnitID uuid.UUID) error {
-	payload := internal.StatusUpdatePayload{
-		Subject:         autopiUnitID.String(),
-		EthereumAddress: ethAddress.Hex(),
-		UnitID:          autopiUnitID.String(),
-		Timestamp:       time.Now().UTC().UnixMilli(),
-		Data: internal.StatusUpdateData{
-			Vin:      vin,
-			Protocol: protocol,
-		},
-	}
-	err := internal.SendPayload(&payload, autopiUnitID)
-	if err != nil {
-		return err
-	}
-	return nil
 }
