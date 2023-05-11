@@ -29,14 +29,14 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
-	vin, protocol, vinErr := commands.GetVIN(p.unitID)
+	vinResp, vinErr := commands.GetVIN(p.unitID)
 	if vinErr != nil {
 		err := internal.SendErrorPayload(p.unitID, nil, vinErr)
 		log.Errorf("failed to send mqtt payload: %s", err.Error())
 		log.Panicf("could not get vin %s", vinErr.Error())
 	}
-	log.Infof("VIN: %s\n", vin)
-	log.Infof("Protocol: %s\n", protocol)
+	log.Infof("VIN: %s\n", vinResp.VIN)
+	log.Infof("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
 		addr, err := commands.GetEthereumAddress(p.unitID)
 		if err != nil {
@@ -48,8 +48,8 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 
 		payload := internal.NewStatusUpdatePayload(p.unitID, &addr)
 		payload.Data = internal.StatusUpdateData{
-			Vin:      vin,
-			Protocol: protocol,
+			Vin:      vinResp.VIN,
+			Protocol: vinResp.Protocol,
 		}
 		err = internal.SendPayload(&payload, p.unitID)
 		if err != nil {

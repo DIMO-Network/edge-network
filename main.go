@@ -513,7 +513,7 @@ func main() {
 			return
 		}
 
-		vin, protocol, err := commands.GetVIN(unitId)
+		vinResp, err := commands.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -521,11 +521,11 @@ func main() {
 			return
 		}
 
-		log.Printf("Got Protocol: %s", protocol) // need to do something with protocol to set right template
-		log.Printf("Got VIN: %s", vin)
-		lastVIN = vin
-		lastProtocol = protocol
-		resp = []byte(vin)
+		log.Printf("Got Protocol: %s", vinResp.Protocol) // need to do something with protocol to set right template
+		log.Printf("Got VIN: %s", vinResp.VIN)
+		lastVIN = vinResp.VIN
+		lastProtocol = vinResp.Protocol
+		resp = []byte(lastVIN)
 		return
 	})
 
@@ -553,7 +553,7 @@ func main() {
 			return
 		}
 		// just re-query for VIN
-		vin, protocol, err := commands.GetVIN(unitId)
+		vinResp, err := commands.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -561,10 +561,10 @@ func main() {
 			return
 		}
 
-		log.Printf("Got Protocol: %s", protocol)
-		lastVIN = vin
-		lastProtocol = protocol
-		resp = []byte(protocol)
+		log.Printf("Got Protocol: %s", vinResp.Protocol)
+		lastVIN = vinResp.VIN
+		lastProtocol = vinResp.Protocol
+		resp = []byte(lastProtocol)
 		return
 	})
 	err = vehicleService.AddChar(protocolChar)
