@@ -18,9 +18,10 @@ func (s *Char) Confirm() *dbus.Error {
 // if it supports value notifications or indications.
 //
 // Possible Errors: org.bluez.Error.Failed
-// 		 org.bluez.Error.NotPermitted
-// 		 org.bluez.Error.InProgress
-// 		 org.bluez.Error.NotSupported
+//
+//	org.bluez.Error.NotPermitted
+//	org.bluez.Error.InProgress
+//	org.bluez.Error.NotSupported
 func (s *Char) StartNotify() *dbus.Error {
 	log.Debug("Char.StartNotify")
 	return nil
@@ -42,14 +43,16 @@ func (s *Char) StopNotify() *dbus.Error {
 // operation was successful.
 //
 // Possible options: "offset": uint16 offset
-// 			"device": Object Device (Server only)
+//
+//	"device": Object Device (Server only)
 //
 // Possible Errors: org.bluez.Error.Failed
-// 		 org.bluez.Error.InProgress
-// 		 org.bluez.Error.NotPermitted
-// 		 org.bluez.Error.NotAuthorized
-// 		 org.bluez.Error.InvalidOffset
-// 		 org.bluez.Error.NotSupported
+//
+//	org.bluez.Error.InProgress
+//	org.bluez.Error.NotPermitted
+//	org.bluez.Error.NotAuthorized
+//	org.bluez.Error.InvalidOffset
+//	org.bluez.Error.NotSupported
 func (s *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 
 	log.Debug("Characteristic.ReadValue")
@@ -64,22 +67,24 @@ func (s *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 	return s.Properties.Value, nil
 }
 
-//WriteValue Issues a request to write the value of the
+// WriteValue Issues a request to write the value of the
 // characteristic.
 //
 // Possible options: "offset": Start offset
-// 			"device": Device path (Server only)
-// 			"link": Link type (Server only)
-// 			"prepare-authorize": boolean Is prepare
-// 							 authorization
-// 							 request
+//
+//	"device": Device path (Server only)
+//	"link": Link type (Server only)
+//	"prepare-authorize": boolean Is prepare
+//					 authorization
+//					 request
 //
 // Possible Errors: org.bluez.Error.Failed
-// 		 org.bluez.Error.InProgress
-// 		 org.bluez.Error.NotPermitted
-// 		 org.bluez.Error.InvalidValueLength
-// 		 org.bluez.Error.NotAuthorized
-// 		 org.bluez.Error.NotSupported
+//
+//	org.bluez.Error.InProgress
+//	org.bluez.Error.NotPermitted
+//	org.bluez.Error.InvalidValueLength
+//	org.bluez.Error.NotAuthorized
+//	org.bluez.Error.NotSupported
 func (s *Char) WriteValue(value []byte, options map[string]interface{}) *dbus.Error {
 
 	log.Trace("Characteristic.WriteValue")

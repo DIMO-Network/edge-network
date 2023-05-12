@@ -143,8 +143,8 @@ func TestGetVIN(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vin, protocol, err := GetVIN(unitID)
+	vinResp, err := GetVIN(unitID)
 	require.NoError(t, err)
-	assert.Equal(t, "6", protocol)
-	assert.Equal(t, testVIN, vin)
+	assert.Equal(t, "6", vinResp.Protocol)
+	assert.Equal(t, testVIN, vinResp.VIN)
 }

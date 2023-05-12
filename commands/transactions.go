@@ -25,7 +25,7 @@ func SignHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	return
 }
 
-func GetEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
+func GetEthereumAddress(unitID uuid.UUID) (addr *common.Address, err error) {
 	req := executeRawRequest{Command: getEthereumAddressCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
@@ -36,6 +36,7 @@ func GetEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
 		return
 	}
 
-	addr = common.HexToAddress(resp.Value)
+	ha := common.HexToAddress(resp.Value)
+	addr = &ha
 	return
 }

@@ -3,6 +3,8 @@ package internal
 import (
 	"encoding/hex"
 	"encoding/json"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/sjson"
-	"time"
 )
 
 // thought: should we have another topic for errors? ie. signals we could not get
@@ -20,7 +21,7 @@ const topic = "raw"
 // SendPayload sends a filled in status update via mqtt to localhost server
 func SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send
-	status.UnitID = unitID.String()
+	status.SerialNumber = unitID.String()
 
 	payload, err := json.Marshal(status)
 	if err != nil {
@@ -72,12 +73,10 @@ func SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
 }
 
 type StatusUpdatePayload struct {
-	// Subject here subject means autopi unit id (it will get converted after ingestion)
-	Subject string `json:"subject"`
 	// Timestamp the signal timestamp, in unix millis
 	Timestamp int64 `json:"timestamp"`
-	// UnitID is the autopi unit id
-	UnitID          string           `json:"unit_id"`
+	// SerialNumber is the autopi unit id
+	SerialNumber    string           `json:"serial_number"`
 	Data            StatusUpdateData `json:"data"`
 	EthereumAddress string           `json:"ethereum_address"`
 	Errors          []string         `json:"errors,omitempty"`
@@ -98,9 +97,8 @@ func SendErrorPayload(unitID uuid.UUID, ethAddress *common.Address, err error) e
 
 func NewStatusUpdatePayload(unitID uuid.UUID, ethAddress *common.Address) StatusUpdatePayload {
 	payload := StatusUpdatePayload{
-		Subject:   unitID.String(),
-		UnitID:    unitID.String(),
-		Timestamp: time.Now().UTC().UnixMilli(),
+		SerialNumber: unitID.String(),
+		Timestamp:    time.Now().UTC().UnixMilli(),
 	}
 	if ethAddress != nil {
 		payload.EthereumAddress = ethAddress.Hex()

@@ -29,6 +29,7 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
+	// this is purposely left un-refactored
 	vinResp, vinErr := commands.GetVIN(p.unitID)
 	if vinErr != nil {
 		err := internal.SendErrorPayload(p.unitID, nil, vinErr)
@@ -46,7 +47,7 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 			log.Panicf("could not get eth address %s", err.Error())
 		}
 
-		payload := internal.NewStatusUpdatePayload(p.unitID, &addr)
+		payload := internal.NewStatusUpdatePayload(p.unitID, addr)
 		payload.Data = internal.StatusUpdateData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,

@@ -7,13 +7,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal"
+	"github.com/google/subcommands"
 	"log"
 	"math"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/google/subcommands"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
@@ -105,7 +106,7 @@ func setupBluez(name string) error {
 
 func main() {
 	name, unitId = commands.GetDeviceName()
-	log.Printf("Serial Number: %s", unitId)
+	log.Printf("SerialNumber Number: %s", unitId)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
@@ -128,15 +129,22 @@ func main() {
 	}
 	log.Printf("Bluetooth name: %s", name)
 	log.Printf("Version: %s", Version)
-	log.Printf("Sleeping 7 seconds before setting up bluez.")
+	log.Printf("Sleeping 7 seconds before setting up bluez.") // why do we do this?
 	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.TraceLevel) // we don't use logrus consistenly in this project
 
 	err = setupBluez(name)
 	if err != nil {
 		log.Fatalf("Failed to setup BlueZ: %s", err)
+	}
+
+	// OBD / CAN Loggers
+	loggerSvc := internal.NewLoggerService(unitId)
+	err = loggerSvc.StartLoggers()
+	if err != nil {
+		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
 	opt := service.AppOptions{
@@ -182,7 +190,7 @@ func main() {
 			}
 		}()
 
-		log.Print("Got Unit Serial request")
+		log.Print("Got Unit SerialNumber request")
 
 		resp = []byte(unitId.String())
 		return
@@ -190,7 +198,7 @@ func main() {
 
 	err = deviceService.AddChar(unitSerialChar)
 	if err != nil {
-		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+		log.Fatalf("Failed to add SerialNumber characteristic to device service: %s", err)
 	}
 
 	// Get secondary serial number
@@ -223,7 +231,7 @@ func main() {
 
 	err = deviceService.AddChar(secondSerialChar)
 	if err != nil {
-		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+		log.Fatalf("Failed to add SerialNumber characteristic to device service: %s", err)
 	}
 
 	// Hardware revision
