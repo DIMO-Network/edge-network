@@ -67,7 +67,7 @@ func (ls *loggerService) StartLoggers() error {
 
 // isOkToScan checks if the power status and other heuristics to determine if ok to start Open CAN scanning and PID requests. Blocking.
 func (ls *loggerService) isOkToScan() (result bool, err error) {
-	const maxTries = 10
+	const maxTries = 100
 	tries := 0
 	status, httpError := commands.GetPowerStatus(ls.unitID)
 	for httpError != nil {
