@@ -25,13 +25,15 @@ func NewLoggerService(unitID uuid.UUID) LoggerService {
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
 func (ls *loggerService) StartLoggers() error {
 	// check if ok to start making obd calls etc
+	log.Infof("loggers: starting - checking if can start scanning")
 	ok, err := ls.isOkToScan()
 	if err != nil {
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
-		return fmt.Errorf("checks to start loggers failed without errors")
+		return fmt.Errorf("checks to start loggers failed but no errors reported")
 	}
+	log.Infof("loggers: checks passed to start scanning")
 	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
 	if err != nil {
 		log.WithError(err).Log(log.ErrorLevel)

@@ -11,12 +11,12 @@ import (
 type buildInfoCmd struct {
 }
 
-func (*buildInfoCmd) Name() string { return "scan-vin" }
+func (*buildInfoCmd) Name() string { return "build-info" }
 func (*buildInfoCmd) Synopsis() string {
-	return "scans for VIN using same command we use for BTE pairing. meant for debugging"
+	return "prints out the build info provided by go debug.ReadBuildInfo()"
 }
 func (*buildInfoCmd) Usage() string {
-	return `scan-vin`
+	return `build-info`
 }
 
 // nolint

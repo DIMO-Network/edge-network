@@ -15,7 +15,6 @@ import (
 	"os/signal"
 	"time"
 
-
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/service"
@@ -133,7 +132,7 @@ func main() {
 	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
-	logrus.SetLevel(logrus.TraceLevel) // we don't use logrus consistenly in this project
+	logrus.SetLevel(logrus.InfoLevel) // we don't use logrus consistenly in this project
 
 	err = setupBluez(name)
 	if err != nil {
