@@ -31,6 +31,7 @@ func (ls *loggerService) StartLoggers() error {
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
+		// todo - hitting this and returning back
 		return fmt.Errorf("checks to start loggers failed but no errors reported")
 	}
 	log.Infof("loggers: checks passed to start scanning")
@@ -82,7 +83,7 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 	}
 
 	log.Printf("Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
-	if status.Spm.LastTrigger.Up == "volt_change" {
+	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" {
 		if status.Spm.Battery.Voltage >= 13.3 {
 			// good to start scanning
 			result = true
@@ -102,6 +103,8 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 		if httpError != nil {
 			err = httpError
 		}
+	} else {
+		return false, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger")
 	}
 	// this may be an initial pair or something else so we don't wanna start loggers, just exit
 	result = false
