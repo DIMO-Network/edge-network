@@ -7,12 +7,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/google/subcommands"
 	"log"
 	"math"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/google/subcommands"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
@@ -46,6 +47,7 @@ const (
 	softwareVersionUUIDFragment     = "5a18"
 	bluetoothVersionUUIDFragment    = "5a19"
 	sleepControlUUIDFragment        = "5a20"
+	imsiUUIDFragment                = "5a21"
 	vinCharUUIDFragment             = "0acc"
 	diagCodeCharUUIDFragment        = "0add"
 	protocolCharUUIDFragment        = "0adc"
@@ -449,6 +451,36 @@ func main() {
 		log.Fatalf("Failed to add Set Wifi characteristic to device service: %s", err)
 	}
 
+	// Get IMSI
+	imsiChar, err := deviceService.NewChar(imsiUUIDFragment)
+	if err != nil {
+		log.Fatalf("Failed to create IMSI characteristic: %s", err)
+	}
+
+	imsiChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
+
+	imsiChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+		defer func() {
+			if err != nil {
+				log.Printf("Error retrieving IMSI: %s", err)
+			}
+		}()
+
+		log.Print("Got IMSI request")
+
+		imsi, err := commands.GetIMSI(unitId)
+		if err != nil {
+			return
+		}
+
+		resp = []byte(imsi)
+		return
+	})
+
+	if err := deviceService.AddChar(imsiChar); err != nil {
+		log.Fatalf("Failed to add IMSI characteristic to device service: %s", err)
+	}
+
 	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
@@ -643,7 +675,7 @@ func main() {
 	}
 
 	addrChar.Properties.Flags = []string{
-		gatt.FlagCharacteristicEncryptAuthenticatedRead,
+		gatt.FlagCharacteristicRead,
 	}
 
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
@@ -776,10 +808,10 @@ func main() {
 	log.Printf("  Get Software Version characteristic: %s", softwareVersionChar.Properties.UUID)
 	log.Printf("  Set Bluetooth Version characteristic: %s", bluetoothVersionChar.Properties.UUID)
 	log.Printf("  Sleep Control characteristic: %s", sleepControlChar.Properties.UUID)
-
 	log.Printf("  Get Signal Strength characteristic: %s", signalStrengthChar.Properties.UUID)
 	log.Printf("  Get Wifi Connection Status characteristic: %s", wifiStatusChar.Properties.UUID)
 	log.Printf("  Set Wifi Connection characteristic: %s", setWifiChar.Properties.UUID)
+	log.Printf("  Get IMSI characteristic: %s", imsiChar.Properties.UUID)
 
 	log.Printf("Vehicle service: %s", vehicleService.Properties.UUID)
 	log.Printf("  Get VIN characteristic: %s", vinChar.Properties.UUID)

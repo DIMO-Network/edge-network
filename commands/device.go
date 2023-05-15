@@ -173,3 +173,29 @@ func GetPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 	responseObject = resp
 	return
 }
+
+func GetIMSI(unitID uuid.UUID) (imsi string, err error) {
+	req := executeRawRequest{Command: getModemCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var modem string
+	err = executeRequest("POST", url, req, &modem)
+	if err != nil {
+		return
+	}
+
+	var resp executeRawResponse
+	if modem == "ec2x" {
+		req = executeRawRequest{Command: ec2xIMSICommand}
+	} else {
+		req = executeRawRequest{Command: normalIMSICommand}
+	}
+
+	err = executeRequest("POST", url, req, &resp)
+	if err != nil {
+		return
+	}
+
+	imsi = resp.Data
+	return
+}
