@@ -31,7 +31,6 @@ func (ls *loggerService) StartLoggers() error {
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
-		// todo - hitting this and returning back
 		return fmt.Errorf("checks to start loggers failed but no errors reported")
 	}
 	log.Infof("loggers: checks passed to start scanning")
@@ -71,6 +70,7 @@ func (ls *loggerService) StartLoggers() error {
 // isOkToScan checks if the power status and other heuristics to determine if ok to start Open CAN scanning and PID requests. Blocking.
 func (ls *loggerService) isOkToScan() (result bool, err error) {
 	const maxTries = 100
+	const voltageMin = 13.2
 	tries := 0
 	status, httpError := commands.GetPowerStatus(ls.unitID)
 	for httpError != nil {
@@ -84,14 +84,14 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 
 	log.Printf("Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
 	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" {
-		if status.Spm.Battery.Voltage >= 13.3 {
+		if status.Spm.Battery.Voltage >= voltageMin {
 			// good to start scanning
 			result = true
 			return
 		}
 		// loop a few more times
 		tries = 0
-		for status.Spm.Battery.Voltage < 13.3 {
+		for status.Spm.Battery.Voltage < voltageMin {
 			if tries > maxTries {
 				err = fmt.Errorf("did not reach a satisfactory voltage to start loggers: %f", status.Spm.Battery.Voltage)
 				break

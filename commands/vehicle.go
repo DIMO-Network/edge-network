@@ -3,7 +3,7 @@ package commands
 import (
 	"encoding/hex"
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,16 +51,16 @@ func GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error) {
 
 		err = executeRequest("POST", url, req, &resp)
 		if err != nil {
-			fmt.Println("failed to execute POST request to get vin: " + err.Error())
+			log.WithError(err).Error("failed to execute POST request to get vin")
 			continue // try again with different command if err
 		}
-		fmt.Println("received GetVIN response value: \n" + resp.Value) // for debugging - will want this to validate.
+		log.Infof("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
 		// if no error, we want to make sure we get a semblance of a vin back
 		if len(part.Formula) == 0 {
 			// if no formula, means we got raw hex back so lets try extracting vin from that
 			vin, _, err = extractVIN(resp.Value) // todo: do something with the pid vin start position - persist for later to backend
 			if err != nil {
-				fmt.Println("could not extract vin from hex: " + err.Error())
+				log.WithError(err).Error("could not extract vin from hex")
 				continue // try again on next loop with different command
 			}
 		} else {
@@ -98,7 +98,7 @@ func GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error) {
 		// Wait for either the function result or the timeout signal
 		select {
 		case vinResult := <-resultChan:
-			fmt.Println("Citroen VIN scan completed within timeout:", vinResult)
+			log.Infof("Citroen VIN scan completed within timeout: %s", vinResult)
 			if validateVIN(vin) {
 				return &VINResponse{
 					VIN:       vinResult,
