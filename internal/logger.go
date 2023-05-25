@@ -16,10 +16,11 @@ type LoggerService interface {
 
 type loggerService struct {
 	unitID uuid.UUID
+	vinLog VINLogger
 }
 
-func NewLoggerService(unitID uuid.UUID) LoggerService {
-	return &loggerService{unitID: unitID}
+func NewLoggerService(unitID uuid.UUID, vinLog VINLogger) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog}
 }
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
@@ -52,6 +53,7 @@ func (ls *loggerService) StartLoggers() error {
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}
+		// todo: refactor payload sender
 		err = SendPayload(&p, ls.unitID)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
@@ -75,14 +77,14 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 	status, httpError := commands.GetPowerStatus(ls.unitID)
 	for httpError != nil {
 		if tries > maxTries {
-			return false, fmt.Errorf("unable to get power.status after %d tries with error %s", maxTries, httpError.Error())
+			return false, fmt.Errorf("loggers: unable to get power.status after %d tries with error %s", maxTries, httpError.Error())
 		}
 		status, httpError = commands.GetPowerStatus(ls.unitID)
 		tries++
 		time.Sleep(2 * time.Second)
 	}
 
-	log.Printf("Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
+	log.Printf("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
 	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" {
 		if status.Spm.Battery.Voltage >= voltageMin {
 			// good to start scanning
@@ -93,7 +95,7 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 		tries = 0
 		for status.Spm.Battery.Voltage < voltageMin {
 			if tries > maxTries {
-				err = fmt.Errorf("did not reach a satisfactory voltage to start loggers: %f", status.Spm.Battery.Voltage)
+				err = fmt.Errorf("loggers: did not reach a satisfactory voltage to start loggers: %f", status.Spm.Battery.Voltage)
 				break
 			}
 			status, httpError = commands.GetPowerStatus(ls.unitID)
@@ -112,11 +114,12 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 }
 
 func (ls *loggerService) getLoggerConfigs() []LoggerConfig {
+
 	return []LoggerConfig{
 		{
 			SignalName: "vin",
 			Interval:   0,
-			ScanFunc:   commands.GetVIN,
+			ScanFunc:   ls.vinLog.GetVIN,
 		},
 	}
 }
@@ -127,5 +130,5 @@ type LoggerConfig struct {
 	// Interval is how often to run. 0 means only on start
 	Interval int32
 	// Function to call to get the data from the vehicle
-	ScanFunc func(uuid2 uuid.UUID) (*commands.VINResponse, error)
+	ScanFunc func(uuid2 uuid.UUID) (*VINResponse, error)
 }

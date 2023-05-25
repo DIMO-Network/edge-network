@@ -1,0 +1,40 @@
+package internal
+
+import (
+	"fmt"
+	mock_internal "github.com/DIMO-Network/edge-network/internal/mocks"
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/assert"
+	"net/http"
+	"testing"
+)
+
+func Test_loggerService_StartLoggers(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl := mock_internal.NewMockVINLogger(mockCtrl)
+	unitID := uuid.New()
+	ls := NewLoggerService(unitID, vl)
+
+	// mock powerstatus resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodGet, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+	// mock eth addr
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodGet, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
+
+	vl.EXPECT().GetVIN(unitID).Times(1).Return(&VINResponse{VIN: "5TFCZ5AN0HX073768", Protocol: "6", QueryName: "vin_7DF_09_02"}, nil)
+
+	err := ls.StartLoggers()
+
+	assert.NoError(t, err)
+}

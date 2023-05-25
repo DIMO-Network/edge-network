@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/api"
 	"log"
 	"os"
 	"strconv"
@@ -28,12 +29,12 @@ func GetDeviceName() (bluetoothName string, unitId uuid.UUID) {
 }
 
 func GetHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
-	req := executeRawRequest{Command: getHardwareRevisionCommand}
+	req := api.ExecuteRawRequest{Command: api.GetHardwareRevisionCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp float64
 
-	err = executeRequest("POST", url, req, &resp)
+	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -43,12 +44,12 @@ func GetHardwareRevision(unitID uuid.UUID) (hwRevision string, err error) {
 }
 
 func GetSoftwareVersion(unitID uuid.UUID) (version string, err error) {
-	req := executeRawRequest{Command: getSoftwareVersionCommand}
+	req := api.ExecuteRawRequest{Command: api.GetSoftwareVersionCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp string
 
-	err = executeRequest("POST", url, req, &resp)
+	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -59,12 +60,12 @@ func GetSoftwareVersion(unitID uuid.UUID) (version string, err error) {
 }
 
 func GetDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
-	req := executeRawRequest{Command: getDeviceIDCommand}
+	req := api.ExecuteRawRequest{Command: api.GetDeviceIDCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp string
 
-	err = executeRequest("POST", url, req, &resp)
+	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}
@@ -74,12 +75,12 @@ func GetDeviceID(unitID uuid.UUID) (deviceID uuid.UUID, err error) {
 }
 
 func ExtendSleepTimer(unitID uuid.UUID) (err error) {
-	req := executeRawRequest{Command: sleepTimerDelayCommand}
+	req := api.ExecuteRawRequest{Command: api.SleepTimerDelayCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp executeRawResponse
+	var resp api.ExecuteRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = api.ExecuteRequest("POST", path, req, &resp)
 
 	if err != nil {
 		return err
@@ -98,12 +99,12 @@ func AnnounceCode(unitID uuid.UUID, intro string, code uint32) (err error) {
 
 	announcement += `'`
 	log.Printf("Announcement Command: %s", announcement)
-	req := executeRawRequest{Command: announcement}
+	req := api.ExecuteRawRequest{Command: announcement}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp executeRawResponse
+	var resp api.ExecuteRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = api.ExecuteRequest("POST", path, req, &resp)
 
 	if err != nil {
 		return err
@@ -112,11 +113,11 @@ func AnnounceCode(unitID uuid.UUID, intro string, code uint32) (err error) {
 }
 
 func GetSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
-	req := executeRawRequest{Command: signalStrengthCommand}
+	req := api.ExecuteRawRequest{Command: api.SignalStrengthCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp signalStrengthResponse
-	err = executeRequest("POST", path, req, &resp)
+	var resp api.SignalStrengthResponse
+	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -126,12 +127,12 @@ func GetSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 }
 
 // Wifi
-func GetWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, err error) {
-	req := executeRawRequest{Command: wifiStatusCommand, Arg: nil}
+func GetWifiStatus(unitID uuid.UUID) (connectionObject api.WifiConnectionsResponse, err error) {
+	req := api.ExecuteRawRequest{Command: api.WifiStatusCommand, Arg: nil}
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
-	var resp wifiConnectionsResponse
-	err = executeRequest("POST", path, req, &resp)
+	var resp api.WifiConnectionsResponse
+	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -140,19 +141,19 @@ func GetWifiStatus(unitID uuid.UUID) (connectionObject wifiConnectionsResponse, 
 	return
 }
 
-func SetWifiConnection(unitID uuid.UUID, newConnectionList []WifiEntity) (connectionObject setWifiConnectionResponse, err error) {
+func SetWifiConnection(unitID uuid.UUID, newConnectionList []api.WifiEntity) (connectionObject api.SetWifiConnectionResponse, err error) {
 	arg := []interface{}{
 		"wpa_supplicant:networks",
 		newConnectionList,
 	}
 	path := fmt.Sprintf("/dongle/%s/execute/", unitID)
 
-	req := executeRawRequest{Command: setWifiConnectionCommand, Arg: arg, Kwarg: KwargType{
+	req := api.ExecuteRawRequest{Command: api.SetWifiConnectionCommand, Arg: arg, Kwarg: api.KwargType{
 		Destructive: true,
 		Force:       true,
 	}}
 
-	err = executeRequest("POST", path, req, &connectionObject)
+	err = api.ExecuteRequest("POST", path, req, &connectionObject)
 	if err != nil {
 		return
 	}
@@ -160,12 +161,12 @@ func SetWifiConnection(unitID uuid.UUID, newConnectionList []WifiEntity) (connec
 	return
 }
 
-func GetPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err error) {
-	req := executeRawRequest{Command: powerStatusCommand}
+func GetPowerStatus(unitID uuid.UUID) (responseObject api.PowerStatusResponse, err error) {
+	req := api.ExecuteRawRequest{Command: api.PowerStatusCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
-	var resp powerStatusResponse
-	err = executeRequest("POST", path, req, &resp)
+	var resp api.PowerStatusResponse
+	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -175,23 +176,23 @@ func GetPowerStatus(unitID uuid.UUID) (responseObject powerStatusResponse, err e
 }
 
 func GetIMSI(unitID uuid.UUID) (imsi string, err error) {
-	req := executeRawRequest{Command: getModemCommand}
+	req := api.ExecuteRawRequest{Command: api.GetModemCommand}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var modem string
-	err = executeRequest("POST", url, req, &modem)
+	err = api.ExecuteRequest("POST", url, req, &modem)
 	if err != nil {
 		return
 	}
 
-	var resp executeRawResponse
+	var resp api.ExecuteRawResponse
 	if modem == "ec2x" {
-		req = executeRawRequest{Command: ec2xIMSICommand}
+		req = api.ExecuteRawRequest{Command: api.Ec2xIMSICommand}
 	} else {
-		req = executeRawRequest{Command: normalIMSICommand}
+		req = api.ExecuteRawRequest{Command: api.NormalIMSICommand}
 	}
 
-	err = executeRequest("POST", url, req, &resp)
+	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
 		return
 	}

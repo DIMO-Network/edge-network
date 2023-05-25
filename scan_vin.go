@@ -30,7 +30,8 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
 	// this is purposely left un-refactored
-	vinResp, vinErr := commands.GetVIN(p.unitID)
+	vl := internal.NewVINLogger()
+	vinResp, vinErr := vl.GetVIN(p.unitID)
 	if vinErr != nil {
 		err := internal.SendErrorPayload(p.unitID, nil, vinErr)
 		log.Errorf("failed to send mqtt payload: %s", err.Error())

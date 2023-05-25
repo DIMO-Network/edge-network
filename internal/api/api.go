@@ -1,4 +1,4 @@
-package commands
+package api
 
 import (
 	"bytes"
@@ -9,22 +9,22 @@ import (
 )
 
 const (
-	detectCanbusCommand        = `obd.protocol set=auto`
-	sleepTimerDelayCommand     = `power.sleep_timer add=pairing period=900 clear=*`
-	getEthereumAddressCommand  = `crypto.query ethereum_address`
-	signHashCommand            = `crypto.sign_string `
-	getDeviceIDCommand         = `config.get device.id`
-	getHardwareRevisionCommand = `config.get hw.version`
-	signalStrengthCommand      = `qmi.signal_strength`
-	wifiStatusCommand          = `wifi.status`
-	setWifiConnectionCommand   = `grains.set`
-	getSoftwareVersionCommand  = `config.get latest_release_version`
-	getDiagnosticCodeCommand   = `obd.dtc`
-	clearDiagnosticCodeCommand = `obd.dtc clear=true`
-	powerStatusCommand         = `power.status`
-	getModemCommand            = `config.get modem`
-	ec2xIMSICommand            = `ec2x.query AT+CIMI`
-	normalIMSICommand          = `modem.connection execute AT+CIMI`
+	DetectCanbusCommand        = `obd.protocol set=auto`
+	SleepTimerDelayCommand     = `power.sleep_timer add=pairing period=900 clear=*`
+	GetEthereumAddressCommand  = `crypto.query ethereum_address`
+	SignHashCommand            = `crypto.sign_string `
+	GetDeviceIDCommand         = `config.get device.id`
+	GetHardwareRevisionCommand = `config.get hw.version`
+	SignalStrengthCommand      = `qmi.signal_strength`
+	WifiStatusCommand          = `wifi.status`
+	SetWifiConnectionCommand   = `grains.set`
+	GetSoftwareVersionCommand  = `config.get latest_release_version`
+	GetDiagnosticCodeCommand   = `obd.dtc`
+	ClearDiagnosticCodeCommand = `obd.dtc clear=true`
+	PowerStatusCommand         = `power.status`
+	GetModemCommand            = `config.get modem`
+	Ec2xIMSICommand            = `ec2x.query AT+CIMI`
+	NormalIMSICommand          = `modem.connection execute AT+CIMI`
 )
 
 const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -34,7 +34,7 @@ type KwargType struct {
 	Destructive bool `json:"destructive,omitempty"`
 	Force       bool `json:"force,omitempty"`
 }
-type executeRawRequest struct {
+type ExecuteRawRequest struct {
 	Command string        `json:"command"`
 	Arg     []interface{} `json:"arg"`
 	Kwarg   KwargType     `json:"kwarg"`
@@ -42,7 +42,7 @@ type executeRawRequest struct {
 
 // For some reason, this only gets returned for some calls.
 // Sometimes it's "value", sometimes "data".
-type executeRawResponse struct {
+type ExecuteRawResponse struct {
 	Value string `json:"value"`
 	Data  string `json:"data"`
 }
@@ -53,11 +53,11 @@ type GenericSignalStrengthResponse struct {
 	Value   float64 `json:"value"`
 }
 
-type signalStrengthResponse struct {
+type SignalStrengthResponse struct {
 	Current GenericSignalStrengthResponse
 }
 
-type wifiConnectionsResponse struct {
+type WifiConnectionsResponse struct {
 	WPAState string `json:"wpa_state"`
 	SSID     string `json:"ssid"`
 }
@@ -68,7 +68,7 @@ type WifiEntity struct {
 	SSID     string `json:"ssid"`
 }
 
-type setWifiConnectionResponse struct {
+type SetWifiConnectionResponse struct {
 	Comment string `json:"comment"`
 	Result  bool   `json:"result"`
 	Changes struct {
@@ -83,7 +83,7 @@ type SetWifiRequest struct {
 	Password string `json:"password"`
 }
 
-type dtcResponse struct {
+type DTCResponse struct {
 	Stamp  string `json:"_stamp"`
 	Type   string `json:"_type"`
 	Values []struct {
@@ -100,12 +100,12 @@ type CanbusInfo struct {
 	Name         string `json:"name"`
 }
 
-type obdAutoDetectResponse struct {
+type ObdAutoDetectResponse struct {
 	Stamp      string     `json:"_stamp"`
 	CanbusInfo CanbusInfo `json:"current"`
 }
 
-type powerStatusResponse struct {
+type PowerStatusResponse struct {
 	Rpi struct {
 		Uptime struct {
 			Days     int    `json:"days"`
@@ -151,7 +151,7 @@ type powerStatusResponse struct {
 	} `json:"spm"`
 }
 
-func executeRequest(method, path string, reqVal, respVal any) (err error) {
+func ExecuteRequest(method, path string, reqVal, respVal any) (err error) {
 	var reqBody io.Reader
 
 	if reqVal != nil {
