@@ -8,6 +8,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal"
+	"github.com/DIMO-Network/edge-network/internal/api"
+	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"log"
 	"math"
@@ -140,7 +143,9 @@ func main() {
 	}
 
 	// OBD / CAN Loggers
-	loggerSvc := internal.NewLoggerService(unitId)
+	ds := network.NewDataSender()
+	vinLogger := loggers.NewVINLogger()
+	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds)
 	err = loggerSvc.StartLoggers()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
@@ -415,7 +420,7 @@ func main() {
 			}
 		}()
 
-		var req commands.SetWifiRequest
+		var req api.SetWifiRequest
 		err = json.Unmarshal(value, &req)
 		if err != nil {
 			log.Printf("Error unmarshaling wi-fi payload: %s", err)
@@ -428,7 +433,7 @@ func main() {
 			return
 		}
 
-		newWifiList := []commands.WifiEntity{
+		newWifiList := []api.WifiEntity{
 			{
 				Priority: 1,
 				SSID:     req.Network,
@@ -520,7 +525,7 @@ func main() {
 			return
 		}
 
-		vinResp, err := commands.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -560,7 +565,7 @@ func main() {
 			return
 		}
 		// just re-query for VIN
-		vinResp, err := commands.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitId)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")

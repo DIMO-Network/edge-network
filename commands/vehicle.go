@@ -2,10 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 func DetectCanbus(unitID uuid.UUID) (canbusInfo api.CanbusInfo, err error) {

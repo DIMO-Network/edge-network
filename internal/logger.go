@@ -2,6 +2,8 @@ package internal
 
 import (
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/network"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -15,12 +17,13 @@ type LoggerService interface {
 }
 
 type loggerService struct {
-	unitID uuid.UUID
-	vinLog VINLogger
+	unitID     uuid.UUID
+	vinLog     loggers.VINLogger
+	dataSender network.DataSender
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog VINLogger) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog}
+func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender}
 }
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
@@ -38,23 +41,22 @@ func (ls *loggerService) StartLoggers() error {
 	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
 	if err != nil {
 		log.WithError(err).Log(log.ErrorLevel)
-		_ = SendErrorPayload(ls.unitID, ethAddr, err)
+		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
 	}
 	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
 	for _, logger := range ls.getLoggerConfigs() {
 		vinResp, err := logger.ScanFunc(ls.unitID)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
-			_ = SendErrorPayload(ls.unitID, ethAddr, err)
+			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
 			break
 		}
-		p := NewStatusUpdatePayload(ls.unitID, ethAddr)
-		p.Data = StatusUpdateData{
+		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
+		p.Data = network.StatusUpdateData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}
-		// todo: refactor payload sender
-		err = SendPayload(&p, ls.unitID)
+		err = ls.dataSender.SendPayload(&p, ls.unitID)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
 		}
@@ -130,5 +132,5 @@ type LoggerConfig struct {
 	// Interval is how often to run. 0 means only on start
 	Interval int32
 	// Function to call to get the data from the vehicle
-	ScanFunc func(uuid2 uuid.UUID) (*VINResponse, error)
+	ScanFunc func(uuid2 uuid.UUID) (*loggers.VINResponse, error)
 }

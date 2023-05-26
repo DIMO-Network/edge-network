@@ -3,15 +3,16 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/api"
 	"log"
 	"os"
 	"strconv"
 
+	"github.com/DIMO-Network/edge-network/internal/api"
+
 	"github.com/google/uuid"
 )
 
-func GetDeviceName() (bluetoothName string, unitId uuid.UUID) {
+func GetDeviceName() (bluetoothName string, unitID uuid.UUID) {
 	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
 	if err != nil {
 		log.Fatalf("Could not read unit ID from file: %s", err)
@@ -19,7 +20,7 @@ func GetDeviceName() (bluetoothName string, unitId uuid.UUID) {
 
 	unitIDBytes = bytes.TrimSpace(unitIDBytes)
 
-	unitID, err := uuid.ParseBytes(unitIDBytes)
+	unitID, err = uuid.ParseBytes(unitIDBytes)
 	if err != nil {
 		log.Fatalf("Invalid unit id: %s", err)
 	}

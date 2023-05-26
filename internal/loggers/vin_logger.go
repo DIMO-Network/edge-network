@@ -1,4 +1,4 @@
-package internal
+package loggers
 
 import (
 	"encoding/hex"
