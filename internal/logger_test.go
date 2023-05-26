@@ -29,11 +29,11 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
-	httpmock.RegisterResponder(http.MethodGet, autoPiBaseURL+psPath,
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
 	// mock eth addr
 	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	httpmock.RegisterResponder(http.MethodGet, autoPiBaseURL+ethPath,
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
 	vl.EXPECT().GetVIN(unitID).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: "vin_7DF_09_02"}, nil)
