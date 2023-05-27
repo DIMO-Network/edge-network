@@ -120,6 +120,15 @@ If you see this result:
 Start the service manually if didn't start after install:
 `cmd.run 'systemctl start edge-network'` 
 
+# Gotchas / Notes
+
+The `-v` command is important for the salt stack on the autopi to work correctly for managing the correct version to download.
+If not present, this will likely cause devices being unable to update and/or apply pending syncs, 
+since the devices are using the edge-network -v call to confirm if the binary installation is working properly. 
+It expects to see the version number of the binary.
+
+Note that the `Version` is set via a build flag in the `/.github/workflows/release.yaml` via the `ldflags`. 
+
 # Research
 
 Other CAN libraries: https://github.com/go-daq/canbus 

@@ -107,6 +107,14 @@ func setupBluez(name string) error {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
+		s := os.Args[1]
+		if s == "-v" {
+			log.Printf("Version: %s", Version)
+			os.Exit(0)
+		}
+	}
 	name, unitId = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitId)
 
