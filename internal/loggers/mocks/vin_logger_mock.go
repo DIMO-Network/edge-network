@@ -36,16 +36,16 @@ func (m *MockVINLogger) EXPECT() *MockVINLoggerMockRecorder {
 }
 
 // GetVIN mocks base method.
-func (m *MockVINLogger) GetVIN(unitID uuid.UUID) (*loggers.VINResponse, error) {
+func (m *MockVINLogger) GetVIN(unitID uuid.UUID, queryName *string) (*loggers.VINResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVIN", unitID)
+	ret := m.ctrl.Call(m, "GetVIN", unitID, queryName)
 	ret0, _ := ret[0].(*loggers.VINResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVIN indicates an expected call of GetVIN.
-func (mr *MockVINLoggerMockRecorder) GetVIN(unitID interface{}) *gomock.Call {
+func (mr *MockVINLoggerMockRecorder) GetVIN(unitID, queryName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVIN", reflect.TypeOf((*MockVINLogger)(nil).GetVIN), unitID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVIN", reflect.TypeOf((*MockVINLogger)(nil).GetVIN), unitID, queryName)
 }

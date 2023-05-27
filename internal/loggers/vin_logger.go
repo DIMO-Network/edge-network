@@ -15,7 +15,7 @@ import (
 
 //go:generate mockgen -source vin_logger.go -destination mocks/vin_logger_mock.go
 type VINLogger interface {
-	GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error)
+	GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error)
 }
 
 type vinLogger struct {
@@ -25,11 +25,21 @@ func NewVINLogger() VINLogger {
 	return &vinLogger{}
 }
 
-func (vl *vinLogger) GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error) {
+const citroenQueryName = "citroen"
+
+func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error) {
 	// original vin command `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
 	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
 	vin := ""
 	for _, part := range getVinCommandParts() {
+		if queryName != nil {
+			if *queryName == citroenQueryName {
+				return passiveScanCitroen()
+			}
+			if *queryName != part.QueryName {
+				continue // skip until get to matching query
+			}
+		}
 		hdr := ""
 		formula := ""
 		if len(part.Header) > 0 {
@@ -73,41 +83,10 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID) (vinResp *VINResponse, err error) 
 		err = fmt.Errorf("response contained an invalid vin: %s", vin)
 	}
 
+	// if all PIDs fail, try passive scan, currently specific to Citroen
 	if err != nil {
-		// unable to get VIN via PID queries, so try passive scan
-		myVinReader := newPassiveVinReader()
-		protocolInt := 0
-
-		// Create a channel to receive the result
-		resultChan := make(chan string)
-		// Create a channel for the timeout signal
-		timeoutChan := make(chan bool)
-		go func() {
-			vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000) // todo cleanup logging in this method
-			resultChan <- vin
-		}()
-		// Start a goroutine to wait for the timeout
-		go func() {
-			time.Sleep(10 * time.Second) // Set your desired timeout duration
-			timeoutChan <- true
-		}()
-
-		// Wait for either the function result or the timeout signal
-		select {
-		case vinResult := <-resultChan:
-			log.Infof("Citroen VIN scan completed within timeout: %s", vinResult)
-			if validateVIN(vin) {
-				return &VINResponse{
-					VIN:       vinResult,
-					Protocol:  strconv.Itoa(protocolInt),
-					QueryName: "citroen",
-				}, nil
-			}
-		case <-timeoutChan:
-			err = fmt.Errorf("citroen VIN scan timed out")
-		}
+		vinResp, err = passiveScanCitroen()
 	}
-
 	return
 }
 
@@ -207,6 +186,44 @@ func findVINLineStart(lines []string) int {
 	return pos - 1
 }
 
+func passiveScanCitroen() (*VINResponse, error) {
+	vin := ""
+	// unable to get VIN via PID queries, so try passive scan
+	myVinReader := newPassiveVinReader()
+	protocolInt := 0
+
+	// Create a channel to receive the result
+	resultChan := make(chan string)
+	// Create a channel for the timeout signal
+	timeoutChan := make(chan bool)
+	go func() {
+		vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000) // todo cleanup logging in this method
+		resultChan <- vin
+	}()
+	// Start a goroutine to wait for the timeout
+	go func() {
+		time.Sleep(10 * time.Second) // Set your desired timeout duration
+		timeoutChan <- true
+	}()
+
+	// Wait for either the function result or the timeout signal
+	select {
+	case vinResult := <-resultChan:
+		log.Infof("Citroen VIN scan completed within timeout: %s", vinResult)
+		if validateVIN(vin) {
+			return &VINResponse{
+				VIN:       vinResult,
+				Protocol:  strconv.Itoa(protocolInt),
+				QueryName: citroenQueryName,
+			}, nil
+		}
+	case <-timeoutChan:
+		err := fmt.Errorf("citroen VIN scan timed out")
+		return nil, err
+	}
+	return nil, fmt.Errorf("could not get citroen vin")
+}
+
 // getVinCommandParts the PID command is composed of the protocol, header, PID and Mode. The Formula is just for
 // software interpretation. If remove formula need to interpret it in software, will be raw hex
 func getVinCommandParts() []vinCommandParts {
@@ -217,6 +234,7 @@ func getVinCommandParts() []vinCommandParts {
 		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", QueryName: "vin_7DF_UDS"},
 		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", QueryName: "vin_7e0_UDS"},
 		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", QueryName: "vin_18DB33F1_UDS"},
+		{QueryName: "citroen"},
 	}
 }
 

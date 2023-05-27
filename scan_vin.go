@@ -33,7 +33,7 @@ func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interfac
 	// this is purposely left un-refactored
 	vl := loggers.NewVINLogger()
 	ds := network.NewDataSender()
-	vinResp, vinErr := vl.GetVIN(p.unitID)
+	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
 		err := ds.SendErrorPayload(p.unitID, nil, vinErr)
 		log.Errorf("failed to send mqtt payload: %s", err.Error())

@@ -36,7 +36,7 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	vl.EXPECT().GetVIN(unitID).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: "vin_7DF_09_02"}, nil)
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: "vin_7DF_09_02"}, nil)
 	ds.EXPECT().SendPayload(gomock.Any(), unitID).Times(1).Return(nil)
 
 	err := ls.StartLoggers()

@@ -45,7 +45,7 @@ func (ls *loggerService) StartLoggers() error {
 	}
 	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
 	for _, logger := range ls.getLoggerConfigs() {
-		vinResp, err := logger.ScanFunc(ls.unitID)
+		vinResp, err := logger.ScanFunc(ls.unitID, nil) // todo: check if queryname is stored and pass in
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
 			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
@@ -132,5 +132,5 @@ type LoggerConfig struct {
 	// Interval is how often to run. 0 means only on start
 	Interval int32
 	// Function to call to get the data from the vehicle
-	ScanFunc func(uuid2 uuid.UUID) (*loggers.VINResponse, error)
+	ScanFunc func(uuid2 uuid.UUID, qn *string) (*loggers.VINResponse, error)
 }
