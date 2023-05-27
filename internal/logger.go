@@ -115,9 +115,9 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 	return
 }
 
-func (ls *loggerService) getLoggerConfigs() []LoggerConfig {
+func (ls *loggerService) getLoggerConfigs() []LoggerProperties {
 
-	return []LoggerConfig{
+	return []LoggerProperties{
 		{
 			SignalName: "vin",
 			Interval:   0,
@@ -126,7 +126,7 @@ func (ls *loggerService) getLoggerConfigs() []LoggerConfig {
 	}
 }
 
-type LoggerConfig struct {
+type LoggerProperties struct {
 	// SignalName name of signal to be published over mqtt
 	SignalName string
 	// Interval is how often to run. 0 means only on start
