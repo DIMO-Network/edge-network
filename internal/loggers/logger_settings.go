@@ -1,4 +1,4 @@
-package internal
+package loggers
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+//go:generate mockgen -source logger_settings.go -destination mocks/logger_settings_mock.go
 type LoggerSettingsService interface {
 	ReadConfig() (*LoggerSettings, error)
 	WriteConfig(settings LoggerSettings) error

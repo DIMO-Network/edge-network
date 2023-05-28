@@ -2,6 +2,9 @@ package internal
 
 import (
 	"fmt"
+	"net/http"
+	"testing"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
@@ -9,8 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"testing"
 )
 
 func Test_loggerService_StartLoggers(t *testing.T) {
@@ -22,12 +23,12 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const vinQueryName = "vin_7DF_09_02"
+	vinQueryName := "vin_7DF_09_02"
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
-	loggerSettings := &LoggerSettings{VINQueryName: vinQueryName}
-	ls := NewLoggerService(unitID, vl, ds, loggerSettings)
+	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
+	ls := NewLoggerService(unitID, vl, ds, lss)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -38,7 +39,8 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
+	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{VINQueryName: vinQueryName}, nil)
+	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	ds.EXPECT().SendPayload(gomock.Any(), unitID).Times(1).Return(nil)
 
 	err := ls.StartLoggers()

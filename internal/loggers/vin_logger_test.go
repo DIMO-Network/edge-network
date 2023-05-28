@@ -2,12 +2,13 @@ package loggers
 
 import (
 	"fmt"
+	"net/http"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"testing"
 )
 
 func Test_extractVIN(t *testing.T) {

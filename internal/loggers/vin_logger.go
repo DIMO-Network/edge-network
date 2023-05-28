@@ -3,14 +3,15 @@ package loggers
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/api"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/DIMO-Network/edge-network/internal/api"
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 //go:generate mockgen -source vin_logger.go -destination mocks/vin_logger_mock.go

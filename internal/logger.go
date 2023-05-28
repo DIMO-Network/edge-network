@@ -2,9 +2,10 @@ package internal
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
-	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/google/uuid"
@@ -17,14 +18,14 @@ type LoggerService interface {
 }
 
 type loggerService struct {
-	unitID         uuid.UUID
-	vinLog         loggers.VINLogger
-	dataSender     network.DataSender
-	loggerSettings *LoggerSettings
+	unitID            uuid.UUID
+	vinLog            loggers.VINLogger
+	dataSender        network.DataSender
+	loggerSettingsSvc loggers.LoggerSettingsService
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, loggerSettings *LoggerSettings) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender, loggerSettings: loggerSettings}
+func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc}
 }
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
@@ -44,9 +45,14 @@ func (ls *loggerService) StartLoggers() error {
 		log.WithError(err).Log(log.ErrorLevel)
 		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
 	}
+	// read any existing settings
+	config, err := ls.loggerSettingsSvc.ReadConfig()
+	if err != nil {
+		log.Printf("failed to read configuration: %s", err)
+	}
 	vqn := new(string)
-	if ls.loggerSettings != nil {
-		vqn = &ls.loggerSettings.VINQueryName
+	if config != nil {
+		vqn = &config.VINQueryName
 	}
 	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
 	for _, logger := range ls.getLoggerConfigs() {
@@ -55,6 +61,15 @@ func (ls *loggerService) StartLoggers() error {
 			log.WithError(err).Log(log.ErrorLevel)
 			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
 			break
+		}
+		// save vin query name in settings if not set
+		if config == nil || config.VINQueryName == "" {
+			config = &loggers.LoggerSettings{VINQueryName: vinResp.QueryName}
+			err := ls.loggerSettingsSvc.WriteConfig(*config)
+			if err != nil {
+				log.WithError(err).Log(log.ErrorLevel)
+				_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
+			}
 		}
 		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
 		p.Data = network.StatusUpdateData{

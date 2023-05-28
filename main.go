@@ -153,12 +153,8 @@ func main() {
 	// OBD / CAN Loggers
 	ds := network.NewDataSender()
 	vinLogger := loggers.NewVINLogger()
-	lss := internal.NewLoggerSettingsService()
-	settings, err := lss.ReadConfig()
-	if err != nil {
-		log.Printf("failed to read configuration: %s", err)
-	}
-	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds, settings)
+	lss := loggers.NewLoggerSettingsService()
+	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds, lss)
 	err = loggerSvc.StartLoggers()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
@@ -551,6 +547,11 @@ func main() {
 		lastVIN = vinResp.VIN
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
+		// we want to do this each time in case the device is being paired to a different vehicle
+		err = lss.WriteConfig(loggers.LoggerSettings{VINQueryName: vinResp.QueryName})
+		if err != nil {
+			log.Printf("failed to save vin query name in settings: %s", err)
+		}
 		return
 	})
 

@@ -54,7 +54,7 @@ func (ds *dataSender) SendPayload(status *StatusUpdatePayload, unitID uuid.UUID)
 
 	// Connect to the MQTT broker
 	if token := ds.client.Connect(); token.Wait() && token.Error() != nil {
-		return errors.Wrap(err, "failed to connect to mqtt broker:")
+		return errors.Wrap(err, "failed to connect to mqtt broker")
 	}
 
 	// Wait for the connection to be established
