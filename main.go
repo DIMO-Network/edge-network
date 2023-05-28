@@ -153,7 +153,12 @@ func main() {
 	// OBD / CAN Loggers
 	ds := network.NewDataSender()
 	vinLogger := loggers.NewVINLogger()
-	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds)
+	lss := internal.NewLoggerSettingsService()
+	settings, err := lss.ReadConfig()
+	if err != nil {
+		log.Printf("failed to read configuration: %s", err)
+	}
+	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds, settings)
 	err = loggerSvc.StartLoggers()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
@@ -411,7 +416,7 @@ func main() {
 		log.Fatalf("Failed to add Get Wifi Status characteristic to device service: %s", err)
 	}
 
-	// set wifi connection
+	// set wi-fi connection
 	setWifiChar, err := deviceService.NewChar(setWifiUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create set wifi characteristic: %s", err)
@@ -533,7 +538,7 @@ func main() {
 			return
 		}
 
-		vinResp, err := vinLogger.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitId, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -573,7 +578,7 @@ func main() {
 			return
 		}
 		// just re-query for VIN
-		vinResp, err := vinLogger.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitId, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -848,9 +853,9 @@ func main() {
 
 // Utility Function
 func hasPairedDevices(devices []*device.Device1) bool {
-	for _, device := range devices {
-		log.Printf("Found previously connected device: %v", device.Properties.Alias)
-		if device.Properties.Trusted && device.Properties.Paired {
+	for _, d := range devices {
+		log.Printf("Found previously connected device: %v", d.Properties.Alias)
+		if d.Properties.Trusted && d.Properties.Paired {
 			return true
 		}
 	}

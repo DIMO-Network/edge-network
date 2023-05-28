@@ -17,13 +17,14 @@ type LoggerService interface {
 }
 
 type loggerService struct {
-	unitID     uuid.UUID
-	vinLog     loggers.VINLogger
-	dataSender network.DataSender
+	unitID         uuid.UUID
+	vinLog         loggers.VINLogger
+	dataSender     network.DataSender
+	loggerSettings *LoggerSettings
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender}
+func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, loggerSettings *LoggerSettings) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender, loggerSettings: loggerSettings}
 }
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
@@ -43,9 +44,13 @@ func (ls *loggerService) StartLoggers() error {
 		log.WithError(err).Log(log.ErrorLevel)
 		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
 	}
+	vqn := new(string)
+	if ls.loggerSettings != nil {
+		vqn = &ls.loggerSettings.VINQueryName
+	}
 	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
 	for _, logger := range ls.getLoggerConfigs() {
-		vinResp, err := logger.ScanFunc(ls.unitID, nil) // todo: check if queryname is stored and pass in
+		vinResp, err := logger.ScanFunc(ls.unitID, vqn)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
 			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)

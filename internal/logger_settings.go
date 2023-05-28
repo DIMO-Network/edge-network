@@ -14,17 +14,28 @@ type LoggerSettingsService interface {
 type loggerSettingsService struct {
 }
 
-func NewLoggerConfigService() LoggerSettingsService {
+func NewLoggerSettingsService() LoggerSettingsService {
 	return &loggerSettingsService{}
 }
 
-func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
+const filePath = "/tmp/logger-settings.json"
 
+func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	ls := &LoggerSettings{}
+
+	err = json.Unmarshal(data, ls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall loggersettings: %s", err)
+	}
+
+	return ls, nil
 }
 
 func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
-	filePath := "/tmp/example.txt"
-
 	// Open the file for writing (create if it doesn't exist)
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -41,6 +52,7 @@ func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
 	if err != nil {
 		return fmt.Errorf("error writing file: %s", err)
 	}
+	return nil
 }
 
 type LoggerSettings struct {
