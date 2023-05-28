@@ -50,7 +50,7 @@ func (ls *loggerService) StartLoggers() error {
 	if err != nil {
 		log.Printf("failed to read configuration: %s", err)
 	}
-	vqn := new(string)
+	var vqn *string
 	if config != nil {
 		vqn = &config.VINQueryName
 	}
