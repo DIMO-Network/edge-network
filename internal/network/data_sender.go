@@ -42,7 +42,7 @@ func NewDataSender() DataSender {
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address
 func (ds *dataSender) SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
-	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send
+	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	status.SerialNumber = unitID.String()
 
 	payload, err := json.Marshal(status)
@@ -99,9 +99,11 @@ type StatusUpdatePayload struct {
 }
 
 type StatusUpdateData struct {
-	Vin      string  `json:"vin"`
-	Protocol string  `json:"protocol"` // todo should we just post this to endpoint in vehicle-signal-decoding api, same with the VIN query
-	Odometer float64 `json:"odometer,omitempty"`
+	Vin            string  `json:"vin"`
+	Protocol       string  `json:"protocol"` // todo should we just post this to endpoint in vehicle-signal-decoding api, same with the VIN query
+	Odometer       float64 `json:"odometer,omitempty"`
+	RpiUptimeSecs  int     `json:"rpi_uptime_secs"`
+	BatteryVoltage float64 `json:"battery_voltage"`
 }
 
 func (ds *dataSender) SendErrorPayload(unitID uuid.UUID, ethAddress *common.Address, err error) error {

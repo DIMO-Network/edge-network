@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/api"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -32,7 +33,7 @@ func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender net
 func (ls *loggerService) StartLoggers() error {
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
-	ok, err := ls.isOkToScan()
+	ok, status, err := ls.isOkToScan()
 	if err != nil {
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
@@ -73,8 +74,10 @@ func (ls *loggerService) StartLoggers() error {
 		}
 		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
 		p.Data = network.StatusUpdateData{
-			Vin:      vinResp.VIN,
-			Protocol: vinResp.Protocol,
+			Vin:            vinResp.VIN,
+			Protocol:       vinResp.Protocol,
+			BatteryVoltage: status.Spm.Battery.Voltage,
+			RpiUptimeSecs:  status.Rpi.Uptime.Seconds,
 		}
 		err = ls.dataSender.SendPayload(&p, ls.unitID)
 		if err != nil {
@@ -92,14 +95,14 @@ func (ls *loggerService) StartLoggers() error {
 //its a more advanced obd logger pausing
 
 // isOkToScan checks if the power status and other heuristics to determine if ok to start Open CAN scanning and PID requests. Blocking.
-func (ls *loggerService) isOkToScan() (result bool, err error) {
+func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusResponse, err error) {
 	const maxTries = 100
 	const voltageMin = 13.2
 	tries := 0
 	status, httpError := commands.GetPowerStatus(ls.unitID)
 	for httpError != nil {
 		if tries > maxTries {
-			return false, fmt.Errorf("loggers: unable to get power.status after %d tries with error %s", maxTries, httpError.Error())
+			return false, status, fmt.Errorf("loggers: unable to get power.status after %d tries with error %s", maxTries, httpError.Error())
 		}
 		status, httpError = commands.GetPowerStatus(ls.unitID)
 		tries++
@@ -128,7 +131,7 @@ func (ls *loggerService) isOkToScan() (result bool, err error) {
 			err = httpError
 		}
 	} else {
-		return false, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger")
+		return false, status, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger")
 	}
 	// this may be an initial pair or something else so we don't wanna start loggers, just exit
 	result = false
