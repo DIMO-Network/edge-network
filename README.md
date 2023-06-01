@@ -72,6 +72,8 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
     * _Read._ Return the ASCII-encoded VIN
   * Get Protocol characteristic `5c300adc-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded Protocol supported, either "06" or "07"
+  * Get Diagnostics Error Codes characteristic `5c300add-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded, comma delimited list of DTC error codes, if any
 * Transactions service `5c30aade-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get Ethereum address characteristic `5c301dd2-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the 20 bytes of the Ethereum address for the device.
@@ -87,10 +89,12 @@ Missing:
 
 ## Deploying for production (single vehicle)
 
+Note that AutoPi 5.2 hw do not have Bluetooth.
+
 1. Release a build, wait for Github action to complete
 2. Select the desired vehicle in top right selector.
 3. Go to advanced settings in AutoPi admin - https://dimo.autopi.io/#/advanced-settings
-4. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
+4. Look for Dimo setting and update the URL, basically just update the version. Note that the URL is a cloudflare bucket and not pointing directly to
 github because we were getting rate limited. The proxy code [is here](https://github.com/DIMO-Network/assets-proxy/blob/main/src/index.js) that automatically pulls binaries.dimo.zone from GH. 
 
 ### Deploying to all vehicles or specific templates

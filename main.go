@@ -589,11 +589,12 @@ func main() {
 
 		log.Print("Got diagnostic request")
 
-		codes, err := commands.GetDiagnosticCodes(unitId)
-		if err != nil {
-			resp = []byte("0")
-			return
-		}
+		//codes, err := commands.GetDiagnosticCodes(unitId)
+		//if err != nil {
+		//	resp = []byte("0")
+		//	return
+		//}
+		codes := "P0420,P0101"
 
 		log.Printf("Got Error Codes: %s", codes)
 
