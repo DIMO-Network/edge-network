@@ -109,7 +109,7 @@ func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusRespon
 		time.Sleep(2 * time.Second)
 	}
 
-	log.Printf("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
+	log.Infof("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
 	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" {
 		if status.Spm.Battery.Voltage >= voltageMin {
 			// good to start scanning
