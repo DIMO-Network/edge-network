@@ -7,13 +7,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal"
+	"github.com/DIMO-Network/edge-network/internal/api"
+	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/network"
+	"github.com/google/subcommands"
 	"log"
 	"math"
 	"os"
 	"os/signal"
 	"time"
-
-	"github.com/google/subcommands"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
@@ -38,8 +41,8 @@ const (
 
 	deviceServiceUUIDFragment       = "7fa4"
 	vehicleServiceUUIDFragment      = "d387"
-	primaryIdCharUUIDFragment       = "5a11"
-	secondaryIdCharUUIDFragment     = "5a12"
+	primaryIDCharUUIDFragment       = "5a11"
+	secondaryIDCharUUIDFragment     = "5a12"
 	hwVersionUUIDFragment           = "5a13"
 	signalStrengthUUIDFragment      = "5a14"
 	wifiStatusUUIDFragment          = "5a15"
@@ -60,7 +63,7 @@ var lastSignature []byte
 
 var lastVIN string
 var lastProtocol string
-var unitId uuid.UUID
+var unitID uuid.UUID
 var name string
 
 var btManager btmgmt.BtMgmt
@@ -104,14 +107,22 @@ func setupBluez(name string) error {
 }
 
 func main() {
-	name, unitId = commands.GetDeviceName()
-	log.Printf("Serial Number: %s", unitId)
+	if len(os.Args) > 1 {
+		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
+		s := os.Args[1]
+		if s == "-v" {
+			log.Printf("Version: %s", Version)
+			os.Exit(0)
+		}
+	}
+	name, unitID = commands.GetDeviceName()
+	log.Printf("SerialNumber Number: %s", unitID)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
 
-	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
+	subcommands.Register(&scanVINCmd{unitID: unitID}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{}, "info")
 
 	if len(os.Args) > 1 {
@@ -122,21 +133,31 @@ func main() {
 
 	log.Printf("Starting DIMO Edge Network")
 
-	coldBoot, err := isColdBoot(unitId)
+	coldBoot, err := isColdBoot(unitID)
 	if err != nil {
 		log.Fatalf("Failed to get power management status: %s", err)
 	}
 	log.Printf("Bluetooth name: %s", name)
 	log.Printf("Version: %s", Version)
-	log.Printf("Sleeping 7 seconds before setting up bluez.")
+	log.Printf("Sleeping 7 seconds before setting up bluez.") // why do we do this?
 	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
 	// TODO(elffjs): Turn this off?
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.InfoLevel) // we don't use logrus consistenly in this project
 
 	err = setupBluez(name)
 	if err != nil {
 		log.Fatalf("Failed to setup BlueZ: %s", err)
+	}
+
+	// OBD / CAN Loggers
+	ds := network.NewDataSender()
+	vinLogger := loggers.NewVINLogger()
+	lss := loggers.NewLoggerSettingsService()
+	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
+	err = loggerSvc.StartLoggers()
+	if err != nil {
+		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
 	opt := service.AppOptions{
@@ -168,7 +189,7 @@ func main() {
 	}
 
 	// Get serial number
-	unitSerialChar, err := deviceService.NewChar(primaryIdCharUUIDFragment)
+	unitSerialChar, err := deviceService.NewChar(primaryIDCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Unit ID characteristic: %s", err)
 	}
@@ -182,19 +203,19 @@ func main() {
 			}
 		}()
 
-		log.Print("Got Unit Serial request")
+		log.Print("Got Unit SerialNumber request")
 
-		resp = []byte(unitId.String())
+		resp = []byte(unitID.String())
 		return
 	})
 
 	err = deviceService.AddChar(unitSerialChar)
 	if err != nil {
-		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+		log.Fatalf("Failed to add SerialNumber characteristic to device service: %s", err)
 	}
 
 	// Get secondary serial number
-	secondSerialChar, err := deviceService.NewChar(secondaryIdCharUUIDFragment)
+	secondSerialChar, err := deviceService.NewChar(secondaryIDCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Secondary ID characteristic: %s", err)
 	}
@@ -210,7 +231,7 @@ func main() {
 
 		log.Print("Got Unit Secondary Id request")
 
-		deviceID, err := commands.GetDeviceID(unitId)
+		deviceID, err := commands.GetDeviceID(unitID)
 		if err != nil {
 			return
 		}
@@ -223,7 +244,7 @@ func main() {
 
 	err = deviceService.AddChar(secondSerialChar)
 	if err != nil {
-		log.Fatalf("Failed to add UnitID characteristic to device service: %s", err)
+		log.Fatalf("Failed to add SerialNumber characteristic to device service: %s", err)
 	}
 
 	// Hardware revision
@@ -243,7 +264,7 @@ func main() {
 
 		log.Print("Got Hardware Revison request")
 
-		hwRevision, err := commands.GetHardwareRevision(unitId)
+		hwRevision, err := commands.GetHardwareRevision(unitID)
 		if err != nil {
 			return
 		}
@@ -304,7 +325,7 @@ func main() {
 
 		log.Print("Got Software Revison request")
 
-		swVersion, err := commands.GetSoftwareVersion(unitId)
+		swVersion, err := commands.GetSoftwareVersion(unitID)
 		if err != nil {
 			return
 		}
@@ -337,7 +358,7 @@ func main() {
 
 		log.Print("Got Signal Strength request.")
 
-		sigStrength, err := commands.GetSignalStrength(unitId)
+		sigStrength, err := commands.GetSignalStrength(unitID)
 		if err != nil {
 			return
 		}
@@ -370,7 +391,7 @@ func main() {
 
 		log.Print("Got Wifi Connection Status request.")
 
-		wifiConnectionState, err := commands.GetWifiStatus(unitId)
+		wifiConnectionState, err := commands.GetWifiStatus(unitID)
 		if err != nil {
 			return
 		}
@@ -391,7 +412,7 @@ func main() {
 		log.Fatalf("Failed to add Get Wifi Status characteristic to device service: %s", err)
 	}
 
-	// set wifi connection
+	// set wi-fi connection
 	setWifiChar, err := deviceService.NewChar(setWifiUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create set wifi characteristic: %s", err)
@@ -408,7 +429,7 @@ func main() {
 			}
 		}()
 
-		var req commands.SetWifiRequest
+		var req api.SetWifiRequest
 		err = json.Unmarshal(value, &req)
 		if err != nil {
 			log.Printf("Error unmarshaling wi-fi payload: %s", err)
@@ -421,7 +442,7 @@ func main() {
 			return
 		}
 
-		newWifiList := []commands.WifiEntity{
+		newWifiList := []api.WifiEntity{
 			{
 				Priority: 1,
 				SSID:     req.Network,
@@ -429,7 +450,7 @@ func main() {
 			},
 		}
 
-		setWifiResp, err := commands.SetWifiConnection(unitId, newWifiList)
+		setWifiResp, err := commands.SetWifiConnection(unitID, newWifiList)
 		if err != nil {
 			log.Printf("Failed to set wifi connection: %s", err)
 			return
@@ -468,7 +489,7 @@ func main() {
 
 		log.Print("Got IMSI request")
 
-		imsi, err := commands.GetIMSI(unitId)
+		imsi, err := commands.GetIMSI(unitID)
 		if err != nil {
 			return
 		}
@@ -513,7 +534,7 @@ func main() {
 			return
 		}
 
-		vin, protocol, err := commands.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitID, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -521,11 +542,16 @@ func main() {
 			return
 		}
 
-		log.Printf("Got Protocol: %s", protocol) // need to do something with protocol to set right template
-		log.Printf("Got VIN: %s", vin)
-		lastVIN = vin
-		lastProtocol = protocol
-		resp = []byte(vin)
+		log.Printf("Got Protocol: %s", vinResp.Protocol) // need to do something with protocol to set right template
+		log.Printf("Got VIN: %s", vinResp.VIN)
+		lastVIN = vinResp.VIN
+		lastProtocol = vinResp.Protocol
+		resp = []byte(lastVIN)
+		// we want to do this each time in case the device is being paired to a different vehicle
+		err = lss.WriteConfig(loggers.LoggerSettings{VINQueryName: vinResp.QueryName})
+		if err != nil {
+			log.Printf("failed to save vin query name in settings: %s", err)
+		}
 		return
 	})
 
@@ -553,7 +579,7 @@ func main() {
 			return
 		}
 		// just re-query for VIN
-		vin, protocol, err := commands.GetVIN(unitId)
+		vinResp, err := vinLogger.GetVIN(unitID, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -561,10 +587,10 @@ func main() {
 			return
 		}
 
-		log.Printf("Got Protocol: %s", protocol)
-		lastVIN = vin
-		lastProtocol = protocol
-		resp = []byte(protocol)
+		log.Printf("Got Protocol: %s", vinResp.Protocol)
+		lastVIN = vinResp.VIN
+		lastProtocol = vinResp.Protocol
+		resp = []byte(lastProtocol)
 		return
 	})
 	err = vehicleService.AddChar(protocolChar)
@@ -589,7 +615,7 @@ func main() {
 
 		log.Print("Got diagnostic request")
 
-		codes, err := commands.GetDiagnosticCodes(unitId)
+		codes, err := commands.GetDiagnosticCodes(unitID)
 		if err != nil {
 			resp = []byte("0")
 			return
@@ -610,7 +636,7 @@ func main() {
 
 		log.Printf("Got clear DTC request")
 
-		err = commands.ClearDiagnosticCodes(unitId)
+		err = commands.ClearDiagnosticCodes(unitID)
 		if err != nil {
 			return
 		}
@@ -642,7 +668,7 @@ func main() {
 
 		log.Printf("Got extend sleep request")
 
-		err = commands.ExtendSleepTimer(unitId)
+		err = commands.ExtendSleepTimer(unitID)
 		if err != nil {
 			return
 		}
@@ -681,7 +707,7 @@ func main() {
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		log.Print("Got address request")
 
-		addr, err := commands.GetEthereumAddress(unitId)
+		addr, err := commands.GetEthereumAddress(unitID)
 		if err != nil {
 			return
 		}
@@ -725,7 +751,7 @@ func main() {
 
 		log.Printf("Got sign request for hash: %s.", hex.EncodeToString(value))
 
-		sig, err := commands.SignHash(unitId, value)
+		sig, err := commands.SignHash(unitID, value)
 		if err != nil {
 			return
 		}
@@ -787,7 +813,7 @@ func main() {
 		log.Fatalf("Failed to get adapter alias: %s", err)
 	}
 
-	canBusInformation, err := commands.DetectCanbus(unitId)
+	canBusInformation, err := commands.DetectCanbus(unitID)
 	if err != nil {
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}
@@ -828,9 +854,9 @@ func main() {
 
 // Utility Function
 func hasPairedDevices(devices []*device.Device1) bool {
-	for _, device := range devices {
-		log.Printf("Found previously connected device: %v", device.Properties.Alias)
-		if device.Properties.Trusted && device.Properties.Paired {
+	for _, d := range devices {
+		log.Printf("Found previously connected device: %v", d.Properties.Alias)
+		if d.Properties.Trusted && d.Properties.Paired {
 			return true
 		}
 	}

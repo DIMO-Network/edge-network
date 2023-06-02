@@ -21,9 +21,9 @@ to be able to run the above command successfully. `scp` will also prompt for a p
 This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running by:
 
 - `which edge-control`
-- `systemctl stop edge-network`
+- `sudo systemctl stop edge-network`
 - replace the binary (you'll need to decompres `tar -xzvf` the binary if needed)
-- `systemctl start edge-network`
+- `sudo systemctl start edge-network`
 
 The device should be discoverable under thr usual `autopi`-prefixed name via Bluetooth.
 
@@ -72,6 +72,8 @@ For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` c
     * _Read._ Return the ASCII-encoded VIN
   * Get Protocol characteristic `5c300adc-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the ASCII-encoded Protocol supported, either "06" or "07"
+  * Get Diagnostics Error Codes characteristic `5c300add-6859-4d6c-a87b-8d2c98c9f6f0`
+    * _Read._ Return the ASCII-encoded, comma delimited list of DTC error codes, if any
 * Transactions service `5c30aade-6859-4d6c-a87b-8d2c98c9f6f0`
   * Get Ethereum address characteristic `5c301dd2-6859-4d6c-a87b-8d2c98c9f6f0`
     * _Read._ Return the 20 bytes of the Ethereum address for the device.
@@ -90,7 +92,7 @@ Missing:
 1. Release a build, wait for Github action to complete
 2. Select the desired vehicle in top right selector.
 3. Go to advanced settings in AutoPi admin - https://dimo.autopi.io/#/advanced-settings
-4. Look for Dimo setting and update the URL. Note that the URL is a cloudflare bucket and not pointing directly to
+4. Look for Dimo setting and update the URL, basically just update the version. Note that the URL is a cloudflare bucket and not pointing directly to
 github because we were getting rate limited. The proxy code [is here](https://github.com/DIMO-Network/assets-proxy/blob/main/src/index.js) that automatically pulls binaries.dimo.zone from GH. 
 
 ### Deploying to all vehicles or specific templates
@@ -119,6 +121,15 @@ If you see this result:
 
 Start the service manually if didn't start after install:
 `cmd.run 'systemctl start edge-network'` 
+
+# Gotchas / Notes
+
+The `-v` command is important for the salt stack on the autopi to work correctly for managing the correct version to download.
+If not present, this will likely cause devices being unable to update and/or apply pending syncs, 
+since the devices are using the edge-network -v call to confirm if the binary installation is working properly. 
+It expects to see the version number of the binary.
+
+Note that the `Version` is set via a build flag in the `/.github/workflows/release.yaml` via the `ldflags`. 
 
 # Research
 

@@ -29,7 +29,7 @@ func NewDefaultSimpleAgent() *SimpleAgent {
 		passKey: SimpleAgentPassKey,
 		pinCode: SimpleAgentPinCode,
 	}
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.InfoLevel) // modify to trace if need more detail
 	return ag
 }
 

@@ -28,27 +28,27 @@ type Char struct {
 	writeCallback CharWriteCallback
 }
 
-func (s *Char) Path() dbus.ObjectPath {
-	return s.path
+func (c *Char) Path() dbus.ObjectPath {
+	return c.path
 }
 
-func (s *Char) DBusProperties() *api.DBusProperties {
-	return s.iprops
+func (c *Char) DBusProperties() *api.DBusProperties {
+	return c.iprops
 }
 
-func (s *Char) Interface() string {
+func (c *Char) Interface() string {
 	return gatt.GattCharacteristic1Interface
 }
 
-func (s *Char) GetProperties() bluez.Properties {
+func (c *Char) GetProperties() bluez.Properties {
 	descr := []dbus.ObjectPath{}
-	for dpath := range s.descr {
+	for dpath := range c.descr {
 		descr = append(descr, dpath)
 	}
-	s.Properties.Descriptors = descr
-	s.Properties.Service = s.Service().Path()
+	c.Properties.Descriptors = descr
+	c.Properties.Service = c.Service().Path()
 
-	return s.Properties
+	return c.Properties
 }
 
 func (c *Char) GetDescr() map[dbus.ObjectPath]*Descr {
@@ -63,17 +63,17 @@ func (c *Char) Service() *Service {
 	return c.service
 }
 
-func (s *Char) DBusObjectManager() *api.DBusObjectManager {
-	return s.App().DBusObjectManager()
+func (c *Char) DBusObjectManager() *api.DBusObjectManager {
+	return c.App().DBusObjectManager()
 }
 
-func (s *Char) DBusConn() *dbus.Conn {
-	return s.App().DBusConn()
+func (c *Char) DBusConn() *dbus.Conn {
+	return c.App().DBusConn()
 }
 
-func (s *Char) RemoveDescr(descr *Descr) error {
+func (c *Char) RemoveDescr(descr *Descr) error {
 
-	if _, ok := s.descr[descr.Path()]; !ok {
+	if _, ok := c.descr[descr.Path()]; !ok {
 		return nil
 	}
 
@@ -82,34 +82,34 @@ func (s *Char) RemoveDescr(descr *Descr) error {
 		return err
 	}
 
-	delete(s.descr, descr.Path())
+	delete(c.descr, descr.Path())
 
 	return nil
 }
 
 // Expose char to dbus
-func (s *Char) Expose() error {
-	return api.ExposeDBusService(s)
+func (c *Char) Expose() error {
+	return api.ExposeDBusService(c)
 }
 
 // Remove char from dbus
-func (s *Char) Remove() error {
-	return api.RemoveDBusService(s)
+func (c *Char) Remove() error {
+	return api.RemoveDBusService(c)
 }
 
 // NewDescr Init new descr
-func (s *Char) NewDescr(uuid string) (*Descr, error) {
+func (c *Char) NewDescr(uuid string) (*Descr, error) {
 
 	descr := new(Descr)
-	descr.UUID = s.App().GenerateUUID(uuid)
+	descr.UUID = c.App().GenerateUUID(uuid)
 
-	descr.app = s.App()
-	descr.char = s
+	descr.app = c.App()
+	descr.char = c
 	descr.Properties = NewGattDescriptor1Properties(descr.UUID)
 	descr.path = dbus.ObjectPath(
-		fmt.Sprintf("%s/descriptor%d", s.Path(), len(s.GetDescr())),
+		fmt.Sprintf("%s/descriptor%d", c.Path(), len(c.GetDescr())),
 	)
-	iprops, err := api.NewDBusProperties(s.App().DBusConn())
+	iprops, err := api.NewDBusProperties(c.App().DBusConn())
 	if err != nil {
 		return nil, err
 	}
@@ -119,16 +119,16 @@ func (s *Char) NewDescr(uuid string) (*Descr, error) {
 }
 
 // AddDescr Add descr to dbus
-func (s *Char) AddDescr(descr *Descr) error {
+func (c *Char) AddDescr(descr *Descr) error {
 
 	err := api.ExposeDBusService(descr)
 	if err != nil {
 		return err
 	}
 
-	s.descr[descr.Path()] = descr
+	c.descr[descr.Path()] = descr
 
-	err = s.DBusObjectManager().AddObject(descr.Path(), map[string]bluez.Properties{
+	err = c.DBusObjectManager().AddObject(descr.Path(), map[string]bluez.Properties{
 		descr.Interface(): descr.GetProperties(),
 	})
 	if err != nil {
@@ -136,8 +136,8 @@ func (s *Char) AddDescr(descr *Descr) error {
 	}
 
 	// update OM char too
-	err = s.DBusObjectManager().AddObject(s.Path(), map[string]bluez.Properties{
-		s.Interface(): s.GetProperties(),
+	err = c.DBusObjectManager().AddObject(c.Path(), map[string]bluez.Properties{
+		c.Interface(): c.GetProperties(),
 	})
 	if err != nil {
 		return err
@@ -145,18 +145,18 @@ func (s *Char) AddDescr(descr *Descr) error {
 
 	log.Tracef("Added GATT Descriptor UUID=%s %s", descr.UUID, descr.Path())
 
-	err = s.App().ExportTree()
+	err = c.App().ExportTree()
 	return err
 }
 
 // OnRead Set the Read callback, called when a client attempt to read
-func (s *Char) OnRead(fx CharReadCallback) *Char {
-	s.readCallback = fx
-	return s
+func (c *Char) OnRead(fx CharReadCallback) *Char {
+	c.readCallback = fx
+	return c
 }
 
 // OnWrite Set the Write callback, called when a client attempt to write
-func (s *Char) OnWrite(fx CharWriteCallback) *Char {
-	s.writeCallback = fx
-	return s
+func (c *Char) OnWrite(fx CharWriteCallback) *Char {
+	c.writeCallback = fx
+	return c
 }

@@ -1,7 +1,8 @@
-package commands
+package loggers
 
 import (
 	"context"
+
 	"go.einride.tech/can"
 	"go.einride.tech/can/pkg/candevice"
 	"go.einride.tech/can/pkg/socketcan"

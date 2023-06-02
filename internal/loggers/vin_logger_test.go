@@ -1,13 +1,14 @@
-package commands
+package loggers
 
 import (
 	"fmt"
+	"net/http"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"testing"
 )
 
 func Test_extractVIN(t *testing.T) {
@@ -140,11 +141,33 @@ func TestGetVIN(t *testing.T) {
 	// mock http
 	v := `|-\n7e8101b62f190314654\n7e8214557314350334e\n7e8224b453638353933\n7e82300000000000000`
 	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
-	url := fmt.Sprintf("%s/dongle/%s/execute_raw", autoPiBaseURL, unitID.String())
+	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vin, protocol, err := GetVIN(unitID)
+	vl := NewVINLogger()
+
+	vinResp, err := vl.GetVIN(unitID, nil)
 	require.NoError(t, err)
-	assert.Equal(t, "6", protocol)
-	assert.Equal(t, testVIN, vin)
+	assert.Equal(t, "6", vinResp.Protocol)
+	assert.Equal(t, testVIN, vinResp.VIN)
+}
+
+func TestGetVIN_withQueryName(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+	const testVIN = "1FTEW1CP3NKE68593"
+	// mock http
+	v := `|-\n7e8101b62f190314654\n7e8214557314350334e\n7e8224b453638353933\n7e82300000000000000`
+	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
+	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
+	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
+
+	vl := NewVINLogger()
+	qn := "vin_18DB33F1_09_02"
+	vinResp, err := vl.GetVIN(unitID, &qn)
+	require.NoError(t, err)
+	assert.Equal(t, "7", vinResp.Protocol)
+	assert.Equal(t, testVIN, vinResp.VIN)
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/DIMO-Network/edge-network/internal/api"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 )
@@ -11,12 +13,12 @@ import (
 func SignHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	hashHex := hex.EncodeToString(hash)
 
-	req := executeRawRequest{Command: signHashCommand + hashHex}
+	req := api.ExecuteRawRequest{Command: api.SignHashCommand + hashHex}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp executeRawResponse
+	var resp api.ExecuteRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
@@ -25,17 +27,18 @@ func SignHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 	return
 }
 
-func GetEthereumAddress(unitID uuid.UUID) (addr common.Address, err error) {
-	req := executeRawRequest{Command: getEthereumAddressCommand}
+func GetEthereumAddress(unitID uuid.UUID) (addr *common.Address, err error) {
+	req := api.ExecuteRawRequest{Command: api.GetEthereumAddressCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
-	var resp executeRawResponse
+	var resp api.ExecuteRawResponse
 
-	err = executeRequest("POST", path, req, &resp)
+	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
 
-	addr = common.HexToAddress(resp.Value)
+	ha := common.HexToAddress(resp.Value)
+	addr = &ha
 	return
 }

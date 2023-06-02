@@ -11,20 +11,20 @@ import (
 type buildInfoCmd struct {
 }
 
-func (*buildInfoCmd) Name() string { return "scan-vin" }
+func (*buildInfoCmd) Name() string { return "build-info" }
 func (*buildInfoCmd) Synopsis() string {
-	return "scans for VIN using same command we use for BTE pairing. meant for debugging"
+	return "prints out the build info provided by go debug.ReadBuildInfo()"
 }
 func (*buildInfoCmd) Usage() string {
-	return `scan-vin`
+	return `build-info`
 }
 
 // nolint
-func (p *buildInfoCmd) SetFlags(f *flag.FlagSet) {
+func (p *buildInfoCmd) SetFlags(_ *flag.FlagSet) {
 	// maybe canbus-only option?
 }
 
-func (p *buildInfoCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *buildInfoCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("printing build info\n\n")
 
 	if info, ok := debug.ReadBuildInfo(); ok {

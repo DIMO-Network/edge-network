@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -11,6 +13,7 @@ import (
 
 type scanVINCmd struct {
 	unitID uuid.UUID
+	send   bool
 }
 
 func (*scanVINCmd) Name() string { return "scan-vin" }
@@ -18,22 +21,46 @@ func (*scanVINCmd) Synopsis() string {
 	return "scans for VIN using same command we use for BTE pairing. meant for debugging"
 }
 func (*scanVINCmd) Usage() string {
-	return `scan-vin`
+	return `scan-vin [-send]`
 }
 
-// nolint
 func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
-	// maybe canbus-only option?
+	f.BoolVar(&p.send, "send", false, "send result over mqtt to the cloud")
 }
 
-func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
-	vin, protocol, err := commands.GetVIN(p.unitID)
-	if err != nil {
-		log.Panicf("could not get vin %s", err.Error())
+	// this is purposely left un-refactored
+	vl := loggers.NewVINLogger()
+	ds := network.NewDataSender()
+	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
+	if vinErr != nil {
+		err := ds.SendErrorPayload(p.unitID, nil, vinErr)
+		log.Errorf("failed to send mqtt payload: %s", err.Error())
+		log.Panicf("could not get vin %s", vinErr.Error())
 	}
-	log.Infof("VIN: %s\n", vin)
-	log.Infof("Protocol: %s\n", protocol)
+	log.Infof("VIN: %s\n", vinResp.VIN)
+	log.Infof("Protocol: %s\n", vinResp.Protocol)
+	if p.send {
+		addr, err := commands.GetEthereumAddress(p.unitID)
+		if err != nil {
+			// todo retry logic?
+			errSend := ds.SendErrorPayload(p.unitID, nil, err)
+			log.Errorf("failed to send mqtt payload: %s", errSend.Error())
+			log.Panicf("could not get eth address %s", err.Error())
+		}
+
+		payload := network.NewStatusUpdatePayload(p.unitID, addr)
+		payload.Data = network.StatusUpdateData{
+			Vin:      vinResp.VIN,
+			Protocol: vinResp.Protocol,
+		}
+		err = ds.SendPayload(&payload, p.unitID)
+		if err != nil {
+			log.Errorf("failed to send vin over mqtt: %s", err.Error())
+			return subcommands.ExitFailure
+		}
+	}
 
 	return subcommands.ExitSuccess
 }

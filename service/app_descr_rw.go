@@ -17,7 +17,7 @@ func (s *Descr) OnWrite(fx DescrWriteCallback) *Descr {
 	return s
 }
 
-//ReadValue read a value
+// ReadValue read a value
 func (s *Descr) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 
 	log.Trace("Descr.ReadValue")
@@ -33,8 +33,8 @@ func (s *Descr) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) 
 	return s.Properties.Value, nil
 }
 
-//WriteValue write a value
-func (s *Descr) WriteValue(value []byte, options map[string]interface{}) *dbus.Error {
+// WriteValue write a value
+func (s *Descr) WriteValue(value []byte, _ map[string]interface{}) *dbus.Error {
 
 	log.Trace("Descr.WriteValue")
 

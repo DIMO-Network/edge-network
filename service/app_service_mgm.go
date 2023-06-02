@@ -54,7 +54,7 @@ func (app *App) AddService(s *Service) error {
 	return nil
 }
 
-//RemoveService remove an exposed service
+// RemoveService remove an exposed service
 func (app *App) RemoveService(service *Service) error {
 	if _, ok := app.services[service.Path()]; !ok {
 		return nil
