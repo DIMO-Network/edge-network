@@ -34,7 +34,7 @@ func (s *Descr) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) 
 }
 
 // WriteValue write a value
-func (s *Descr) WriteValue(value []byte, options map[string]interface{}) *dbus.Error {
+func (s *Descr) WriteValue(value []byte, _ map[string]interface{}) *dbus.Error {
 
 	log.Trace("Descr.WriteValue")
 

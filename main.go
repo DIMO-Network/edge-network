@@ -41,8 +41,8 @@ const (
 
 	deviceServiceUUIDFragment       = "7fa4"
 	vehicleServiceUUIDFragment      = "d387"
-	primaryIdCharUUIDFragment       = "5a11"
-	secondaryIdCharUUIDFragment     = "5a12"
+	primaryIDCharUUIDFragment       = "5a11"
+	secondaryIDCharUUIDFragment     = "5a12"
 	hwVersionUUIDFragment           = "5a13"
 	signalStrengthUUIDFragment      = "5a14"
 	wifiStatusUUIDFragment          = "5a15"
@@ -63,7 +63,7 @@ var lastSignature []byte
 
 var lastVIN string
 var lastProtocol string
-var unitId uuid.UUID
+var unitID uuid.UUID
 var name string
 
 var btManager btmgmt.BtMgmt
@@ -115,14 +115,14 @@ func main() {
 			os.Exit(0)
 		}
 	}
-	name, unitId = commands.GetDeviceName()
-	log.Printf("SerialNumber Number: %s", unitId)
+	name, unitID = commands.GetDeviceName()
+	log.Printf("SerialNumber Number: %s", unitID)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
 
-	subcommands.Register(&scanVINCmd{unitID: unitId}, "decode loggers")
+	subcommands.Register(&scanVINCmd{unitID: unitID}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{}, "info")
 
 	if len(os.Args) > 1 {
@@ -133,7 +133,7 @@ func main() {
 
 	log.Printf("Starting DIMO Edge Network")
 
-	coldBoot, err := isColdBoot(unitId)
+	coldBoot, err := isColdBoot(unitID)
 	if err != nil {
 		log.Fatalf("Failed to get power management status: %s", err)
 	}
@@ -154,7 +154,7 @@ func main() {
 	ds := network.NewDataSender()
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
-	loggerSvc := internal.NewLoggerService(unitId, vinLogger, ds, lss)
+	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
 	err = loggerSvc.StartLoggers()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
@@ -189,7 +189,7 @@ func main() {
 	}
 
 	// Get serial number
-	unitSerialChar, err := deviceService.NewChar(primaryIdCharUUIDFragment)
+	unitSerialChar, err := deviceService.NewChar(primaryIDCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Unit ID characteristic: %s", err)
 	}
@@ -205,7 +205,7 @@ func main() {
 
 		log.Print("Got Unit SerialNumber request")
 
-		resp = []byte(unitId.String())
+		resp = []byte(unitID.String())
 		return
 	})
 
@@ -215,7 +215,7 @@ func main() {
 	}
 
 	// Get secondary serial number
-	secondSerialChar, err := deviceService.NewChar(secondaryIdCharUUIDFragment)
+	secondSerialChar, err := deviceService.NewChar(secondaryIDCharUUIDFragment)
 	if err != nil {
 		log.Fatalf("Failed to create Secondary ID characteristic: %s", err)
 	}
@@ -231,7 +231,7 @@ func main() {
 
 		log.Print("Got Unit Secondary Id request")
 
-		deviceID, err := commands.GetDeviceID(unitId)
+		deviceID, err := commands.GetDeviceID(unitID)
 		if err != nil {
 			return
 		}
@@ -264,7 +264,7 @@ func main() {
 
 		log.Print("Got Hardware Revison request")
 
-		hwRevision, err := commands.GetHardwareRevision(unitId)
+		hwRevision, err := commands.GetHardwareRevision(unitID)
 		if err != nil {
 			return
 		}
@@ -325,7 +325,7 @@ func main() {
 
 		log.Print("Got Software Revison request")
 
-		swVersion, err := commands.GetSoftwareVersion(unitId)
+		swVersion, err := commands.GetSoftwareVersion(unitID)
 		if err != nil {
 			return
 		}
@@ -358,7 +358,7 @@ func main() {
 
 		log.Print("Got Signal Strength request.")
 
-		sigStrength, err := commands.GetSignalStrength(unitId)
+		sigStrength, err := commands.GetSignalStrength(unitID)
 		if err != nil {
 			return
 		}
@@ -391,7 +391,7 @@ func main() {
 
 		log.Print("Got Wifi Connection Status request.")
 
-		wifiConnectionState, err := commands.GetWifiStatus(unitId)
+		wifiConnectionState, err := commands.GetWifiStatus(unitID)
 		if err != nil {
 			return
 		}
@@ -450,7 +450,7 @@ func main() {
 			},
 		}
 
-		setWifiResp, err := commands.SetWifiConnection(unitId, newWifiList)
+		setWifiResp, err := commands.SetWifiConnection(unitID, newWifiList)
 		if err != nil {
 			log.Printf("Failed to set wifi connection: %s", err)
 			return
@@ -489,7 +489,7 @@ func main() {
 
 		log.Print("Got IMSI request")
 
-		imsi, err := commands.GetIMSI(unitId)
+		imsi, err := commands.GetIMSI(unitID)
 		if err != nil {
 			return
 		}
@@ -534,7 +534,7 @@ func main() {
 			return
 		}
 
-		vinResp, err := vinLogger.GetVIN(unitId, nil)
+		vinResp, err := vinLogger.GetVIN(unitID, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -579,7 +579,7 @@ func main() {
 			return
 		}
 		// just re-query for VIN
-		vinResp, err := vinLogger.GetVIN(unitId, nil)
+		vinResp, err := vinLogger.GetVIN(unitID, nil)
 		if err != nil {
 			err = nil
 			log.Printf("Unable to get VIN")
@@ -615,7 +615,7 @@ func main() {
 
 		log.Print("Got diagnostic request")
 
-		codes, err := commands.GetDiagnosticCodes(unitId)
+		codes, err := commands.GetDiagnosticCodes(unitID)
 		if err != nil {
 			resp = []byte("0")
 			return
@@ -636,7 +636,7 @@ func main() {
 
 		log.Printf("Got clear DTC request")
 
-		err = commands.ClearDiagnosticCodes(unitId)
+		err = commands.ClearDiagnosticCodes(unitID)
 		if err != nil {
 			return
 		}
@@ -668,7 +668,7 @@ func main() {
 
 		log.Printf("Got extend sleep request")
 
-		err = commands.ExtendSleepTimer(unitId)
+		err = commands.ExtendSleepTimer(unitID)
 		if err != nil {
 			return
 		}
@@ -707,7 +707,7 @@ func main() {
 	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		log.Print("Got address request")
 
-		addr, err := commands.GetEthereumAddress(unitId)
+		addr, err := commands.GetEthereumAddress(unitID)
 		if err != nil {
 			return
 		}
@@ -751,7 +751,7 @@ func main() {
 
 		log.Printf("Got sign request for hash: %s.", hex.EncodeToString(value))
 
-		sig, err := commands.SignHash(unitId, value)
+		sig, err := commands.SignHash(unitID, value)
 		if err != nil {
 			return
 		}
@@ -813,7 +813,7 @@ func main() {
 		log.Fatalf("Failed to get adapter alias: %s", err)
 	}
 
-	canBusInformation, err := commands.DetectCanbus(unitId)
+	canBusInformation, err := commands.DetectCanbus(unitID)
 	if err != nil {
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}

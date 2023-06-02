@@ -20,11 +20,11 @@ func (*buildInfoCmd) Usage() string {
 }
 
 // nolint
-func (p *buildInfoCmd) SetFlags(f *flag.FlagSet) {
+func (p *buildInfoCmd) SetFlags(_ *flag.FlagSet) {
 	// maybe canbus-only option?
 }
 
-func (p *buildInfoCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *buildInfoCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("printing build info\n\n")
 
 	if info, ok := debug.ReadBuildInfo(); ok {

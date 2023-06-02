@@ -9,7 +9,7 @@ import (
 // confirmation that value was received.
 //
 // Possible Errors: org.bluez.Error.Failed
-func (s *Char) Confirm() *dbus.Error {
+func (c *Char) Confirm() *dbus.Error {
 	log.Debug("Char.Confirm")
 	return nil
 }
@@ -22,7 +22,7 @@ func (s *Char) Confirm() *dbus.Error {
 //	org.bluez.Error.NotPermitted
 //	org.bluez.Error.InProgress
 //	org.bluez.Error.NotSupported
-func (s *Char) StartNotify() *dbus.Error {
+func (c *Char) StartNotify() *dbus.Error {
 	log.Debug("Char.StartNotify")
 	return nil
 }
@@ -33,7 +33,7 @@ func (s *Char) StartNotify() *dbus.Error {
 // calling StopNotify will release a single session.
 //
 // Possible Errors: org.bluez.Error.Failed
-func (s *Char) StopNotify() *dbus.Error {
+func (c *Char) StopNotify() *dbus.Error {
 	log.Debug("Char.StopNotify")
 	return nil
 }
@@ -53,18 +53,18 @@ func (s *Char) StopNotify() *dbus.Error {
 //	org.bluez.Error.NotAuthorized
 //	org.bluez.Error.InvalidOffset
 //	org.bluez.Error.NotSupported
-func (s *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
+func (c *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 
 	log.Debug("Characteristic.ReadValue")
-	if s.readCallback != nil {
-		b, err := s.readCallback(s, options)
+	if c.readCallback != nil {
+		b, err := c.readCallback(c, options)
 		if err != nil {
 			return nil, dbus.MakeFailedError(err)
 		}
 		return b, nil
 	}
 
-	return s.Properties.Value, nil
+	return c.Properties.Value, nil
 }
 
 // WriteValue Issues a request to write the value of the
@@ -85,14 +85,14 @@ func (s *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 //	org.bluez.Error.InvalidValueLength
 //	org.bluez.Error.NotAuthorized
 //	org.bluez.Error.NotSupported
-func (s *Char) WriteValue(value []byte, options map[string]interface{}) *dbus.Error {
+func (c *Char) WriteValue(value []byte, _ map[string]interface{}) *dbus.Error {
 
 	log.Trace("Characteristic.WriteValue")
 
 	val := value
-	if s.writeCallback != nil {
+	if c.writeCallback != nil {
 		log.Trace("Used write callback")
-		b, err := s.writeCallback(s, value)
+		b, err := c.writeCallback(c, value)
 		val = b
 		if err != nil {
 			return dbus.MakeFailedError(err)
@@ -102,8 +102,8 @@ func (s *Char) WriteValue(value []byte, options map[string]interface{}) *dbus.Er
 	}
 
 	// TODO update on Properties interface
-	s.Properties.Value = val
-	err := s.iprops.Instance().Set(s.Interface(), "Value", dbus.MakeVariant(value))
+	c.Properties.Value = val
+	err := c.iprops.Instance().Set(c.Interface(), "Value", dbus.MakeVariant(value))
 
 	return err
 }

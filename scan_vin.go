@@ -28,7 +28,7 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&p.send, "send", false, "send result over mqtt to the cloud")
 }
 
-func (p *scanVINCmd) Execute(ctx context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	log.Infof("trying to get VIN\n")
 	// this is purposely left un-refactored
 	vl := loggers.NewVINLogger()
