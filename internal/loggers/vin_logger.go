@@ -86,7 +86,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 
 	// if all PIDs fail, try passive scan, currently specific to Citroen
 	if err != nil {
-		vinResp, err = passiveScanCitroen()
+		vinResp, _ = passiveScanCitroen()
 	}
 	return
 }
