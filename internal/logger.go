@@ -44,7 +44,7 @@ func (ls *loggerService) StartLoggers() error {
 	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
 	if err != nil {
 		log.WithError(err).Log(log.ErrorLevel)
-		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
+		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get device eth addr"))
 	}
 	// read any existing settings
 	config, err := ls.loggerSettingsSvc.ReadConfig()
@@ -60,7 +60,7 @@ func (ls *loggerService) StartLoggers() error {
 		vinResp, err := logger.ScanFunc(ls.unitID, vqn)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
-			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
+			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
 			break
 		}
 		// save vin query name in settings if not set
@@ -69,7 +69,7 @@ func (ls *loggerService) StartLoggers() error {
 			err := ls.loggerSettingsSvc.WriteConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
-				_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, err)
+				_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to write logger settings"))
 			}
 		}
 		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
