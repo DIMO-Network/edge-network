@@ -33,6 +33,8 @@ import (
 
 var Version = "development"
 
+const bleUnsupportedHW = "5.2"
+
 const (
 	adapterID = "hci0"
 
@@ -142,13 +144,13 @@ func main() {
 	log.Printf("Sleeping 7 seconds before setting up bluez.") // why do we do this?
 	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
-	// TODO(elffjs): Turn this off?
 	logrus.SetLevel(logrus.InfoLevel) // we don't use logrus consistenly in this project
 
-	err = setupBluez(name)
+	hwRevision, err := commands.GetHardwareRevision(unitID)
 	if err != nil {
-		log.Fatalf("Failed to setup BlueZ: %s", err)
+		log.Printf("error getting hardware rev: %s", err)
 	}
+	log.Printf("hardware version found: %s", hwRevision)
 
 	// OBD / CAN Loggers
 	ds := network.NewDataSender()
@@ -160,6 +162,23 @@ func main() {
 		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
+	// if hw revision is anything other than 5.2, setup BLE
+	if hwRevision != bleUnsupportedHW {
+		err = setupBluez(name)
+		if err != nil {
+			log.Fatalf("Failed to setup BlueZ: %s", err)
+		}
+		setupBluetoothApplication(coldBoot, vinLogger, lss)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	sig := <-sigChan
+	log.Printf("Terminating from signal: %s", sig)
+}
+
+func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
@@ -786,9 +805,6 @@ func main() {
 
 	defer cancel()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
 	//Check if we should disable new connections
 	devices, err := app.Adapter().GetDevices()
 	if err != nil {
@@ -847,9 +863,6 @@ func main() {
 	log.Printf("Transactions service: %s", transactionsService.Properties.UUID)
 	log.Printf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
 	log.Printf("  Sign hash characteristic: %s", signChar.Properties.UUID)
-
-	sig := <-sigChan
-	log.Printf("Terminating from signal: %s", sig)
 }
 
 // Utility Function
