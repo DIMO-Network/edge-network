@@ -29,23 +29,25 @@ func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender net
 	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc}
 }
 
+const maxFailureAttempts = 5
+
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
 func (ls *loggerService) StartLoggers() error {
 	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
 	if err != nil {
 		log.WithError(err).Log(log.ErrorLevel)
-		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "could not get device eth addr"))
+		_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "could not get device eth addr"))
 	}
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
-		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "checks to start loggers failed"))
+		_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "checks to start loggers failed"))
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
 		e := fmt.Errorf("checks to start loggers failed but no errors reported")
-		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, e)
+		_ = ls.dataSender.SendErrorPayload(ethAddr, e)
 		return e
 	}
 	log.Infof("loggers: checks passed to start scanning")
@@ -59,10 +61,10 @@ func (ls *loggerService) StartLoggers() error {
 		vqn = &config.VINQueryName
 		// check if we do not want to continue scanning VIN for this car - currently determines if we run any loggers (but do note some cars won't respond VIN but yes on most OBD2 stds)
 		if config.VINLoggerVersion == loggers.VINLoggerVersion { // if vin logger improves, basically ignore failed attempts as maybe we decoded it.
-			if config.VINLoggerFailedAttempts >= 3 {
+			if config.VINLoggerFailedAttempts >= maxFailureAttempts {
 				if config.VINQueryName != "" {
 					// this would be really weird and needs to be addressed
-					_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
+					_ = ls.dataSender.SendErrorPayload(ethAddr, fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
 				}
 				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
 			}
@@ -85,7 +87,7 @@ func (ls *loggerService) StartLoggers() error {
 				log.WithError(writeErr).Log(log.ErrorLevel)
 			}
 
-			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
+			_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
 			break
 		}
 		// save vin query name in settings if not set
@@ -94,7 +96,7 @@ func (ls *loggerService) StartLoggers() error {
 			err := ls.loggerSettingsSvc.WriteConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
-				_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to write logger settings"))
+				_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "failed to write logger settings"))
 			}
 		}
 		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
@@ -104,7 +106,7 @@ func (ls *loggerService) StartLoggers() error {
 			BatteryVoltage: status.Spm.Battery.Voltage,
 			RpiUptimeSecs:  status.Rpi.Uptime.Seconds,
 		}
-		err = ls.dataSender.SendPayload(&p, ls.unitID)
+		err = ls.dataSender.SendPayload(&p)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
 		}

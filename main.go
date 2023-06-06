@@ -153,7 +153,7 @@ func main() {
 	log.Printf("hardware version found: %s", hwRevision)
 
 	// OBD / CAN Loggers
-	ds := network.NewDataSender()
+	ds := network.NewDataSender(unitID)
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)

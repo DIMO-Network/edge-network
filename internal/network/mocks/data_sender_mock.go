@@ -10,7 +10,6 @@ import (
 	network "github.com/DIMO-Network/edge-network/internal/network"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
-	uuid "github.com/google/uuid"
 )
 
 // MockDataSender is a mock of DataSender interface.
@@ -37,29 +36,29 @@ func (m *MockDataSender) EXPECT() *MockDataSenderMockRecorder {
 }
 
 // SendErrorPayload mocks base method.
-func (m *MockDataSender) SendErrorPayload(unitID uuid.UUID, ethAddress *common.Address, err error) error {
+func (m *MockDataSender) SendErrorPayload(ethAddress *common.Address, err error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendErrorPayload", unitID, ethAddress, err)
+	ret := m.ctrl.Call(m, "SendErrorPayload", ethAddress, err)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendErrorPayload indicates an expected call of SendErrorPayload.
-func (mr *MockDataSenderMockRecorder) SendErrorPayload(unitID, ethAddress, err interface{}) *gomock.Call {
+func (mr *MockDataSenderMockRecorder) SendErrorPayload(ethAddress, err interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), unitID, ethAddress, err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), ethAddress, err)
 }
 
 // SendPayload mocks base method.
-func (m *MockDataSender) SendPayload(status *network.StatusUpdatePayload, unitID uuid.UUID) error {
+func (m *MockDataSender) SendPayload(status *network.StatusUpdatePayload) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendPayload", status, unitID)
+	ret := m.ctrl.Call(m, "SendPayload", status)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendPayload indicates an expected call of SendPayload.
-func (mr *MockDataSenderMockRecorder) SendPayload(status, unitID interface{}) *gomock.Call {
+func (mr *MockDataSenderMockRecorder) SendPayload(status interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendPayload", reflect.TypeOf((*MockDataSender)(nil).SendPayload), status, unitID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendPayload", reflect.TypeOf((*MockDataSender)(nil).SendPayload), status)
 }
