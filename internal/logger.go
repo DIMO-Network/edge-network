@@ -31,35 +31,51 @@ func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender net
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
 func (ls *loggerService) StartLoggers() error {
+	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
+	if err != nil {
+		log.WithError(err).Log(log.ErrorLevel)
+		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "could not get device eth addr"))
+	}
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
+		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "checks to start loggers failed"))
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
-		return fmt.Errorf("checks to start loggers failed but no errors reported")
+		e := fmt.Errorf("checks to start loggers failed but no errors reported")
+		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, e)
+		return e
 	}
 	log.Infof("loggers: checks passed to start scanning")
-	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
-	if err != nil {
-		log.WithError(err).Log(log.ErrorLevel)
-		_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get device eth addr"))
-	}
 	// read any existing settings
 	config, err := ls.loggerSettingsSvc.ReadConfig()
 	if err != nil {
-		log.Printf("failed to read configuration: %s", err)
+		log.Printf("could not read settings, continuing: %s", err)
 	}
 	var vqn *string
 	if config != nil {
 		vqn = &config.VINQueryName
+		// check if we do not want to continue scanning VIN for this car - currently determines if we run any loggers (but do note some cars won't respond VIN but yes on most OBD2 stds)
+		if config.VINLoggerVersion == loggers.VINLoggerVersion { // if vin logger improves, basically ignore failed attempts as maybe we decoded it.
+			if config.VINLoggerFailedAttempts >= 3 {
+				if vqn != nil {
+					// this would be really weird and needs to be addressed
+					// todo: send error payload
+				}
+				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
+			}
+		}
 	}
+
 	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
 	for _, logger := range ls.getLoggerConfigs() {
 		vinResp, err := logger.ScanFunc(ls.unitID, vqn)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
+			// todo, but don't want to overwrite settings
+			//ls.loggerSettingsSvc.WriteConfig(...)
 			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
 			break
 		}
