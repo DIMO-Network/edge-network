@@ -2,8 +2,9 @@ package internal
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/api"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/api"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
@@ -33,21 +34,16 @@ const maxFailureAttempts = 5
 
 // StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
 func (ls *loggerService) StartLoggers() error {
-	ethAddr, err := commands.GetEthereumAddress(ls.unitID)
-	if err != nil {
-		log.WithError(err).Log(log.ErrorLevel)
-		_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "could not get device eth addr"))
-	}
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
-		_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "checks to start loggers failed"))
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"))
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
 		e := fmt.Errorf("checks to start loggers failed but no errors reported")
-		_ = ls.dataSender.SendErrorPayload(ethAddr, e)
+		_ = ls.dataSender.SendErrorPayload(e)
 		return e
 	}
 	log.Infof("loggers: checks passed to start scanning")
@@ -64,7 +60,7 @@ func (ls *loggerService) StartLoggers() error {
 			if config.VINLoggerFailedAttempts >= maxFailureAttempts {
 				if config.VINQueryName != "" {
 					// this would be really weird and needs to be addressed
-					_ = ls.dataSender.SendErrorPayload(ethAddr, fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
+					_ = ls.dataSender.SendErrorPayload(fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
 				}
 				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
 			}
@@ -87,7 +83,7 @@ func (ls *loggerService) StartLoggers() error {
 				log.WithError(writeErr).Log(log.ErrorLevel)
 			}
 
-			_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
+			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from logger"))
 			break
 		}
 		// save vin query name in settings if not set
@@ -96,10 +92,10 @@ func (ls *loggerService) StartLoggers() error {
 			err := ls.loggerSettingsSvc.WriteConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
-				_ = ls.dataSender.SendErrorPayload(ethAddr, errors.Wrap(err, "failed to write logger settings"))
+				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"))
 			}
 		}
-		p := network.NewStatusUpdatePayload(ls.unitID, ethAddr)
+		p := network.NewStatusUpdatePayload(ls.unitID, nil)
 		p.Data = network.StatusUpdateData{
 			Vin:            vinResp.VIN,
 			Protocol:       vinResp.Protocol,

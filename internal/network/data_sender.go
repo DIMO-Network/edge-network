@@ -22,23 +22,25 @@ const broker = "tcp://localhost:1883"
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
 	SendPayload(status *StatusUpdatePayload) error
-	SendErrorPayload(ethAddress *common.Address, err error) error
+	SendErrorPayload(err error) error
 }
 
 type dataSender struct {
-	client mqtt.Client
-	unitID uuid.UUID
+	client  mqtt.Client
+	unitID  uuid.UUID
+	ethAddr *common.Address
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID) DataSender {
+func NewDataSender(unitID uuid.UUID, addr *common.Address) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	client := mqtt.NewClient(opts)
 	return &dataSender{
-		client: client,
-		unitID: unitID,
+		client:  client,
+		unitID:  unitID,
+		ethAddr: addr,
 	}
 }
 
@@ -46,6 +48,7 @@ func NewDataSender(unitID uuid.UUID) DataSender {
 func (ds *dataSender) SendPayload(status *StatusUpdatePayload) error {
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	status.SerialNumber = ds.unitID.String()
+	status.EthereumAddress = ds.ethAddr.Hex()
 
 	payload, err := json.Marshal(status)
 	if err != nil {
@@ -108,8 +111,8 @@ type StatusUpdateData struct {
 	BatteryVoltage float64 `json:"battery_voltage"`
 }
 
-func (ds *dataSender) SendErrorPayload(ethAddress *common.Address, err error) error {
-	payload := NewStatusUpdatePayload(ds.unitID, ethAddress)
+func (ds *dataSender) SendErrorPayload(err error) error {
+	payload := NewStatusUpdatePayload(ds.unitID, ds.ethAddr)
 	payload.Errors = append(payload.Errors, err.Error())
 
 	return ds.SendPayload(&payload)

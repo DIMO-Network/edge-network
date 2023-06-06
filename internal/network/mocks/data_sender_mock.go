@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	network "github.com/DIMO-Network/edge-network/internal/network"
-	common "github.com/ethereum/go-ethereum/common"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,17 +35,17 @@ func (m *MockDataSender) EXPECT() *MockDataSenderMockRecorder {
 }
 
 // SendErrorPayload mocks base method.
-func (m *MockDataSender) SendErrorPayload(ethAddress *common.Address, err error) error {
+func (m *MockDataSender) SendErrorPayload(err error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendErrorPayload", ethAddress, err)
+	ret := m.ctrl.Call(m, "SendErrorPayload", err)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendErrorPayload indicates an expected call of SendErrorPayload.
-func (mr *MockDataSenderMockRecorder) SendErrorPayload(ethAddress, err interface{}) *gomock.Call {
+func (mr *MockDataSenderMockRecorder) SendErrorPayload(err interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), ethAddress, err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), err)
 }
 
 // SendPayload mocks base method.

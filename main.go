@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal"
@@ -12,6 +11,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
+	"github.com/pkg/errors"
 	"log"
 	"math"
 	"os"
@@ -152,8 +152,14 @@ func main() {
 	}
 	log.Printf("hardware version found: %s", hwRevision)
 
+	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
+
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID)
+	ds := network.NewDataSender(unitID, ethAddr)
+	if ethErr != nil {
+		log.Printf("error getting ethereum address: %s", err)
+		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"))
+	}
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
@@ -457,7 +463,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 
 		if req.Network == "" || req.Password == "" {
 			log.Printf("Missing network or password in wi-fi pairing request.")
-			err = errors.New("missing network or password")
+			err = fmt.Errorf("missing network or password")
 			return
 		}
 
