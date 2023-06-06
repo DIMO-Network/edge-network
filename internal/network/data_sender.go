@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/DIMO-Network/edge-network/internal/api"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -21,29 +22,34 @@ const broker = "tcp://localhost:1883"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
-	SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error
-	SendErrorPayload(unitID uuid.UUID, ethAddress *common.Address, err error) error
+	SendPayload(status *StatusUpdatePayload) error
+	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 }
 
 type dataSender struct {
-	client mqtt.Client
+	client  mqtt.Client
+	unitID  uuid.UUID
+	ethAddr *common.Address
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender() DataSender {
+func NewDataSender(unitID uuid.UUID, addr *common.Address) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	client := mqtt.NewClient(opts)
 	return &dataSender{
-		client: client,
+		client:  client,
+		unitID:  unitID,
+		ethAddr: addr,
 	}
 }
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address
-func (ds *dataSender) SendPayload(status *StatusUpdatePayload, unitID uuid.UUID) error {
+func (ds *dataSender) SendPayload(status *StatusUpdatePayload) error {
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
-	status.SerialNumber = unitID.String()
+	status.SerialNumber = ds.unitID.String()
+	status.EthereumAddress = ds.ethAddr.Hex()
 
 	payload, err := json.Marshal(status)
 	if err != nil {
@@ -67,7 +73,7 @@ func (ds *dataSender) SendPayload(status *StatusUpdatePayload, unitID uuid.UUID)
 
 	// signature for the payload
 	keccak256Hash := crypto.Keccak256Hash(payload)
-	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
+	sig, err := commands.SignHash(ds.unitID, keccak256Hash.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "failed to sign the status update")
 	}
@@ -106,11 +112,15 @@ type StatusUpdateData struct {
 	BatteryVoltage float64 `json:"battery_voltage"`
 }
 
-func (ds *dataSender) SendErrorPayload(unitID uuid.UUID, ethAddress *common.Address, err error) error {
-	payload := NewStatusUpdatePayload(unitID, ethAddress)
+func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
+	payload := NewStatusUpdatePayload(ds.unitID, ds.ethAddr)
 	payload.Errors = append(payload.Errors, err.Error())
+	if powerStatus != nil {
+		payload.Data.BatteryVoltage = powerStatus.Spm.Battery.Voltage
+		payload.Data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	}
 
-	return ds.SendPayload(&payload, unitID)
+	return ds.SendPayload(&payload)
 }
 
 func NewStatusUpdatePayload(unitID uuid.UUID, ethAddress *common.Address) StatusUpdatePayload {

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"net/http"
 	"testing"
 
@@ -42,7 +41,7 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 
 	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{VINQueryName: vinQueryName}, nil)
 	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
-	ds.EXPECT().SendPayload(gomock.Any(), unitID).Times(1).Return(nil)
+	ds.EXPECT().SendPayload(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 
@@ -77,7 +76,7 @@ func Test_loggerService_StartLoggers_nilSettings(t *testing.T) {
 	lss.EXPECT().ReadConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	lss.EXPECT().WriteConfig(loggers.LoggerSettings{VINQueryName: vinQueryName}).Times(1).Return(nil)
-	ds.EXPECT().SendPayload(gomock.Any(), unitID).Times(1).Return(nil)
+	ds.EXPECT().SendPayload(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 
@@ -88,7 +87,6 @@ func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
-	const ethAddr = "b794f5ea0ba39494ce839613fffba74279579268"
 	unitID := uuid.New()
 
 	mockCtrl := gomock.NewController(t)
@@ -112,13 +110,12 @@ func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
 	lss.EXPECT().ReadConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	noVinErr := fmt.Errorf("response contained an invalid vin")
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(nil, noVinErr)
-	eth := common.HexToAddress(ethAddr)
 	lss.EXPECT().WriteConfig(loggers.LoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 1,
 	}).Return(nil)
-	ds.EXPECT().SendErrorPayload(unitID, &eth, gomock.Any()).Times(1).Return(nil)
+	ds.EXPECT().SendErrorPayload(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 

@@ -32,30 +32,24 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	log.Infof("trying to get VIN\n")
 	// this is purposely left un-refactored
 	vl := loggers.NewVINLogger()
-	ds := network.NewDataSender()
+	addr, err := commands.GetEthereumAddress(p.unitID)
+	if err != nil {
+		log.Panicf("could not get eth address %s", err.Error())
+	}
+	ds := network.NewDataSender(p.unitID, addr)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		err := ds.SendErrorPayload(p.unitID, nil, vinErr)
-		log.Errorf("failed to send mqtt payload: %s", err.Error())
 		log.Panicf("could not get vin %s", vinErr.Error())
 	}
 	log.Infof("VIN: %s\n", vinResp.VIN)
 	log.Infof("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
-		addr, err := commands.GetEthereumAddress(p.unitID)
-		if err != nil {
-			// todo retry logic?
-			errSend := ds.SendErrorPayload(p.unitID, nil, err)
-			log.Errorf("failed to send mqtt payload: %s", errSend.Error())
-			log.Panicf("could not get eth address %s", err.Error())
-		}
-
 		payload := network.NewStatusUpdatePayload(p.unitID, addr)
 		payload.Data = network.StatusUpdateData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}
-		err = ds.SendPayload(&payload, p.unitID)
+		err = ds.SendPayload(&payload)
 		if err != nil {
 			log.Errorf("failed to send vin over mqtt: %s", err.Error())
 			return subcommands.ExitFailure
