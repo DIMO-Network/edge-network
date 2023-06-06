@@ -60,9 +60,9 @@ func (ls *loggerService) StartLoggers() error {
 		// check if we do not want to continue scanning VIN for this car - currently determines if we run any loggers (but do note some cars won't respond VIN but yes on most OBD2 stds)
 		if config.VINLoggerVersion == loggers.VINLoggerVersion { // if vin logger improves, basically ignore failed attempts as maybe we decoded it.
 			if config.VINLoggerFailedAttempts >= 3 {
-				if vqn != nil {
+				if config.VINQueryName != "" {
 					// this would be really weird and needs to be addressed
-					// todo: send error payload
+					_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
 				}
 				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
 			}
@@ -74,8 +74,17 @@ func (ls *loggerService) StartLoggers() error {
 		vinResp, err := logger.ScanFunc(ls.unitID, vqn)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
-			// todo, but don't want to overwrite settings
-			//ls.loggerSettingsSvc.WriteConfig(...)
+			// update local settings to increment fail count
+			if config == nil {
+				config = &loggers.LoggerSettings{}
+			}
+			config.VINLoggerVersion = loggers.VINLoggerVersion
+			config.VINLoggerFailedAttempts++
+			writeErr := ls.loggerSettingsSvc.WriteConfig(*config)
+			if writeErr != nil {
+				log.WithError(writeErr).Log(log.ErrorLevel)
+			}
+
 			_ = ls.dataSender.SendErrorPayload(ls.unitID, ethAddr, errors.Wrap(err, "failed to get VIN from logger"))
 			break
 		}
