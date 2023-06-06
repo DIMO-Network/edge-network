@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/DIMO-Network/edge-network/internal/api"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -22,7 +23,7 @@ const broker = "tcp://localhost:1883"
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
 	SendPayload(status *StatusUpdatePayload) error
-	SendErrorPayload(err error) error
+	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 }
 
 type dataSender struct {
@@ -111,9 +112,13 @@ type StatusUpdateData struct {
 	BatteryVoltage float64 `json:"battery_voltage"`
 }
 
-func (ds *dataSender) SendErrorPayload(err error) error {
+func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
 	payload := NewStatusUpdatePayload(ds.unitID, ds.ethAddr)
 	payload.Errors = append(payload.Errors, err.Error())
+	if powerStatus != nil {
+		payload.Data.BatteryVoltage = powerStatus.Spm.Battery.Voltage
+		payload.Data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	}
 
 	return ds.SendPayload(&payload)
 }

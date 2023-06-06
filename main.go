@@ -158,7 +158,7 @@ func main() {
 	ds := network.NewDataSender(unitID, ethAddr)
 	if ethErr != nil {
 		log.Printf("error getting ethereum address: %s", err)
-		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"))
+		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()

@@ -39,14 +39,11 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	ds := network.NewDataSender(p.unitID, addr)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		err := ds.SendErrorPayload(vinErr)
-		log.Errorf("failed to send mqtt payload: %s", err.Error())
 		log.Panicf("could not get vin %s", vinErr.Error())
 	}
 	log.Infof("VIN: %s\n", vinResp.VIN)
 	log.Infof("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
-
 		payload := network.NewStatusUpdatePayload(p.unitID, addr)
 		payload.Data = network.StatusUpdateData{
 			Vin:      vinResp.VIN,

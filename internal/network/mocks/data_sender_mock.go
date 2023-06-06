@@ -7,6 +7,7 @@ package mock_network
 import (
 	reflect "reflect"
 
+	api "github.com/DIMO-Network/edge-network/internal/api"
 	network "github.com/DIMO-Network/edge-network/internal/network"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -35,17 +36,17 @@ func (m *MockDataSender) EXPECT() *MockDataSenderMockRecorder {
 }
 
 // SendErrorPayload mocks base method.
-func (m *MockDataSender) SendErrorPayload(err error) error {
+func (m *MockDataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendErrorPayload", err)
+	ret := m.ctrl.Call(m, "SendErrorPayload", err, powerStatus)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendErrorPayload indicates an expected call of SendErrorPayload.
-func (mr *MockDataSenderMockRecorder) SendErrorPayload(err interface{}) *gomock.Call {
+func (mr *MockDataSenderMockRecorder) SendErrorPayload(err, powerStatus interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), err, powerStatus)
 }
 
 // SendPayload mocks base method.

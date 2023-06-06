@@ -38,12 +38,12 @@ func (ls *loggerService) StartLoggers() error {
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
-		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"))
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), nil)
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
 		e := fmt.Errorf("checks to start loggers failed but no errors reported")
-		_ = ls.dataSender.SendErrorPayload(e)
+		_ = ls.dataSender.SendErrorPayload(e, &status)
 		return e
 	}
 	log.Infof("loggers: checks passed to start scanning")
@@ -60,7 +60,7 @@ func (ls *loggerService) StartLoggers() error {
 			if config.VINLoggerFailedAttempts >= maxFailureAttempts {
 				if config.VINQueryName != "" {
 					// this would be really weird and needs to be addressed
-					_ = ls.dataSender.SendErrorPayload(fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName))
+					_ = ls.dataSender.SendErrorPayload(fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName), &status)
 				}
 				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
 			}
@@ -83,7 +83,7 @@ func (ls *loggerService) StartLoggers() error {
 				log.WithError(writeErr).Log(log.ErrorLevel)
 			}
 
-			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from logger"))
+			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from logger"), &status)
 			break
 		}
 		// save vin query name in settings if not set
@@ -92,7 +92,7 @@ func (ls *loggerService) StartLoggers() error {
 			err := ls.loggerSettingsSvc.WriteConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
-				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"))
+				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"), &status)
 			}
 		}
 		p := network.NewStatusUpdatePayload(ls.unitID, nil)
