@@ -26,7 +26,7 @@ func NewVINLogger() VINLogger {
 	return &vinLogger{}
 }
 
-const VINLoggerVersion = 1
+const VINLoggerVersion = 1 // increment this if improve support for decoding VINs
 const citroenQueryName = "citroen"
 
 func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error) {

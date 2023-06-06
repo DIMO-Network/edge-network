@@ -129,7 +129,6 @@ func Test_loggerService_StartLoggers_noVINResponseAndAttemptsExceeded(t *testing
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
-	const ethAddr = "b794f5ea0ba39494ce839613fffba74279579268"
 	unitID := uuid.New()
 
 	mockCtrl := gomock.NewController(t)
