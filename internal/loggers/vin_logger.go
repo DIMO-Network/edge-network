@@ -26,6 +26,7 @@ func NewVINLogger() VINLogger {
 	return &vinLogger{}
 }
 
+const VINLoggerVersion = 1 // increment this if improve support for decoding VINs
 const citroenQueryName = "citroen"
 
 func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error) {
@@ -87,6 +88,9 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 	// if all PIDs fail, try passive scan, currently specific to Citroen
 	if err != nil {
 		vinResp, _ = passiveScanCitroen()
+		if vinResp != nil {
+			err = nil
+		}
 	}
 	return
 }
@@ -190,7 +194,7 @@ func findVINLineStart(lines []string) int {
 func passiveScanCitroen() (*VINResponse, error) {
 	vin := ""
 	// unable to get VIN via PID queries, so try passive scan
-	myVinReader := newPassiveVinReader()
+	vinReader := newPassiveVinReader()
 	protocolInt := 0
 
 	// Create a channel to receive the result
@@ -198,7 +202,7 @@ func passiveScanCitroen() (*VINResponse, error) {
 	// Create a channel for the timeout signal
 	timeoutChan := make(chan bool)
 	go func() {
-		vin, protocolInt, _ = myVinReader.ReadCitroenVIN(10000) // todo cleanup logging in this method
+		vin, protocolInt, _ = vinReader.ReadCitroenVIN(10000) // todo cleanup logging in this method
 		resultChan <- vin
 	}()
 	// Start a goroutine to wait for the timeout

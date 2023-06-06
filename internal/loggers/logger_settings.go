@@ -57,5 +57,7 @@ func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
 }
 
 type LoggerSettings struct {
-	VINQueryName string `json:"vin_query_name"`
+	VINQueryName            string `json:"vin_query_name"`
+	VINLoggerVersion        int    `json:"vin_logger_version"`
+	VINLoggerFailedAttempts int    `json:"vin_logger_failed_attempts"`
 }

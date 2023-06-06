@@ -184,7 +184,7 @@ func ExecuteRequest(method, path string, reqVal, respVal any) (err error) {
 		if body == nil {
 			body = []byte("no body response.")
 		}
-		return fmt.Errorf("status code %d. bdoy: %s", c, string(body))
+		return fmt.Errorf("status code %d. body: %s", c, string(body))
 	}
 
 	// Ignore any response.
