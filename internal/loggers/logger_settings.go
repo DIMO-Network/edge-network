@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 )
 
 //go:generate mockgen -source logger_settings.go -destination mocks/logger_settings_mock.go
@@ -13,6 +14,7 @@ type LoggerSettingsService interface {
 }
 
 type loggerSettingsService struct {
+	mu sync.Mutex
 }
 
 func NewLoggerSettingsService() LoggerSettingsService {
@@ -22,6 +24,9 @@ func NewLoggerSettingsService() LoggerSettingsService {
 const filePath = "/tmp/logger-settings.json"
 
 func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
+	lcs.mu.Lock()
+	defer lcs.mu.Unlock()
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -36,7 +41,10 @@ func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
 	return ls, nil
 }
 
+// WriteConfig writes the config file in json format to tmp folder, overwriting anything already existing
 func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
+	lcs.mu.Lock()
+	defer lcs.mu.Unlock()
 	// Open the file for writing (create if it doesn't exist)
 	file, err := os.Create(filePath)
 	if err != nil {
