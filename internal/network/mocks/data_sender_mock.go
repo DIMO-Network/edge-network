@@ -49,16 +49,30 @@ func (mr *MockDataSenderMockRecorder) SendErrorPayload(err, powerStatus interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorPayload", reflect.TypeOf((*MockDataSender)(nil).SendErrorPayload), err, powerStatus)
 }
 
-// SendPayload mocks base method.
-func (m *MockDataSender) SendPayload(status *network.StatusUpdatePayload) error {
+// SendErrorsData mocks base method.
+func (m *MockDataSender) SendErrorsData(data network.ErrorsData) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendPayload", status)
+	ret := m.ctrl.Call(m, "SendErrorsData", data)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SendPayload indicates an expected call of SendPayload.
-func (mr *MockDataSenderMockRecorder) SendPayload(status interface{}) *gomock.Call {
+// SendErrorsData indicates an expected call of SendErrorsData.
+func (mr *MockDataSenderMockRecorder) SendErrorsData(data interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendPayload", reflect.TypeOf((*MockDataSender)(nil).SendPayload), status)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorsData", reflect.TypeOf((*MockDataSender)(nil).SendErrorsData), data)
+}
+
+// SendFingerprintData mocks base method.
+func (m *MockDataSender) SendFingerprintData(data network.FingerprintData) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendFingerprintData", data)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendFingerprintData indicates an expected call of SendFingerprintData.
+func (mr *MockDataSenderMockRecorder) SendFingerprintData(data interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendFingerprintData", reflect.TypeOf((*MockDataSender)(nil).SendFingerprintData), data)
 }

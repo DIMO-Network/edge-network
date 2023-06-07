@@ -41,7 +41,7 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 
 	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{VINQueryName: vinQueryName}, nil)
 	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
-	ds.EXPECT().SendPayload(gomock.Any()).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 
@@ -76,7 +76,7 @@ func Test_loggerService_StartLoggers_nilSettings(t *testing.T) {
 	lss.EXPECT().ReadConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	lss.EXPECT().WriteConfig(loggers.LoggerSettings{VINQueryName: vinQueryName}).Times(1).Return(nil)
-	ds.EXPECT().SendPayload(gomock.Any()).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 
@@ -115,7 +115,7 @@ func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 1,
 	}).Return(nil)
-	ds.EXPECT().SendErrorPayload(gomock.Any()).Times(1).Return(nil)
+	ds.EXPECT().SendErrorPayload(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 	err := ls.StartLoggers()
 
@@ -149,7 +149,7 @@ func Test_loggerService_StartLoggers_noVINResponseAndAttemptsExceeded(t *testing
 	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
-		VINLoggerFailedAttempts: 3,
+		VINLoggerFailedAttempts: 5,
 	}, nil)
 
 	err := ls.StartLoggers()
