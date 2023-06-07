@@ -95,14 +95,13 @@ func (ls *loggerService) StartLoggers() error {
 				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"), &status)
 			}
 		}
-		p := network.NewStatusUpdatePayload(ls.unitID, nil)
-		p.Data = network.StatusUpdateData{
+		data := network.FingerprintData{
 			Vin:            vinResp.VIN,
 			Protocol:       vinResp.Protocol,
 			BatteryVoltage: status.Spm.Battery.Voltage,
 			RpiUptimeSecs:  status.Rpi.Uptime.Seconds,
 		}
-		err = ls.dataSender.SendPayload(&p)
+		err = ls.dataSender.SendFingerprintData(data)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
 		}

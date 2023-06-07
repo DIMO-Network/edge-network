@@ -44,12 +44,11 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	log.Infof("VIN: %s\n", vinResp.VIN)
 	log.Infof("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
-		payload := network.NewStatusUpdatePayload(p.unitID, addr)
-		payload.Data = network.StatusUpdateData{
+		data := network.FingerprintData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}
-		err = ds.SendPayload(&payload)
+		err = ds.SendFingerprintData(data)
 		if err != nil {
 			log.Errorf("failed to send vin over mqtt: %s", err.Error())
 			return subcommands.ExitFailure
