@@ -38,7 +38,7 @@ func (ls *loggerService) StartLoggers() error {
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
-		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), nil)
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)
 		return errors.Wrap(err, "checks to start loggers failed, no action")
 	}
 	if !ok {
@@ -153,7 +153,7 @@ func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusRespon
 			err = httpError
 		}
 	} else {
-		return false, status, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger")
+		return false, status, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger: %s", status.Spm.LastTrigger.Up)
 	}
 	// this may be an initial pair or something else so we don't wanna start loggers, just exit
 	result = false
