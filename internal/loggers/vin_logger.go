@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -20,6 +21,7 @@ type VINLogger interface {
 }
 
 type vinLogger struct {
+	mu sync.Mutex
 }
 
 func NewVINLogger() VINLogger {
@@ -30,6 +32,9 @@ const VINLoggerVersion = 1 // increment this if improve support for decoding VIN
 const citroenQueryName = "citroen"
 
 func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error) {
+	vl.mu.Lock()
+	defer vl.mu.Unlock()
+
 	// original vin command `obd.query vin mode=09 pid=02 bytes=20 formula='messages[0].data[3:].decode("ascii")' force=True protocol=auto`
 	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
 	vin := ""
