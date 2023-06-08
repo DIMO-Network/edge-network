@@ -20,7 +20,7 @@ import (
 )
 
 // thought: should we have another topic for errors? ie. signals we could not get
-const topic = "raw"
+const topic = "fingerprint"
 const broker = "tcp://localhost:1883"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
