@@ -4,10 +4,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/segmentio/ksuid"
 	"github.com/tidwall/gjson"
-	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
 	mqtt "github.com/eclipse/paho.mqtt.golang"

@@ -36,7 +36,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	if err != nil {
 		log.Panicf("could not get eth address %s", err.Error())
 	}
-	ds := network.NewDataSender(p.unitID, addr)
+	ds := network.NewDataSender(p.unitID, *addr)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
 		log.Panicf("could not get vin %s", vinErr.Error())

@@ -154,8 +154,14 @@ func main() {
 
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 
+	if ethAddr == nil {
+		if ethErr != nil {
+			log.Printf("eth addr error: %s", ethErr.Error())
+		}
+		log.Fatalf("could not get ethereum address")
+	}
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, ethAddr)
+	ds := network.NewDataSender(unitID, *ethAddr)
 	if ethErr != nil {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
