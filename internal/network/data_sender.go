@@ -126,7 +126,12 @@ func (ds *dataSender) sendPayload(payload []byte) error {
 }
 
 func signPayload(payload []byte, unitID uuid.UUID) ([]byte, error) {
-	keccak256Hash := crypto.Keccak256Hash(payload)
+	dataResult := gjson.GetBytes(payload, "data")
+	if !dataResult.Exists() {
+		return nil, fmt.Errorf("no data json path found to sign")
+	}
+
+	keccak256Hash := crypto.Keccak256Hash([]byte(dataResult.Raw))
 	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign the status update")
