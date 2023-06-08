@@ -159,11 +159,11 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 func newCloudEventHeaders(unitID uuid.UUID, ethAddress common.Address) CloudEventHeaders {
 	ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
-		Source:      "autopi/status/fingerprint",
+		Source:      "aftermarket/device/fingerprint",
 		SpecVersion: "1.0",
 		Subject:     ethAddress.Hex(),
 		Time:        time.Now().UTC(),
-		Type:        "zone.dimo.device.status.fingerprint", // should we change this for errors?
+		Type:        "zone.dimo.aftermarket.device.fingerprint",
 	}
 	return ce
 }
