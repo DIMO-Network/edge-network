@@ -33,11 +33,11 @@ type DataSender interface {
 type dataSender struct {
 	client  mqtt.Client
 	unitID  uuid.UUID
-	ethAddr *common.Address
+	ethAddr common.Address
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr *common.Address) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -155,17 +155,14 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendErrorsData(data)
 }
 
-func newCloudEventHeaders(unitID uuid.UUID, ethAddress *common.Address) CloudEventHeaders {
+func newCloudEventHeaders(unitID uuid.UUID, ethAddress common.Address) CloudEventHeaders {
 	ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      "autopi/status/fingerprint",
 		SpecVersion: "1.0",
-		Subject:     unitID.String(),
+		Subject:     ethAddress.Hex(),
 		Time:        time.Now().UTC(),
 		Type:        "zone.dimo.device.status.fingerprint", // should we change this for errors?
-	}
-	if ethAddress != nil {
-		ce.DeviceAddress = ethAddress.Hex()
 	}
 	return ce
 }
@@ -180,8 +177,6 @@ type CloudEventHeaders struct {
 	Type        string    `json:"type"`
 	// Signature is an extension https://github.com/cloudevents/spec/blob/main/cloudevents/documented-extensions.md
 	Signature string `json:"signature"`
-	// DeviceAddress is an extension, for the ethereum address of the device
-	DeviceAddress string `json:"deviceaddress"`
 }
 
 type DeviceFingerprintCloudEvent struct {
