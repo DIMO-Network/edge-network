@@ -51,7 +51,10 @@ func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
 }
 
 func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
-	ceh := newCloudEventHeaders(ds.unitID, ds.ethAddr)
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+	ceh := newCloudEventHeaders(ds.ethAddr)
 	ce := DeviceFingerprintCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -69,7 +72,10 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 }
 
 func (ds *dataSender) SendErrorsData(data ErrorsData) error {
-	ceh := newCloudEventHeaders(ds.unitID, ds.ethAddr)
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+	ceh := newCloudEventHeaders(ds.ethAddr)
 	ce := DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -156,7 +162,7 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendErrorsData(data)
 }
 
-func newCloudEventHeaders(unitID uuid.UUID, ethAddress common.Address) CloudEventHeaders {
+func newCloudEventHeaders(ethAddress common.Address) CloudEventHeaders {
 	ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      "aftermarket/device/fingerprint",
@@ -186,11 +192,10 @@ type DeviceFingerprintCloudEvent struct {
 }
 
 type FingerprintData struct {
-	Vin            string  `json:"vin"`
-	Protocol       string  `json:"protocol"`
-	Odometer       float64 `json:"odometer,omitempty"`
-	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
-	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
+	CommonData
+	Vin      string  `json:"vin"`
+	Protocol string  `json:"protocol"`
+	Odometer float64 `json:"odometer,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {
@@ -199,7 +204,13 @@ type DeviceErrorsCloudEvent struct {
 }
 
 type ErrorsData struct {
-	Errors         []string `json:"errors"`
-	RpiUptimeSecs  int      `json:"rpiUptimeSecs,omitempty"`
-	BatteryVoltage float64  `json:"batteryVoltage,omitempty"`
+	CommonData
+	Errors []string `json:"errors"`
+}
+
+// CommonData common properties we want to send with every data payload
+type CommonData struct {
+	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
+	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
+	Timestamp      int64   `json:"timestamp"`
 }

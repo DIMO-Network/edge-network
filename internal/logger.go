@@ -96,11 +96,12 @@ func (ls *loggerService) StartLoggers() error {
 			}
 		}
 		data := network.FingerprintData{
-			Vin:            vinResp.VIN,
-			Protocol:       vinResp.Protocol,
-			BatteryVoltage: status.Spm.Battery.Voltage,
-			RpiUptimeSecs:  status.Rpi.Uptime.Seconds,
+			Vin:      vinResp.VIN,
+			Protocol: vinResp.Protocol,
 		}
+		data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
+		data.BatteryVoltage = status.Spm.Battery.Voltage
+
 		err = ls.dataSender.SendFingerprintData(data)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
