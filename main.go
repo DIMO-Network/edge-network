@@ -144,7 +144,7 @@ func main() {
 	log.Printf("Sleeping 7 seconds before setting up bluez.") // why do we do this?
 	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
-	logrus.SetLevel(logrus.InfoLevel) // we don't use logrus consistenly in this project
+	logrus.SetLevel(logrus.TraceLevel) // we don't use logrus consistenly in this project
 
 	hwRevision, err := commands.GetHardwareRevision(unitID)
 	if err != nil {
