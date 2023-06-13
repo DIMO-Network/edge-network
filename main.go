@@ -6,17 +6,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
+	"math"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal"
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/pkg/errors"
-	"log"
-	"math"
-	"os"
-	"os/signal"
-	"time"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
@@ -180,7 +181,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to setup BlueZ: %s", err)
 		}
-		setupBluetoothApplication(coldBoot, vinLogger, lss)
+		app, cancel := setupBluetoothApplication(coldBoot, vinLogger, lss)
+		defer app.Close()
+		defer cancel()
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -190,7 +193,7 @@ func main() {
 	log.Printf("Terminating from signal: %s", sig)
 }
 
-func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) {
+func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
@@ -203,8 +206,6 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 	if err != nil {
 		log.Fatalf("Failed to create app: %s", err)
 	}
-
-	defer app.Close()
 
 	app.SetName(name)
 
@@ -815,8 +816,6 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
-	defer cancel()
-
 	//Check if we should disable new connections
 	devices, err := app.Adapter().GetDevices()
 	if err != nil {
@@ -875,6 +874,8 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 	log.Printf("Transactions service: %s", transactionsService.Properties.UUID)
 	log.Printf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
 	log.Printf("  Sign hash characteristic: %s", signChar.Properties.UUID)
+
+	return app, cancel
 }
 
 // Utility Function
