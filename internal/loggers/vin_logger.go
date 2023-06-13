@@ -72,7 +72,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 		// if no error, we want to make sure we get a semblance of a vin back
 		if len(part.Formula) == 0 {
 			// if no formula, means we got raw hex back so lets try extracting vin from that
-			vin, _, err = extractVIN(resp.Value) // todo: do something with the pid vin start position - persist for later to backend
+			vin, _, err = extractVIN(resp.Value)
 			if err != nil {
 				log.WithError(err).Error("could not extract vin from hex")
 				continue // try again on next loop with different command
@@ -96,6 +96,9 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 		if vinResp != nil {
 			err = nil
 		}
+	}
+	if vinResp == nil {
+		err = fmt.Errorf("unable to get VIN with any method")
 	}
 	return
 }
