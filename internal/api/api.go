@@ -20,7 +20,7 @@ const (
 	SetWifiConnectionCommand   = `grains.set`
 	GetSoftwareVersionCommand  = `config.get latest_release_version`
 	GetDiagnosticCodeCommand   = `obd.dtc protocol=auto`
-	ClearDiagnosticCodeCommand = `obd.dtc clear=true`
+	ClearDiagnosticCodeCommand = `obd.dtc protocol=auto clear=true`
 	PowerStatusCommand         = `power.status`
 	GetModemCommand            = `config.get modem`
 	Ec2xIMSICommand            = `ec2x.query AT+CIMI`
