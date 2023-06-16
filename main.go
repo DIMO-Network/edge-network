@@ -66,6 +66,7 @@ var lastSignature []byte
 
 var lastVIN string
 var lastProtocol string
+var lastDTC string
 var unitID uuid.UUID
 var name string
 
@@ -644,7 +645,11 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 				log.Printf("Error retrieving diagnostic codes: %s", err)
 			}
 		}()
-
+		if lastDTC != "" {
+			resp = []byte(lastDTC)
+			log.Printf("Returning DTC codes from last DTC query over bluetooth: %s", lastDTC)
+			return
+		}
 		log.Print("Got diagnostic request")
 
 		codes, err := commands.GetDiagnosticCodes(unitID)
@@ -656,6 +661,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Printf("Got Error Codes: %s", codes)
 
 		resp = []byte(codes)
+		lastDTC = codes
 		return
 	})
 
