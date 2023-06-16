@@ -39,6 +39,7 @@ func ClearDiagnosticCodes(unitID uuid.UUID) (err error) {
 }
 
 func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
+	codes = ""
 	req := api.ExecuteRawRequest{Command: api.GetDiagnosticCodeCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
@@ -54,5 +55,6 @@ func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 		formattedResponse += s.Code + ","
 	}
 	codes = strings.TrimSuffix(formattedResponse, ",")
+
 	return
 }
