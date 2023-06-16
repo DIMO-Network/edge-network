@@ -19,7 +19,7 @@ const (
 	WifiStatusCommand          = `wifi.status`
 	SetWifiConnectionCommand   = `grains.set`
 	GetSoftwareVersionCommand  = `config.get latest_release_version`
-	GetDiagnosticCodeCommand   = `obd.dtc`
+	GetDiagnosticCodeCommand   = `obd.dtc protocol=auto`
 	ClearDiagnosticCodeCommand = `obd.dtc clear=true`
 	PowerStatusCommand         = `power.status`
 	GetModemCommand            = `config.get modem`
