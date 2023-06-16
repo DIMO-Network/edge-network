@@ -639,6 +639,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 
 	dtcChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead, gatt.FlagCharacteristicEncryptAuthenticatedWrite}
 
+	// dtcChar will return error codes if found, if nothing found with a success will return "0", if nothing found but error response returns "1"
 	dtcChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
@@ -654,11 +655,14 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 
 		codes, err := commands.GetDiagnosticCodes(unitID)
 		if err != nil {
-			resp = []byte("0")
+			resp = []byte("1")
 			return
 		}
-
 		log.Printf("Got Error Codes: %s", codes)
+
+		if len(codes) < 2 {
+			codes = "0"
+		}
 
 		resp = []byte(codes)
 		lastDTC = codes
