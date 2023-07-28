@@ -18,6 +18,7 @@ import (
 //go:generate mockgen -source vin_logger.go -destination mocks/vin_logger_mock.go
 type VINLogger interface {
 	GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error)
+	GetJ1939VIN(unitID uuid.UUID) (vinResp string, err error)
 }
 
 type vinLogger struct {
@@ -103,7 +104,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 	return
 }
 
-func (vl *vinLogger) getJ1939VIN(unitID uuid.UUID) (vinResp string, err error) {
+func (vl *vinLogger) GetJ1939VIN(unitID uuid.UUID) (vinResp string, err error) {
 	vl.mu.Lock()
 	defer vl.mu.Unlock()
 
@@ -122,7 +123,7 @@ func (vl *vinLogger) getJ1939VIN(unitID uuid.UUID) (vinResp string, err error) {
 	if err != nil {
 		log.WithError(err).Error("failed to execute POST request to get vin")
 	}
-	log.Infof("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
+	log.Infof("received getJ1939VIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
 	// if no error, we want to make sure we get a semblance of a vin back
 
 	return resp.Value, nil

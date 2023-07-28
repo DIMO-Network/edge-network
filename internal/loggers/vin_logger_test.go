@@ -152,6 +152,25 @@ func TestGetVIN(t *testing.T) {
 	assert.Equal(t, testVIN, vinResp.VIN)
 }
 
+func TestGetJ1939VIN(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+	const testJ1939VIN = "" //to be added later with test vehicle
+	v := ""                 //mock http, to be added later with test vehicle
+	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
+	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
+	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
+
+	vl := NewVINLogger()
+
+	vinResp, err := vl.GetJ1939VIN(unitID)
+
+	require.NoError(t, err)
+	assert.Equal(t, testJ1939VIN, vinResp)
+}
+
 func TestGetVIN_withQueryName(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
