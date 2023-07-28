@@ -55,7 +55,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 		if len(part.Formula) > 0 {
 			formula = fmt.Sprintf(`formula='%s.decode("ascii")'`, part.Formula)
 		}
-		cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
+		cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=true protocol=%s`,
 			hdr, part.Mode, part.PID, formula, part.Protocol)
 
 		req := api.ExecuteRawRequest{Command: cmd}
@@ -101,6 +101,32 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 		err = fmt.Errorf("unable to get VIN with any method")
 	}
 	return
+}
+
+func (vl *vinLogger) getJ1939VIN(unitID uuid.UUID) (vinResp string, err error) {
+	vl.mu.Lock()
+	defer vl.mu.Unlock()
+
+	// original vin command 'obd.send 18EA00F9#00F004 expect_response=true auto_format=true format_response=true protocol=42 baudrate=500000'
+	// protocol=auto means it just uses whatever bus is assigned to the autopi, but this is often incorrect so best to be explicit
+
+	cmd := fmt.Sprintf(`obd.send %s expect_response=true auto_format=true protocol=%d baudrate=%d`,
+		"18EA00F9#00FEE1", 42, 500000)
+
+	req := api.ExecuteRawRequest{Command: cmd}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var resp api.ExecuteRawResponse
+
+	err = api.ExecuteRequest("POST", url, req, &resp)
+	if err != nil {
+		log.WithError(err).Error("failed to execute POST request to get vin")
+	}
+	log.Infof("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
+	// if no error, we want to make sure we get a semblance of a vin back
+
+	return resp.Value, nil
+
 }
 
 func extractVIN(hexValue string) (vin string, startPosition int, err error) {
