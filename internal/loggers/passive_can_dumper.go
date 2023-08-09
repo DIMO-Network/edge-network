@@ -25,6 +25,7 @@ func (a PassiveCanDumper) ReadCanBus(cycles int) {
 	a.capturedFrames = make([]can.Frame, 0)
 	for recv.Receive() {
 		loopNumber++
+		println(loopNumber)
 		frame := recv.Frame()
 		println(frame.String())
 		a.capturedFrames = append(a.capturedFrames, frame)
