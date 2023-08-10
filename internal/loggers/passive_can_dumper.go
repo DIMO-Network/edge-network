@@ -2,6 +2,7 @@ package loggers
 
 import (
 	"context"
+	"os"
 
 	"go.einride.tech/can"
 	"go.einride.tech/can/pkg/candevice"
@@ -9,29 +10,64 @@ import (
 )
 
 type PassiveCanDumper struct {
-	capturedFrames []can.Frame
+	CapturedFrames       []can.Frame
+	capturedFrameStrings []string
 }
 
-func (a PassiveCanDumper) ReadCanBus(cycles int) {
+func (a PassiveCanDumper) WriteToFile(filename string) {
+	var outFile = ""
+	for _, frame := range a.CapturedFrames {
+		outFile += frame.String() + "\n"
+		println("capturedFrame:", frame.String())
+	}
+	print(outFile)
+	err := os.WriteFile(filename, []byte(outFile), 666)
+	if err != nil {
+		println("error writing to file: ", err)
+	}
+	/*
+		var outFileStrings = ""
+		for line := range a.capturedFrameStrings {
+			outFileStrings += a.capturedFrameStrings[line] + "/n"
+			println("capturedFrameStrings:", a.capturedFrameStrings[line])
+		}
+		print(outFileStrings)
+		err = os.WriteFile("testcandumpstrings.txt", []byte(outFileStrings), 666)
+		if err != nil {
+			println("error writing to file: ", err)
+		}*/
+}
+
+func (a PassiveCanDumper) ReadCanBus(cycles int, bitrate int) []can.Frame {
 	d, _ := candevice.New("can0")
-	_ = d.SetBitrate(500000)
+	println("can device created")
+	_ = d.SetBitrate(uint32(bitrate))
+	println("bitrate set to: ", bitrate)
 	_ = d.SetUp()
+	println("can device .SetUp()")
 	defer d.SetDown() //nolint
+	println("can device .SetDown() deferred")
 
 	conn, _ := socketcan.DialContext(context.Background(), "can", "can0")
+	println("socketcan.DialContext()")
 
 	recv := socketcan.NewReceiver(conn)
+	println("socketcan.NewReceiver(conn)")
 	var loopNumber = 0
-	a.capturedFrames = make([]can.Frame, 0)
+	a.CapturedFrames = make([]can.Frame, 0)
 	for recv.Receive() {
 		loopNumber++
-		println(loopNumber)
+		//println(loopNumber)
 		frame := recv.Frame()
 		println(frame.String())
-		a.capturedFrames = append(a.capturedFrames, frame)
+		a.CapturedFrames = append(a.CapturedFrames, frame)
+		a.capturedFrameStrings = append(a.capturedFrameStrings, frame.String())
 		if loopNumber > cycles {
 			println("Cycles completed:", loopNumber-1)
 			break
 		}
 	}
+	println("recv.Receive() loop exit")
+	println("capturedFrameStrings:")
+	return a.CapturedFrames
 }
