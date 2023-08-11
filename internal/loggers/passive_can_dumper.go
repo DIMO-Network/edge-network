@@ -25,7 +25,7 @@ func (a PassiveCanDumper) WriteToElastic(unitId string) {
 	var payload string
 	for header, _ := range headerMap {
 
-		payload := fmt.Sprintf("\"{\\\"%s\\\":\\\"%s\\\"}\"", "header_"+header, unitId)
+		payload = fmt.Sprintf("\"{\\\"%s\\\":\\\"%s\\\"}\"", "header_"+header, unitId)
 		cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", payload)
 
 		//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
