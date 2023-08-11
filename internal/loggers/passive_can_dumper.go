@@ -2,7 +2,9 @@ package loggers
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"go.einride.tech/can"
@@ -20,10 +22,22 @@ func (a PassiveCanDumper) WriteToElastic(unitId string) {
 	for _, frame := range a.CapturedFrames {
 		headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
 	}
-	/*var payload string
+	var payload string
 	for header, _ := range headerMap {
-		payload = " "
-	}*/
+
+		payload := fmt.Sprintf("\"{\\\"%s\\\":\\\"%s\\\"}\"", "header_"+header, unitId)
+		cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", payload)
+
+		//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
+
+		//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
+		//"{\"canbus_testparam\":\"123TEST\"}"
+		_, err := cmd.Output()
+		if err != nil {
+			println("could not execute mosquitto_pub")
+			println(err)
+		}
+	}
 }
 
 func (a PassiveCanDumper) WriteToFile(filename string) {
