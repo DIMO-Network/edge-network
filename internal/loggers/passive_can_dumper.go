@@ -20,10 +20,10 @@ func (a PassiveCanDumper) WriteToElastic(unitId string) {
 	for _, frame := range a.CapturedFrames {
 		headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
 	}
-	var payload string
+	/*var payload string
 	for header, _ := range headerMap {
 		payload = " "
-	}
+	}*/
 }
 
 func (a PassiveCanDumper) WriteToFile(filename string) {
