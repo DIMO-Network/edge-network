@@ -3,6 +3,7 @@ package loggers
 import (
 	"context"
 	"os"
+	"strconv"
 
 	"go.einride.tech/can"
 	"go.einride.tech/can/pkg/candevice"
@@ -12,6 +13,17 @@ import (
 type PassiveCanDumper struct {
 	CapturedFrames       []can.Frame
 	capturedFrameStrings []string
+}
+
+func (a PassiveCanDumper) WriteToElastic(unitId string) {
+	headerMap := make(map[string]string)
+	for _, frame := range a.CapturedFrames {
+		headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
+	}
+	var payload string
+	for header, _ := range headerMap {
+		payload = " "
+	}
 }
 
 func (a PassiveCanDumper) WriteToFile(filename string) {

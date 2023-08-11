@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"time"
@@ -116,6 +117,12 @@ func main() {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
 		if s == "-v" {
+			cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\"canbus_testparam\":\"123TEST\"}\"")
+			//"{\"canbus_testparam\":\"123TEST\"}"
+			_, err := cmd.Output()
+			if err != nil {
+				println("could not execute mosquitto_pub")
+			}
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
 		} else if s == "-candump" && len(os.Args) > 3 {
@@ -128,6 +135,7 @@ func main() {
 				if err1 == nil && err2 == nil {
 					canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
 					println("length of CapturedFrames: ", len(canDumperInstance.CapturedFrames))
+					name, unitID = commands.GetDeviceName()
 					canDumperInstance.WriteToFile("testcandump.txt")
 				} else {
 					println("error converting cycle count or bitrate to int")
