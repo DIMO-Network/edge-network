@@ -131,18 +131,22 @@ func main() {
 			}
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
-		} else if s == "-candump" && len(os.Args) > 3 {
+		} else if len(os.Args) > 3 {
 			{
 				// if we receive a candump argument, we will passively read from the can bus and print results to terminal
 				// for testing
 				canDumperInstance := new(loggers.PassiveCanDumper)
+				name, unitID = commands.GetDeviceName()
 				cycles, err1 := strconv.Atoi(os.Args[2])
 				bitrate, err2 := strconv.Atoi(os.Args[3])
 				if err1 == nil && err2 == nil {
-					canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-					println("length of CapturedFrames: ", len(canDumperInstance.CapturedFrames))
-					name, unitID = commands.GetDeviceName()
-					canDumperInstance.WriteToFile("testcandump.txt")
+					if s == "-candump" {
+						canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
+						canDumperInstance.WriteToFile("testcandump.txt")
+					} else if s == "-postmqtt" {
+						canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
+						canDumperInstance.WriteToElastic(unitID.String())
+					}
 				} else {
 					println("error converting cycle count or bitrate to int")
 				}
