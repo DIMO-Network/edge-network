@@ -117,11 +117,12 @@ func main() {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
 		if s == "-v" {
-			cmd := exec.Command("mosquitto_pub", "-t reactor, -m, \"{\"canbus_testparam\":\"123TEST\"}\"")
+			cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
 			//"{\"canbus_testparam\":\"123TEST\"}"
 			_, err := cmd.Output()
 			if err != nil {
 				println("could not execute mosquitto_pub")
+				println(err)
 			}
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
