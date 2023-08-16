@@ -16,6 +16,30 @@ Copy to the AutoPi with, e.g.,
 ```
 scp bin/edge-network pi@192.168.4.1:~
 ```
+
+Once edge-network is copied into the autopi, run this command to ssh into local autopi:
+
+```
+ssh pi@local.autopi.io
+```
+
+For newer devices [7.0 and newer] password should be the first 13 digits INCLUDING dashes of your device id. Note that this is different that the unit id, although they are the same length. 
+To get a CAN dump after getting into the autipi network, run the following command to get a CAN dump from your car:
+
+```
+./edge-network - candump [cycles] [bitrate]
+
+```
+This should create a file called testcandump.txt. Permissions may need to be altered if the file should be viewed. To do this, run the following command:
+
+```
+chmod 644 testcandump.txt
+cat testcandump.txt
+
+```
+This should print testcandump.txt directly to the terminal.
+
+
 Note that IP is the default IP address of the AutoPi when you connect to it's wifi. You'll need to [connect to the AP local wifi.](https://docs.autopi.io/guides/guides-intro/#6-connect-to-wifi) 
 to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
 This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running by:
