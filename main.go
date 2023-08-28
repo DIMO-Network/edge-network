@@ -146,6 +146,8 @@ func main() {
 					} else if s == "-postmqtt" {
 						canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
 						canDumperInstance.WriteToElastic(unitID.String())
+					} else if s == "-marshaltest" {
+						canDumperInstance.MarshallJson()
 					}
 				} else {
 					println("error converting cycle count or bitrate to int")

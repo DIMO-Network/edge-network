@@ -2,6 +2,7 @@ package loggers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,9 +13,66 @@ import (
 	"go.einride.tech/can/pkg/socketcan"
 )
 
+type RawCanFrame struct {
+	id        string
+	frameData string
+}
+
+type MqttCandumpMessage struct {
+	unitId     string
+	timeStamp  string
+	page       string
+	totalPages string
+	make       string
+	model      string
+	rawData    []RawCanFrame
+}
+
 type PassiveCanDumper struct {
 	CapturedFrames       []can.Frame
 	capturedFrameStrings []string
+}
+
+func (a PassiveCanDumper) MarshallJson() {
+	mcdm := MqttCandumpMessage{
+		unitId:     "unitId",
+		page:       "1",
+		totalPages: "5",
+		make:       "makename",
+		model:      "modelname"}
+	var rcf []RawCanFrame
+	rcf = append(rcf, RawCanFrame{
+		id:        "123",
+		frameData: "frdata"})
+	rcf = append(rcf, RawCanFrame{
+		id:        "456",
+		frameData: "frdata2"})
+	mcdm.rawData = rcf
+	payload, err := json.Marshal(rcf)
+	if err != nil {
+		println("could not execute mosquitto_pub")
+		println(err)
+	} else {
+		println(payload)
+	}
+	//var payload string
+	/*
+		headerMap := make(map[string]string)
+		for _, frame := range a.CapturedFrames {
+			headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
+		}
+		for header, _ := range headerMap {
+		rcf := &RawCanFrame{
+			id: "123",
+			frameData: "frdata"}
+		payload, err := json.Marshal(rcf)
+		if  err != nil {
+			println("could not execute mosquitto_pub")
+			println(err)
+		}else{
+			println(payload)
+		}
+	}*/
 }
 
 func (a PassiveCanDumper) WriteToElastic(unitId string) {
