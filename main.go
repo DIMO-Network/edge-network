@@ -113,6 +113,7 @@ func setupBluez(name string) error {
 }
 
 func main() {
+	//os.Args = []string{"edge-network", "-testmqtt", "10", "50", "2"}
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
@@ -136,18 +137,54 @@ func main() {
 				// if we receive a candump argument, we will passively read from the can bus and print results to terminal
 				// for testing
 				canDumperInstance := new(loggers.PassiveCanDumper)
+
+				/*
+					name = "name"
+					unitID = *new(uuid.UUID)
+					_ = unitID.UnmarshalText([]byte("unitID"))
+				*/
 				name, unitID = commands.GetDeviceName()
+
 				cycles, err1 := strconv.Atoi(os.Args[2])
 				bitrate, err2 := strconv.Atoi(os.Args[3])
 				if err1 == nil && err2 == nil {
 					if s == "-candump" {
-						canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.WriteToFile("testcandump.txt")
+						canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
+						//canDumperInstance.WriteToFile("testcandump.txt")
 					} else if s == "-postmqtt" {
-						canDumperInstance.CapturedFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.WriteToElastic(unitID.String())
-					} else if s == "-marshaltest" {
-						canDumperInstance.MarshallJson()
+						canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
+						//canDumperInstance.WriteToElastic(unitID.String())
+					} else if s == "-testmqtt" && len(os.Args) > 4 {
+						//canDumperInstance.MarshallJson()
+						//canDumperInstance.TestMQTT()
+						/*
+							var temp_frame can.Frame
+							for x := 0; x < cycles; x++ { //generate testing can data
+								temp_frame = *new(can.Frame)
+								temp_frame.ID = uint32(x)
+								temp_frame.Data = *new(can.Data)
+								canDumperInstance.CapturedFrames = append(canDumperInstance.CapturedFrames, temp_frame)
+
+									canDumperInstance.CapturedFrames = append(canDumperInstance.CapturedFrames, can.Frame{
+										ID:   uint32(x),
+										Data: can.Data{uint8(55)}})
+
+
+								canDumperInstance.CapturedFrames[x].Data.SetBit(0, true)
+							} //end testing block
+
+						*/
+
+						chunkSize, err3 := strconv.Atoi(os.Args[4])
+						if err3 != nil {
+							println(err3.Error())
+							os.Exit(0)
+						}
+						canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
+						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
+						currentTime, _ := time.Now().MarshalJSON()
+						currentTime = currentTime[1 : len(currentTime)-1]
+						canDumperInstance.WriteToMQTT(unitID.String(), "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime))
 					}
 				} else {
 					println("error converting cycle count or bitrate to int")
