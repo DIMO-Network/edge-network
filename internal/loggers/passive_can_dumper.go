@@ -108,6 +108,11 @@ func (a PassiveCanDumper) TestMQTT() {
 	println(cmd.Output())
 }
 
+/*
+This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server, and also writes to local files.
+Can frames from memory will be automatically paginated into appropriate qty of messages/files according to chunkSize.
+Data is formatted as json, gzip compressed, then base64 compressed.
+*/
 func (a PassiveCanDumper) WriteToMQTT(unitId string, hostname string, topic string, chunkSize int, timeStamp string) {
 	message := MqttCandumpMessage{
 		UnitId:    unitId,

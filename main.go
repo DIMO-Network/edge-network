@@ -9,7 +9,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strconv"
 	"time"
@@ -113,23 +112,10 @@ func setupBluez(name string) error {
 }
 
 func main() {
-	//os.Args = []string{"edge-network", "-testmqtt", "10", "50", "2"}
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
 		if s == "-v" {
-			payload := fmt.Sprintf("\"{\\\"%s\\\":\\\"%s\\\"}\"", "myfieldname", "myvalue")
-			cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", payload)
-
-			//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
-
-			//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
-			//"{\"canbus_testparam\":\"123TEST\"}"
-			_, err := cmd.Output()
-			if err != nil {
-				println("could not execute mosquitto_pub")
-				println(err)
-			}
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
 		} else if len(os.Args) > 3 {
@@ -138,10 +124,10 @@ func main() {
 				// for testing
 				canDumperInstance := new(loggers.PassiveCanDumper)
 
-				/*
-					name = "name"
-					unitID = *new(uuid.UUID)
-					_ = unitID.UnmarshalText([]byte("unitID"))
+				/* // This code is useful when testing commands without a vehicle attached
+				name = "name"
+				unitID = *new(uuid.UUID)
+				_ = unitID.UnmarshalText([]byte("unitID"))
 				*/
 				name, unitID = commands.GetDeviceName()
 
@@ -165,6 +151,8 @@ func main() {
 						}
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
 						canDumperInstance.ReadCanBus(cycles, bitrate, &canDumperInstance.DetailedCanFrames)
+
+						// This code is useful when testing commands without a vehicle attached
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
 						currentTime, _ := time.Now().MarshalJSON()
 						currentTime = currentTime[1 : len(currentTime)-1]
