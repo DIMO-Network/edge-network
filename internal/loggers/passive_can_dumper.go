@@ -158,35 +158,11 @@ func (a PassiveCanDumper) WriteToFile(filename string) {
 		println(string(frame_json))          // test only
 
 	}
-	/*mcdm := MqttCandumpMessageWithCanFrames{ //these lines are only to test
-		UnitId:     "unitId",
-		Page:       "1",
-		TotalPages: "5",
-		Make:       "makename",
-		Model:      "modelname"}
-	mcdm.RawData = a.CapturedFrames
-	mcdm_json, _ := json.Marshal(mcdm)          //these lines are only to test
-	println("MqttCandumpMessageWithCanFrames:") // test only
-	println(string(mcdm_json))                  // test only
-	//these lines are only to test
-	*/
-
 	print(outFile)
 	err := os.WriteFile(filename, []byte(outFile), 666)
 	if err != nil {
 		println("error writing to file: ", err)
 	}
-	/*
-		var outFileStrings = ""
-		for line := range a.capturedFrameStrings {
-			outFileStrings += a.capturedFrameStrings[line] + "/n"
-			println("capturedFrameStrings:", a.capturedFrameStrings[line])
-		}
-		print(outFileStrings)
-		err = os.WriteFile("testcandumpstrings.txt", []byte(outFileStrings), 666)
-		if err != nil {
-			println("error writing to file: ", err)
-		}*/
 }
 
 func (a PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFrame {
