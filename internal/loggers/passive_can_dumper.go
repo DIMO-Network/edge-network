@@ -31,17 +31,6 @@ type MqttCandumpMessage struct {
 	RawData          []ParsedCanFrame `json:"RawData"`
 }
 
-/*
-type MqttCandumpMessageWithCanFrames struct {
-	UnitId     string      `json:"UnitId,omitempty"`
-	TimeStamp  string      `json:"TimeStamp,omitempty"`
-	Page       string      `json:"Page,omitempty"`
-	TotalPages string      `json:"TotalPages,omitempty"`
-	Make       string      `json:"Make,omitempty"`
-	Model      string      `json:"Model,omitempty"`
-	RawData    []can.Frame `json:"RawData"`
-}*/
-
 type PassiveCanDumper struct {
 	CapturedFrames       []can.Frame
 	capturedFrameStrings []string
