@@ -24,6 +24,7 @@ type ParsedCanFrame struct {
 
 type MqttCandumpMessage struct {
 	UnitId           string           `json:"UnitId,omitempty"`
+	EthAddress       string           `json:"EthAddress, omitempty"`
 	TimeStamp        string           `json:"TimeStamp,omitempty"`
 	Page             int              `json:"Page,omitempty"`
 	TotalPages       int              `json:"TotalPages,omitempty"`
@@ -102,10 +103,11 @@ This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mq
 Can frames from memory will be automatically paginated into appropriate qty of messages/files according to chunkSize.
 Data is formatted as json, gzip compressed, then base64 compressed.
 */
-func (a PassiveCanDumper) WriteToMQTT(unitId string, hostname string, topic string, chunkSize int, timeStamp string) {
+func (a PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) {
 	message := MqttCandumpMessage{
-		UnitId:    unitId,
-		TimeStamp: timeStamp,
+		UnitId:     unitId,
+		EthAddress: ethAddr,
+		TimeStamp:  timeStamp,
 	}
 
 	totalPages := len(a.DetailedCanFrames) / chunkSize
@@ -133,10 +135,12 @@ func (a PassiveCanDumper) WriteToMQTT(unitId string, hostname string, topic stri
 		cmdout, _ := cmd.Output()
 		println(string(cmdout))
 
-		fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 776)
-		if fileErr != nil {
-			println(fileErr.Error())
-			os.Exit(0)
+		if writeToLocalFiles {
+			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 776)
+			if fileErr != nil {
+				println(fileErr.Error())
+				os.Exit(0)
+			}
 		}
 		message.Page++
 	}

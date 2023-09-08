@@ -112,6 +112,16 @@ func setupBluez(name string) error {
 }
 
 func main() {
+
+	name, unitID = commands.GetDeviceName()
+	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
+
+	/* // This code is useful as an alternative to the above when testing commands without a vehicle attached
+	name = "name"
+	unitID = *new(uuid.UUID)
+	ethAddr = new(common.Address)
+	*/
+
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
@@ -123,13 +133,6 @@ func main() {
 				// if we receive a candump argument, we will passively read from the can bus and print results to terminal
 				// for testing
 				canDumperInstance := new(loggers.PassiveCanDumper)
-
-				/* // This code is useful when testing commands without a vehicle attached
-				name = "name"
-				unitID = *new(uuid.UUID)
-				_ = unitID.UnmarshalText([]byte("unitID"))
-				*/
-				name, unitID = commands.GetDeviceName()
 
 				cycles, err1 := strconv.Atoi(os.Args[2])
 				bitrate, err2 := strconv.Atoi(os.Args[3])
@@ -156,7 +159,7 @@ func main() {
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
 						currentTime, _ := time.Now().MarshalJSON()
 						currentTime = currentTime[1 : len(currentTime)-1]
-						canDumperInstance.WriteToMQTT(unitID.String(), "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime))
+						canDumperInstance.WriteToMQTT(unitID.String(), ethAddr.String(), "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), false)
 					}
 				} else {
 					println("error converting cycle count or bitrate to int")
@@ -200,8 +203,6 @@ func main() {
 	}
 	log.Printf("hardware version found: %s", hwRevision)
 
-	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
-
 	if ethAddr == nil {
 		if ethErr != nil {
 			log.Printf("eth addr error: %s", ethErr.Error())
@@ -209,7 +210,7 @@ func main() {
 		log.Fatalf("could not get ethereum address")
 	}
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr)
+	ds := network.NewDataSender(unitID, *ethAddr, "fingerprint")
 	if ethErr != nil {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
