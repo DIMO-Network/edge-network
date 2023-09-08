@@ -21,7 +21,10 @@ import (
 )
 
 // thought: should we have another topic for errors? ie. signals we could not get
-const topic = "fingerprint"
+//const topic = "fingerprint"
+
+//canbus/dump
+
 const broker = "tcp://localhost:1883"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
@@ -35,10 +38,11 @@ type dataSender struct {
 	client  mqtt.Client
 	unitID  uuid.UUID
 	ethAddr common.Address
+	topic   string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, topic string) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -47,6 +51,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
 		client:  client,
 		unitID:  unitID,
 		ethAddr: addr,
+		topic:   topic,
 	}
 }
 
@@ -121,7 +126,7 @@ func (ds *dataSender) sendPayload(payload []byte) error {
 		return err
 	}
 	// Publish the MQTT message
-	token := ds.client.Publish(topic, 0, false, string(payload))
+	token := ds.client.Publish(ds.topic, 0, false, string(payload))
 	token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published
