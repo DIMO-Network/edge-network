@@ -38,7 +38,7 @@ type PassiveCanDumper struct {
 	DetailedCanFrames    []ParsedCanFrame
 }
 
-func (a PassiveCanDumper) WriteToElastic(unitId string) {
+func (a *PassiveCanDumper) WriteToElastic(unitId string) {
 	headerMap := make(map[string]string)
 	for _, frame := range a.CapturedFrames {
 		headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
@@ -62,7 +62,7 @@ func (a PassiveCanDumper) WriteToElastic(unitId string) {
 
 }
 
-func (a PassiveCanDumper) TestMQTT() {
+func (a *PassiveCanDumper) TestMQTT() {
 	var payload []byte
 	var err error
 	mcdm := MqttCandumpMessage{
@@ -103,7 +103,7 @@ This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mq
 Can frames from memory will be automatically paginated into appropriate qty of messages/files according to chunkSize.
 Data is formatted as json, gzip compressed, then base64 compressed.
 */
-func (a PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) {
+func (a *PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) {
 	message := MqttCandumpMessage{
 		UnitId:     unitId,
 		EthAddress: ethAddr,
@@ -146,7 +146,7 @@ func (a PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname st
 	}
 }
 
-func (a PassiveCanDumper) WriteToFile(filename string) {
+func (a *PassiveCanDumper) WriteToFile(filename string) {
 	var outFile = ""
 	for _, frame := range a.CapturedFrames {
 		outFile += frame.String() + "\n"
@@ -163,7 +163,7 @@ func (a PassiveCanDumper) WriteToFile(filename string) {
 	}
 }
 
-func (a PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFrame {
+func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFrame {
 	//d, _ := candevice.New("can0")
 	println("can device created")
 	//_ = d.SetBitrate(uint32(bitrate))
@@ -203,7 +203,7 @@ func (a PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFra
 /*This function reads frames from the can bus and loads the data into memory.
 Data is populated to DetailedCanFrames *[]ParsedCanFrame
 */
-func (a PassiveCanDumper) ReadCanBus(cycles int, bitrate int, DetailedCanFrames *[]ParsedCanFrame) {
+func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int, DetailedCanFrames *[]ParsedCanFrame) {
 	d, _ := candevice.New("can0")
 	println("can device created")
 	_ = d.SetBitrate(uint32(bitrate))
