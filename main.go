@@ -139,11 +139,11 @@ func main() {
 				if err1 == nil && err2 == nil {
 					if s == "-candump" {
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate, &canDumperInstance.DetailedCanFrames)
+						canDumperInstance.ReadCanBus(cycles, bitrate)
 						//canDumperInstance.WriteToFile("testcandump.txt")
 					} else if s == "-postmqtt" {
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate, &canDumperInstance.DetailedCanFrames)
+						canDumperInstance.ReadCanBus(cycles, bitrate)
 						//canDumperInstance.WriteToElastic(unitID.String())
 					} else if s == "-testmqtt" && len(os.Args) > 4 {
 
@@ -153,7 +153,7 @@ func main() {
 							os.Exit(0)
 						}
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate, &canDumperInstance.DetailedCanFrames)
+						canDumperInstance.ReadCanBus(cycles, bitrate)
 
 						// This code is useful when testing commands without a vehicle attached
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
@@ -215,6 +215,7 @@ func main() {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
+
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
