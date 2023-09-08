@@ -163,7 +163,7 @@ func (a *PassiveCanDumper) WriteToFile(filename string) {
 	}
 }
 
-func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFrame {
+func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 	//d, _ := candevice.New("can0")
 	println("can device created")
 	//_ = d.SetBitrate(uint32(bitrate))
@@ -197,13 +197,13 @@ func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) []ParsedCanFr
 			FrameData: data, FrameHex: frameHex, FrameInt: frameInt,
 		})
 	}
-	return a.DetailedCanFrames
+	//return a.DetailedCanFrames
 }
 
 /*This function reads frames from the can bus and loads the data into memory.
-Data is populated to DetailedCanFrames *[]ParsedCanFrame
+Data is populated to  *a.DetailedCanFrames
 */
-func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int, DetailedCanFrames *[]ParsedCanFrame) {
+func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) {
 	d, _ := candevice.New("can0")
 	println("can device created")
 	_ = d.SetBitrate(uint32(bitrate))
@@ -225,7 +225,7 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int, DetailedCanFrames
 	for recv.Receive() {
 		loopNumber++
 		if loopNumber > cycles {
-			println("Cycles completed:", len(*DetailedCanFrames))
+			println("Cycles completed:", len(a.DetailedCanFrames))
 			break
 		}
 		frame := recv.Frame()
@@ -236,7 +236,7 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int, DetailedCanFrames
 
 		frameInt, frameHex, data := getValuesFromCanFrame(frame)
 
-		a.DetailedCanFrames = append(*DetailedCanFrames, ParsedCanFrame{
+		a.DetailedCanFrames = append(a.DetailedCanFrames, ParsedCanFrame{
 			FrameData: data, FrameHex: frameHex, FrameInt: frameInt,
 		})
 	}
