@@ -173,7 +173,7 @@ func main() {
 	}
 	lss := loggers.NewLoggerSettingsService()
 	vinLogger := loggers.NewVINLogger()
-	pidLogger := loggers.NewPIDLogger(lss)
+	pidLogger := loggers.NewPIDLogger(lss, unitID)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
 	err = loggerSvc.Fingerprint()
@@ -198,7 +198,7 @@ func main() {
 		Interval: 5,
 		Params:   map[string]interface{}{"UnitID": unitID},
 		Func: func(ctx internal.WorkerTaskContext) {
-			err = pidLogger.ExecutePID(ctx.Params["UnitID"].(uuid.UUID))
+			err = pidLogger.ExecutePID()
 			if err != nil {
 				log.Printf("failed execute pid loggers: %s \n", err.Error())
 			}
