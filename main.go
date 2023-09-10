@@ -175,14 +175,19 @@ func main() {
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 
-	vinLogger := loggers.NewVINLogger()
-	pidLogger := loggers.NewPIDLogger()
 	lss := loggers.NewLoggerSettingsService()
+	vinLogger := loggers.NewVINLogger()
+	pidLogger := loggers.NewPIDLogger(lss)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService(&settings)
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
 	err = loggerSvc.VINLoggers()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
+	}
+
+	err = loggerSvc.PIDLoggers("") // todo: get vin from context
+	if err != nil {
+		log.Printf("failed to pid loggers: %s \n", err.Error())
 	}
 
 	// Register Custom Workers
@@ -191,11 +196,11 @@ func main() {
 	tasks[0] = internal.WorkerTask{
 		Name:     "Execute PIDs",
 		Interval: 5,
-		Params:   map[string]interface{}{"VIN": "12345"}, // todo: get vin from context
+		Params:   map[string]interface{}{"UnitID": unitID},
 		Func: func(ctx internal.WorkerTaskContext) {
-			err = loggerSvc.PIDLoggers(ctx.Params["VIN"].(string))
+			err = pidLogger.ExecutePID(ctx.Params["UnitID"].(uuid.UUID))
 			if err != nil {
-				log.Printf("failed to pid loggers: %s \n", err.Error())
+				log.Printf("failed execute pid loggers: %s \n", err.Error())
 			}
 		},
 	}
