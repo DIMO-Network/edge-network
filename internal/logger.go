@@ -17,7 +17,7 @@ import (
 )
 
 type LoggerService interface {
-	VINLoggers() error
+	Fingerprint() error
 	PIDLoggers(vin string) error
 }
 
@@ -36,8 +36,9 @@ func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers
 
 const maxFailureAttempts = 5
 
-// VINLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
-func (ls *loggerService) VINLoggers() error {
+// Fingerprint checks if ok to start scanning the vehicle and then tries to get the VIN & Protocol via various methods.
+// Runs only once when successful.  Checks for saved VIN query from previous run.
+func (ls *loggerService) Fingerprint() error {
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()

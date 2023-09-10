@@ -109,6 +109,7 @@ func (lcs *loggerSettingsService) writeConfig(filePath string, settings interfac
 }
 
 type VINLoggerSettings struct {
+	// VIN is whatever VIN we last were able to get from the vehicle
 	VIN                     string `json:"vin"`
 	VINQueryName            string `json:"vin_query_name"`
 	VINLoggerVersion        int    `json:"vin_logger_version"`

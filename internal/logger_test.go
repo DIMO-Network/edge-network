@@ -47,7 +47,7 @@ func Test_loggerService_VINLoggers(t *testing.T) {
 	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
-	err := ls.VINLoggers()
+	err := ls.Fingerprint()
 
 	assert.NoError(t, err)
 }
@@ -85,7 +85,7 @@ func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
 	lss.EXPECT().WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinQueryName, VIN: vinDiesel}).Times(1).Return(nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
-	err := ls.VINLoggers()
+	err := ls.Fingerprint()
 
 	assert.NoError(t, err)
 }
@@ -128,7 +128,7 @@ func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
 	}).Return(nil)
 	ds.EXPECT().SendErrorPayload(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
-	err := ls.VINLoggers()
+	err := ls.Fingerprint()
 
 	assert.NoError(t, err)
 }
@@ -165,7 +165,7 @@ func Test_loggerService_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T
 		VINLoggerFailedAttempts: 5,
 	}, nil)
 
-	err := ls.VINLoggers()
+	err := ls.Fingerprint()
 
 	assert.Error(t, err)
 }
