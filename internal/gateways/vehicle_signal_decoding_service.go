@@ -7,13 +7,13 @@ import (
 	"io"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/internal/config"
 	"github.com/DIMO-Network/shared"
 )
 
 var ErrNotFound = errors.New("not found")
 var ErrBadRequest = errors.New("bad request")
 
+//go:generate mockgen -source vehicle_signal_decoding_service.go -destination mocks/vehicle_signal_decoding_service_mock.go
 type VehicleSignalDecodingAPIService interface {
 	GetPIDsTemplateByVIN(vin string) (*PIDConfigResponse, error)
 }
@@ -28,16 +28,16 @@ type PIDConfigResponse struct {
 }
 
 type vehicleSignalDecodingAPIService struct {
-	Settings   *config.Settings
 	httpClient shared.HTTPClientWrapper
 }
 
-func NewVehicleSignalDecodingAPIService(settings *config.Settings) VehicleSignalDecodingAPIService {
+const VEHICLE_SIGNAL_DECODING_API_URL = "https://vehicle-signal-decoding.dev.dimo.zone"
+
+func NewVehicleSignalDecodingAPIService() VehicleSignalDecodingAPIService {
 	h := map[string]string{}
-	hcw, _ := shared.NewHTTPClientWrapper(settings.Vehicle_Signal_Decoding_APIURL, "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
+	hcw, _ := shared.NewHTTPClientWrapper(VEHICLE_SIGNAL_DECODING_API_URL, "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
 
 	return &vehicleSignalDecodingAPIService{
-		Settings:   settings,
 		httpClient: hcw,
 	}
 }
