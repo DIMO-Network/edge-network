@@ -3,14 +3,18 @@ package loggers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/constants"
 	"os"
 	"sync"
 )
 
 //go:generate mockgen -source logger_settings.go -destination mocks/logger_settings_mock.go
 type LoggerSettingsService interface {
-	ReadConfig() (*LoggerSettings, error)
-	WriteConfig(settings LoggerSettings) error
+	ReadVINConfig() (*VINLoggerSettings, error)
+	WriteVINConfig(settings VINLoggerSettings) error
+
+	ReadPIDsConfig() (*PIDLoggerSettings, error)
+	WritePIDsConfig(settings PIDLoggerSettings) error
 }
 
 type loggerSettingsService struct {
@@ -21,17 +25,12 @@ func NewLoggerSettingsService() LoggerSettingsService {
 	return &loggerSettingsService{}
 }
 
-const filePath = "/tmp/logger-settings.json"
-
-func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
-	lcs.mu.Lock()
-	defer lcs.mu.Unlock()
-
-	data, err := os.ReadFile(filePath)
+func (lcs *loggerSettingsService) ReadVINConfig() (*VINLoggerSettings, error) {
+	data, err := lcs.readConfig(constants.VINLoggerFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
-	ls := &LoggerSettings{}
+	ls := &VINLoggerSettings{}
 
 	err = json.Unmarshal(data, ls)
 	if err != nil {
@@ -41,8 +40,53 @@ func (lcs *loggerSettingsService) ReadConfig() (*LoggerSettings, error) {
 	return ls, nil
 }
 
+func (lcs *loggerSettingsService) WriteVINConfig(settings VINLoggerSettings) error {
+	err := lcs.writeConfig(constants.VINLoggerFile, settings)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (lcs *loggerSettingsService) ReadPIDsConfig() (*PIDLoggerSettings, error) {
+	data, err := lcs.readConfig(constants.VINPIDLoggerFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	ls := &PIDLoggerSettings{}
+
+	err = json.Unmarshal(data, ls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall loggersettings: %s", err)
+	}
+
+	return ls, nil
+}
+
+func (lcs *loggerSettingsService) WritePIDsConfig(settings PIDLoggerSettings) error {
+	err := lcs.writeConfig(constants.VINPIDLoggerFile, settings)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (lcs *loggerSettingsService) readConfig(filePath string) ([]byte, error) {
+	lcs.mu.Lock()
+	defer lcs.mu.Unlock()
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+
+	return data, nil
+}
+
 // WriteConfig writes the config file in json format to tmp folder, overwriting anything already existing
-func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
+func (lcs *loggerSettingsService) writeConfig(filePath string, settings interface{}) error {
 	lcs.mu.Lock()
 	defer lcs.mu.Unlock()
 	// Open the file for writing (create if it doesn't exist)
@@ -64,8 +108,17 @@ func (lcs *loggerSettingsService) WriteConfig(settings LoggerSettings) error {
 	return nil
 }
 
-type LoggerSettings struct {
+type VINLoggerSettings struct {
+	VIN                     string `json:"vin"`
 	VINQueryName            string `json:"vin_query_name"`
 	VINLoggerVersion        int    `json:"vin_logger_version"`
 	VINLoggerFailedAttempts int    `json:"vin_logger_failed_attempts"`
+}
+
+type PIDLoggerSettings struct {
+	Formula  string `json:"formula"`
+	Protocol string `json:"protocol"`
+	Header   string `json:"header"`
+	PID      string `json:"PID"`
+	Mode     string `json:"mode"`
 }

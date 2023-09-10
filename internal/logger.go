@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -16,24 +17,27 @@ import (
 )
 
 type LoggerService interface {
-	StartLoggers() error
+	VINLoggers() error
+	PIDLoggers(vin string) error
 }
 
 type loggerService struct {
-	unitID            uuid.UUID
-	vinLog            loggers.VINLogger
-	dataSender        network.DataSender
-	loggerSettingsSvc loggers.LoggerSettingsService
+	unitID                   uuid.UUID
+	vinLog                   loggers.VINLogger
+	pidLog                   loggers.PIDLogger
+	dataSender               network.DataSender
+	loggerSettingsSvc        loggers.LoggerSettingsService
+	vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc}
+func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc}
 }
 
 const maxFailureAttempts = 5
 
-// StartLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
-func (ls *loggerService) StartLoggers() error {
+// VINLoggers checks if ok to start scanning the vehicle and then according to configuration scans and sends data periodically
+func (ls *loggerService) VINLoggers() error {
 	// check if ok to start making obd calls etc
 	log.Infof("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
@@ -48,7 +52,7 @@ func (ls *loggerService) StartLoggers() error {
 	}
 	log.Infof("loggers: checks passed to start scanning")
 	// read any existing settings
-	config, err := ls.loggerSettingsSvc.ReadConfig()
+	config, err := ls.loggerSettingsSvc.ReadVINConfig()
 	if err != nil {
 		log.Printf("could not read settings, continuing: %s", err)
 	}
@@ -74,11 +78,11 @@ func (ls *loggerService) StartLoggers() error {
 			log.WithError(err).Log(log.ErrorLevel)
 			// update local settings to increment fail count
 			if config == nil {
-				config = &loggers.LoggerSettings{}
+				config = &loggers.VINLoggerSettings{}
 			}
 			config.VINLoggerVersion = loggers.VINLoggerVersion
 			config.VINLoggerFailedAttempts++
-			writeErr := ls.loggerSettingsSvc.WriteConfig(*config)
+			writeErr := ls.loggerSettingsSvc.WriteVINConfig(*config)
 			if writeErr != nil {
 				log.WithError(writeErr).Log(log.ErrorLevel)
 			}
@@ -88,13 +92,14 @@ func (ls *loggerService) StartLoggers() error {
 		}
 		// save vin query name in settings if not set
 		if config == nil || config.VINQueryName == "" {
-			config = &loggers.LoggerSettings{VINQueryName: vinResp.QueryName}
-			err := ls.loggerSettingsSvc.WriteConfig(*config)
+			config = &loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
+			err := ls.loggerSettingsSvc.WriteVINConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
 				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"), &status)
 			}
 		}
+
 		data := network.FingerprintData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
@@ -105,6 +110,46 @@ func (ls *loggerService) StartLoggers() error {
 		err = ls.dataSender.SendFingerprintData(data)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
+		}
+	}
+
+	return nil
+}
+
+func (ls *loggerService) PIDLoggers(vin string) error {
+	// check if ok to start making obd calls etc
+	log.Infof("loggers: starting - checking if can start scanning")
+	ok, status, err := ls.isOkToScan()
+	if err != nil {
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)
+		return errors.Wrap(err, "checks to start loggers failed, no action")
+	}
+	if !ok {
+		e := fmt.Errorf("checks to start loggers failed but no errors reported")
+		_ = ls.dataSender.SendErrorPayload(e, &status)
+		return e
+	}
+	log.Infof("loggers: checks passed to start scanning")
+	// read any existing settings
+	config, err := ls.loggerSettingsSvc.ReadPIDsConfig()
+	if err != nil {
+		log.Printf("could not read settings, continuing: %s", err)
+	}
+
+	if config != nil {
+		if len(config.PID) == 0 {
+			pids, err := ls.vehicleSignalDecodingSvc.GetPIDsTemplateByVIN(vin)
+			if err != nil {
+				log.Printf("could not get pids template from api, continuing: %s", err)
+				return err
+			}
+
+			config = &loggers.PIDLoggerSettings{Formula: pids.Formula, Protocol: pids.Protocol, PID: pids.Pid, Mode: pids.Mode, Header: pids.Header}
+			err = ls.loggerSettingsSvc.WritePIDsConfig(*config)
+			if err != nil {
+				log.WithError(err).Log(log.ErrorLevel)
+				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write pids logger settings"), &status)
+			}
 		}
 	}
 
