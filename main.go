@@ -6,10 +6,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/config"
+	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/DIMO-Network/shared"
 	"log"
 	"math"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal"
@@ -123,7 +127,6 @@ func main() {
 			os.Exit(0)
 		}
 	}
-
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
@@ -173,7 +176,40 @@ func main() {
 	}
 
 	vinLogger := loggers.NewVINLogger()
+	pidLogger := loggers.NewPIDLogger()
 	lss := loggers.NewLoggerSettingsService()
+	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService(&settings)
+	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
+	err = loggerSvc.VINLoggers()
+	if err != nil {
+		log.Printf("failed to start loggers: %s \n", err.Error())
+	}
+
+	// Register Custom Workers
+	tasks := make([]internal.WorkerTask, 1)
+
+	tasks[0] = internal.WorkerTask{
+		Name:     "Execute PIDs",
+		Interval: 5,
+		Params:   map[string]interface{}{"VIN": "12345"}, // todo: get vin from context
+		Func: func(ctx internal.WorkerTaskContext) {
+			err = loggerSvc.PIDLoggers(ctx.Params["VIN"].(string))
+			if err != nil {
+				log.Printf("failed to pid loggers: %s \n", err.Error())
+			}
+		},
+	}
+
+	var wg sync.WaitGroup
+
+	for i, task := range tasks {
+		wg.Add(1)
+		go func(idx int, t internal.WorkerTask) {
+			defer wg.Done()
+			t.Execute(idx)
+		}(i, task)
+	}
+
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
 		err = setupBluez(name)
@@ -186,17 +222,13 @@ func main() {
 		defer obCancel()
 	}
 
-	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
-	err = loggerSvc.StartLoggers()
-	if err != nil {
-		log.Printf("failed to start loggers: %s \n", err.Error())
-	}
-
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
 	sig := <-sigChan
 	log.Printf("Terminating from signal: %s", sig)
+
+	wg.Wait()
 }
 
 func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc, context.CancelFunc) {
@@ -586,7 +618,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
 		// we want to do this each time in case the device is being paired to a different vehicle
-		err = lss.WriteConfig(loggers.LoggerSettings{VINQueryName: vinResp.QueryName})
+		err = lss.WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName})
 		if err != nil {
 			log.Printf("failed to save vin query name in settings: %s", err)
 		}
