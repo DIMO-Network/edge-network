@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/config"
 	"github.com/DIMO-Network/edge-network/internal/gateways"
-	"github.com/DIMO-Network/shared"
 	"log"
 	"math"
 	"os"
@@ -127,6 +125,7 @@ func main() {
 			os.Exit(0)
 		}
 	}
+
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
@@ -178,16 +177,20 @@ func main() {
 	lss := loggers.NewLoggerSettingsService()
 	vinLogger := loggers.NewVINLogger()
 	pidLogger := loggers.NewPIDLogger(lss)
-	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService(&settings)
+	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
-	err = loggerSvc.VINLoggers()
+	err = loggerSvc.Fingerprint()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
-
-	err = loggerSvc.PIDLoggers("") // todo: get vin from context
-	if err != nil {
-		log.Printf("failed to pid loggers: %s \n", err.Error())
+	v, _ := lss.ReadVINConfig()
+	// only start PID loggers if have a VIN
+	// todo: We'll need an option for cars where VIN comes from cloud b/c we couldn't get the VIN via OBD
+	if len(v.VIN) > 0 {
+		err = loggerSvc.PIDLoggers(v.VIN)
+		if err != nil {
+			log.Printf("failed to pid loggers: %s \n", err.Error())
+		}
 	}
 
 	// Register Custom Workers
