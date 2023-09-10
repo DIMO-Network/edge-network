@@ -34,31 +34,60 @@ func (m *MockLoggerSettingsService) EXPECT() *MockLoggerSettingsServiceMockRecor
 	return m.recorder
 }
 
-// ReadConfig mocks base method.
-func (m *MockLoggerSettingsService) ReadConfig() (*loggers.LoggerSettings, error) {
+// ReadPIDsConfig mocks base method.
+func (m *MockLoggerSettingsService) ReadPIDsConfig() (*loggers.PIDLoggerSettings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadConfig")
-	ret0, _ := ret[0].(*loggers.LoggerSettings)
+	ret := m.ctrl.Call(m, "ReadPIDsConfig")
+	ret0, _ := ret[0].(*loggers.PIDLoggerSettings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadConfig indicates an expected call of ReadConfig.
-func (mr *MockLoggerSettingsServiceMockRecorder) ReadConfig() *gomock.Call {
+// ReadPIDsConfig indicates an expected call of ReadPIDsConfig.
+func (mr *MockLoggerSettingsServiceMockRecorder) ReadPIDsConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).ReadConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadPIDsConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).ReadPIDsConfig))
 }
 
-// WriteConfig mocks base method.
-func (m *MockLoggerSettingsService) WriteConfig(settings loggers.LoggerSettings) error {
+// ReadVINConfig mocks base method.
+func (m *MockLoggerSettingsService) ReadVINConfig() (*loggers.VINLoggerSettings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteConfig", settings)
+	ret := m.ctrl.Call(m, "ReadVINConfig")
+	ret0, _ := ret[0].(*loggers.VINLoggerSettings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadVINConfig indicates an expected call of ReadVINConfig.
+func (mr *MockLoggerSettingsServiceMockRecorder) ReadVINConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadVINConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).ReadVINConfig))
+}
+
+// WritePIDsConfig mocks base method.
+func (m *MockLoggerSettingsService) WritePIDsConfig(settings loggers.PIDLoggerSettings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WritePIDsConfig", settings)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteConfig indicates an expected call of WriteConfig.
-func (mr *MockLoggerSettingsServiceMockRecorder) WriteConfig(settings interface{}) *gomock.Call {
+// WritePIDsConfig indicates an expected call of WritePIDsConfig.
+func (mr *MockLoggerSettingsServiceMockRecorder) WritePIDsConfig(settings interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).WriteConfig), settings)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WritePIDsConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).WritePIDsConfig), settings)
+}
+
+// WriteVINConfig mocks base method.
+func (m *MockLoggerSettingsService) WriteVINConfig(settings loggers.VINLoggerSettings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteVINConfig", settings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteVINConfig indicates an expected call of WriteVINConfig.
+func (mr *MockLoggerSettingsServiceMockRecorder) WriteVINConfig(settings interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteVINConfig", reflect.TypeOf((*MockLoggerSettingsService)(nil).WriteVINConfig), settings)
 }

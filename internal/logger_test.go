@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	mock_gateways "github.com/DIMO-Network/edge-network/internal/gateways/mocks"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_loggerService_StartLoggers(t *testing.T) {
+func Test_loggerService_VINLoggers(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -28,7 +29,10 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
 	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, ds, lss)
+
+	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -39,16 +43,16 @@ func Test_loggerService_StartLoggers(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{VINQueryName: vinQueryName}, nil)
+	lss.EXPECT().ReadVINConfig().Times(1).Return(&loggers.VINLoggerSettings{VINQueryName: vinQueryName}, nil)
 	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
-	err := ls.StartLoggers()
+	err := ls.VINLoggers()
 
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_StartLoggers_nilSettings(t *testing.T) {
+func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -62,7 +66,10 @@ func Test_loggerService_StartLoggers_nilSettings(t *testing.T) {
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
 	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, ds, lss)
+
+	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -73,17 +80,17 @@ func Test_loggerService_StartLoggers_nilSettings(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	lss.EXPECT().ReadConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	lss.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
-	lss.EXPECT().WriteConfig(loggers.LoggerSettings{VINQueryName: vinQueryName}).Times(1).Return(nil)
+	lss.EXPECT().WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinQueryName, VIN: vinDiesel}).Times(1).Return(nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
-	err := ls.StartLoggers()
+	err := ls.VINLoggers()
 
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
+func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -95,7 +102,10 @@ func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, ds, lss)
+
+	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -107,22 +117,23 @@ func Test_loggerService_StartLoggers_noVINResponse(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
 	// nil settings, eg. first time it runs, incompatiible vehicle
-	lss.EXPECT().ReadConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	lss.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	noVinErr := fmt.Errorf("response contained an invalid vin")
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(nil, noVinErr)
-	lss.EXPECT().WriteConfig(loggers.LoggerSettings{
+	lss.EXPECT().WriteVINConfig(loggers.VINLoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 1,
+		VIN:                     "",
 	}).Return(nil)
 	ds.EXPECT().SendErrorPayload(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
-	err := ls.StartLoggers()
+	err := ls.VINLoggers()
 
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_StartLoggers_noVINResponseAndAttemptsExceeded(t *testing.T) {
+func Test_loggerService_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -134,7 +145,9 @@ func Test_loggerService_StartLoggers_noVINResponseAndAttemptsExceeded(t *testing
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, ds, lss)
+	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -146,13 +159,13 @@ func Test_loggerService_StartLoggers_noVINResponseAndAttemptsExceeded(t *testing
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
 	// nil settings, eg. first time it runs, incompatiible vehicle
-	lss.EXPECT().ReadConfig().Times(1).Return(&loggers.LoggerSettings{
+	lss.EXPECT().ReadVINConfig().Times(1).Return(&loggers.VINLoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 5,
 	}, nil)
 
-	err := ls.StartLoggers()
+	err := ls.VINLoggers()
 
 	assert.Error(t, err)
 }
