@@ -130,7 +130,7 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 		_ = ls.dataSender.SendErrorPayload(e, &status)
 		return e
 	}
-	log.Infof("loggers: checks passed to start scanning")
+	log.Infof("loggers: checks passed to start PID loggers")
 	// read any existing settings
 	config, err := ls.loggerSettingsSvc.ReadPIDsConfig()
 	if err != nil {
