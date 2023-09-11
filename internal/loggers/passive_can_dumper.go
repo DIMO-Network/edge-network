@@ -28,7 +28,7 @@ type ParsedCanFrame struct {
 
 type MqttCandumpMessage struct {
 	UnitId           string           `json:"UnitId,omitempty"`
-	EthAddress       string           `json:"EthAddress, omitempty"`
+	EthAddress       string           `json:"EthAddress,omitempty"`
 	TimeStamp        string           `json:"TimeStamp,omitempty"`
 	Page             int              `json:"Page,omitempty"`
 	TotalPages       int              `json:"TotalPages,omitempty"`
