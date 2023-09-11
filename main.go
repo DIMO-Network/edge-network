@@ -159,7 +159,7 @@ func main() {
 						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
 						currentTime, _ := time.Now().MarshalJSON()
 						currentTime = currentTime[1 : len(currentTime)-1]
-						canDumperInstance.WriteToMQTT(unitID.String(), ethAddr.String(), "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), false)
+						canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), false)
 					}
 				} else {
 					println("error converting cycle count or bitrate to int")
