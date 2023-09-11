@@ -7,6 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/network"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"go.einride.tech/can"
 	"go.einride.tech/can/pkg/candevice"
 	"go.einride.tech/can/pkg/socketcan"
@@ -14,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 type ParsedCanFrame struct {
@@ -103,7 +107,10 @@ This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mq
 Can frames from memory will be automatically paginated into appropriate qty of messages/files according to chunkSize.
 Data is formatted as json, gzip compressed, then base64 compressed.
 */
-func (a *PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) {
+func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
+	unitId := UnitID.String()
+	ethAddr := EthAddr.String()
+
 	message := MqttCandumpMessage{
 		UnitId:     unitId,
 		EthAddress: ethAddr,
@@ -131,9 +138,6 @@ func (a *PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname s
 		gz := gzip.NewWriter(&buf)
 		_, _ = gz.Write(payload)
 		_ = gz.Close()
-		cmd := exec.Command("mosquitto_pub", "-h", hostname, "-t", topic, "-m", base64.StdEncoding.EncodeToString(buf.Bytes()))
-		cmdout, _ := cmd.Output()
-		println(string(cmdout))
 
 		if writeToLocalFiles {
 			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 776)
@@ -142,8 +146,28 @@ func (a *PassiveCanDumper) WriteToMQTT(unitId string, ethAddr string, hostname s
 				os.Exit(0)
 			}
 		}
+
+		ds := network.NewDataSender(UnitID, EthAddr, "canbus/dumps")
+		sendErr := ds.SendCanDumpData(network.CanDumpData{
+			CommonData: network.CommonData{
+				Timestamp: time.Now().UTC().UnixMilli(),
+			},
+			Payload: string(payload),
+		})
+
+		if sendErr != nil {
+			println("error sending")
+			return sendErr
+		}
+		/*
+			cmd := exec.Command("mosquitto_pub", "-h", hostname, "-t", topic, "-m", base64.StdEncoding.EncodeToString(buf.Bytes()))
+			cmdout, _ := cmd.Output()
+			println(string(cmdout))
+		*/
+
 		message.Page++
 	}
+	return nil
 }
 
 func (a *PassiveCanDumper) WriteToFile(filename string) {

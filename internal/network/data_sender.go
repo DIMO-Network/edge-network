@@ -32,6 +32,7 @@ type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 	SendErrorsData(data ErrorsData) error
 	SendFingerprintData(data FingerprintData) error
+	SendCanDumpData(data CanDumpData) error
 }
 
 type dataSender struct {
@@ -59,8 +60,29 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr)
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
 	ce := DeviceFingerprintCloudEvent{
+		CloudEventHeaders: ceh,
+		Data:              data,
+	}
+	payload, err := json.Marshal(ce)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshall cloudevent")
+	}
+
+	err = ds.sendPayload(payload)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+	ceh := newCloudEventHeaders(ds.ethAddr, "canbus/dump", "1.0", "zone.dimo.aftermarket.device.fingerprint")
+	ce := CanDumpCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -80,7 +102,7 @@ func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr)
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
 	ce := DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -167,14 +189,23 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendErrorsData(data)
 }
 
-func newCloudEventHeaders(ethAddress common.Address) CloudEventHeaders {
-	ce := CloudEventHeaders{
+func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) CloudEventHeaders {
+	/*ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      "aftermarket/device/fingerprint",
 		SpecVersion: "1.0",
 		Subject:     ethAddress.Hex(),
 		Time:        time.Now().UTC(),
 		Type:        "zone.dimo.aftermarket.device.fingerprint",
+	}*/
+
+	ce := CloudEventHeaders{
+		ID:          ksuid.New().String(),
+		Source:      source,
+		SpecVersion: specVersion,
+		Subject:     ethAddress.Hex(),
+		Time:        time.Now().UTC(),
+		Type:        eventType,
 	}
 	return ce
 }
@@ -191,6 +222,11 @@ type CloudEventHeaders struct {
 	Signature string `json:"signature"`
 }
 
+type CanDumpCloudEvent struct {
+	CloudEventHeaders
+	Data CanDumpData `json:"data"`
+}
+
 type DeviceFingerprintCloudEvent struct {
 	CloudEventHeaders
 	Data FingerprintData `json:"data"`
@@ -201,6 +237,11 @@ type FingerprintData struct {
 	Vin      string  `json:"vin"`
 	Protocol string  `json:"protocol"`
 	Odometer float64 `json:"odometer,omitempty"`
+}
+
+type CanDumpData struct {
+	CommonData
+	Payload string `json:"EncodedMessage,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {
