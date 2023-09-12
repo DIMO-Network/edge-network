@@ -68,6 +68,26 @@ if you connec the AP to wifi, but it can't get an internet connection, this stuf
 
 To view logs, from the AP cloud terminal, run the following: `journalctl -u edge-network`
 
+## Can Dump Commands from terminal
+
+    To generate local can dump to single file:
+       ./edge-network -candump <baudrate> <cycle_count> <file_out>
+       
+          example: ./edge-network -candump 500000 2000 outfile.txt
+
+    To generate local can dump and send over mqtt:
+       ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> 
+       
+          example: ./edge-network -sendcandump 500000 2000 500
+
+    To generate local can dump and send over mqtt, AND save local copies of chunked messages to file:
+       ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal
+       
+          example: ./edge-network -sendcandump 500000 2000 500 savelocal
+
+
+
+
 ## Commands
 
 For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` capability.
