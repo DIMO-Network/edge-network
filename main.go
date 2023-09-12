@@ -133,63 +133,66 @@ func main() {
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
 		} else if len(os.Args) > 4 {
-			{
-				// if we receive a candump argument, we will passively read from the can bus and print results to terminal
-				// for testing
-				canDumperInstance := new(loggers.PassiveCanDumper)
 
-				bitrate, err1 := strconv.Atoi(os.Args[2])
-				cycles, err2 := strconv.Atoi(os.Args[3])
-				if err1 == nil && err2 == nil && len(os.Args) > 4 {
-					if s == "-candump" {
-						canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
-						if canErr != nil {
-							println(canErr.Error())
-							os.Exit(1)
-						}
-						fileName := os.Args[4]
-						fileErr := canDumperInstance.WriteToFile(fileName)
-						if fileErr != nil {
-							println(fileErr.Error())
-							os.Exit(1)
-						}
-					} else if s == "-sendcandump" && len(os.Args) > 4 {
+			// if we receive a candump argument, we will passively read from the can bus and print results to terminal
+			// for testing
+			canDumperInstance := new(loggers.PassiveCanDumper)
 
-						chunkSize, err3 := strconv.Atoi(os.Args[4])
-						if err3 != nil {
-							println("unable to read chunkSize value from command")
-							println(err3.Error())
-							os.Exit(1)
-						}
-						canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
-						if canErr != nil {
-							println(canErr.Error())
-							os.Exit(1)
-						}
-						/*
-							//This code is useful when testing commands without a vehicle attached
-							canDumperInstance.ReadCanBusTest(cycles, bitrate)
-						*/
-
-						currentTime, _ := time.Now().MarshalJSON()
-						currentTime = currentTime[1 : len(currentTime)-1]
-						writeToLocalFiles := false
-
-						if len(os.Args) > 5 && os.Args[5] == "savelocal" {
-							writeToLocalFiles = true
-						}
-						mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
-						//canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), writeToLocalFiles)
-						if mqttErr != nil {
-							println(mqttErr.Error())
-							os.Exit(1)
-						}
+			bitrate, err1 := strconv.Atoi(os.Args[2])
+			cycles, err2 := strconv.Atoi(os.Args[3])
+			if err1 == nil && err2 == nil && len(os.Args) > 4 {
+				if s == "-candump" {
+					canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
+					if canErr != nil {
+						println(canErr.Error())
+						os.Exit(1)
 					}
-				} else {
-					println("error converting cycle count or bitrate to int")
+					fileName := os.Args[4]
+					fileErr := canDumperInstance.WriteToFile(fileName)
+					if fileErr != nil {
+						println(fileErr.Error())
+						os.Exit(1)
+					}
+				} else if s == "-sendcandump" && len(os.Args) > 4 {
+
+					chunkSize, err3 := strconv.Atoi(os.Args[4])
+					if err3 != nil {
+						println("unable to read chunkSize value from command")
+						println(err3.Error())
+						os.Exit(1)
+					}
+					canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
+					if canErr != nil {
+						println(canErr.Error())
+						os.Exit(1)
+					}
+					/*
+						//This code is useful when testing commands without a vehicle attached
+						canDumperInstance.ReadCanBusTest(cycles, bitrate)
+					*/
+
+					currentTime, _ := time.Now().MarshalJSON()
+					currentTime = currentTime[1 : len(currentTime)-1]
+					writeToLocalFiles := false
+
+					if len(os.Args) > 5 && os.Args[5] == "savelocal" {
+						writeToLocalFiles = true
+					}
+					mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
+					//canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), writeToLocalFiles)
+					if mqttErr != nil {
+						println(mqttErr.Error())
+						os.Exit(1)
+					}
 				}
-				os.Exit(0)
+			} else {
+				println("error converting cycle count or bitrate to int")
 			}
+			os.Exit(0)
+
+		} else {
+			println("Invalid syntax:\n To generate local can dump to single file:\n   ./edge-network -candump <baudrate> <cycle_count> <file_out>\n   \n      example: ./edge-network -candump 500000 2000 outfile.txt\n\nTo generate local can dump and send over mqtt:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> \n   \n      example: ./edge-network -sendcandump 500000 2000 500\n\nTo generate local can dump and send over mqtt, AND save local copies of chunked messages to file:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal\n   \n      example: ./edge-network -sendcandump 500000 2000 500 savelocal")
+			os.Exit(1)
 		}
 	}
 	name, unitID = commands.GetDeviceName()
