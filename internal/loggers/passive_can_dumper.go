@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -40,30 +40,6 @@ type PassiveCanDumper struct {
 	CapturedFrames       []can.Frame
 	capturedFrameStrings []string
 	DetailedCanFrames    []ParsedCanFrame
-}
-
-func (a *PassiveCanDumper) WriteToElastic(unitId string) {
-	headerMap := make(map[string]string)
-	for _, frame := range a.CapturedFrames {
-		headerMap[strconv.Itoa(int(frame.ID))] = frame.String()
-	}
-	var payload string
-	for header, _ := range headerMap {
-
-		payload = fmt.Sprintf("\"{\\\"%s\\\":\\\"%s\\\"}\"", "header_"+header, unitId)
-		cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", payload)
-
-		//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
-
-		//cmd := exec.Command("mosquitto_pub", "-t", "reactor", "-m", "\"{\\\"canbus_testparam\\\":\\\"123TEST\\\"}\"")
-		//"{\"canbus_testparam\":\"123TEST\"}"
-		_, err := cmd.Output()
-		if err != nil {
-			println("could not execute mosquitto_pub")
-			println(err)
-		}
-	}
-
 }
 
 func (a *PassiveCanDumper) TestMQTT() {
@@ -102,12 +78,10 @@ func (a *PassiveCanDumper) TestMQTT() {
 	println(cmd.Output())
 }
 
-/*
-This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server, and also writes to local files.
-Can frames from memory will be automatically paginated into appropriate qty of messages/files according to chunkSize.
-Data is formatted as json, gzip compressed, then base64 compressed.
-*/
-func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, hostname string, topic string, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
+// WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
+//and also writes to local files. Can frames from memory will be automatically paginated into appropriate
+//qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
+func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
 	unitId := UnitID.String()
 	ethAddr := EthAddr.String()
 
@@ -140,10 +114,10 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 		_ = gz.Close()
 
 		if writeToLocalFiles {
-			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 776)
+			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 666)
 			if fileErr != nil {
 				println(fileErr.Error())
-				os.Exit(0)
+				return fileErr
 			}
 		}
 
@@ -170,23 +144,22 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 	return nil
 }
 
-func (a *PassiveCanDumper) WriteToFile(filename string) {
-	var outFile = ""
-	for _, frame := range a.CapturedFrames {
-		outFile += frame.String() + "\n"
-		println("capturedFrame:", frame.String())
-
-		frame_json, _ := frame.MarshalJSON() //these lines are only to test
-		println(string(frame_json))          // test only
-
+// WriteToFile WriteToFile() will write the can frames currently stored in memory to a single json file on local disk, without pagination
+func (a *PassiveCanDumper) WriteToFile(filename string) error {
+	if len(filename) < 1 {
+		return errors.New("Invalid filename. Please use the following syntax:\n ./edge-network -candump <baudrate> <cycle_count> <file_out>")
 	}
-	print(outFile)
-	err := os.WriteFile(filename, []byte(outFile), 666)
+	outFile, _ := json.Marshal(a.DetailedCanFrames)
+	//print(string(outFile))
+	err := os.WriteFile(filename, outFile, 666)
 	if err != nil {
 		println("error writing to file: ", err)
+		return err
 	}
+	return nil
 }
 
+// ReadCanBusTest This method is used for testing purposes, to simulate a can bus read
 func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 	//d, _ := candevice.New("can0")
 	println("can device created")
@@ -224,28 +197,22 @@ func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 	//return a.DetailedCanFrames
 }
 
-/*This function reads frames from the can bus and loads the data into memory.
-Data is populated to  *a.DetailedCanFrames
-*/
-func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) {
+// ReadCanBus This function reads frames from the can bus and loads the data into memory. Data is populated to  *a.DetailedCanFrames[]
+func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
 	d, _ := candevice.New("can0")
-	println("can device created")
 	_ = d.SetBitrate(uint32(bitrate))
-	println("bitrate set to: ", bitrate)
 	_ = d.SetUp()
-	println("can device .SetUp()")
-	defer d.SetDown() //nolint
-	println("can device .SetDown() deferred")
+	defer d.SetDown()
 
-	conn, _ := socketcan.DialContext(context.Background(), "can", "can0")
+	conn, err := socketcan.DialContext(context.Background(), "can", "can0")
+	if err != nil {
+		return err
+	}
 	println("socketcan.DialContext()")
 
 	recv := socketcan.NewReceiver(conn)
 	println("socketcan.NewReceiver(conn)")
 	var loopNumber = 0
-	//a.DetailedCanFrames = *new([]ParsedCanFrame)
-	//a.CapturedFrames = *new([]can.Frame)
-	//a.CapturedFrames = make([]can.Frame, 0)
 	for recv.Receive() {
 		loopNumber++
 		if loopNumber > cycles {
@@ -253,21 +220,13 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) {
 			break
 		}
 		frame := recv.Frame()
-
-		//println(frame.String())
-
-		//a.CapturedFrames = append(a.CapturedFrames, frame)
-
 		frameInt, frameHex, data := getValuesFromCanFrame(frame)
 
 		a.DetailedCanFrames = append(a.DetailedCanFrames, ParsedCanFrame{
 			FrameData: data, FrameHex: frameHex, FrameInt: frameInt,
 		})
 	}
-
-	println("recv.Receive() loop exit")
-	println("capturedFrameStrings:")
-	//return a.DetailedCanFrames
+	return nil
 }
 
 func getValuesFromCanFrame(frame can.Frame) (frameInt int, frameHex string, data string) {

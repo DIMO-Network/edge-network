@@ -122,44 +122,68 @@ func main() {
 	ethAddr = new(common.Address)
 	*/
 
+	// ./edge-network -candump <baudrate> <cycle_count> <file_out>
+	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size>
+	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal
+
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
 		if s == "-v" {
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
-		} else if len(os.Args) > 3 {
+		} else if len(os.Args) > 4 {
 			{
 				// if we receive a candump argument, we will passively read from the can bus and print results to terminal
 				// for testing
 				canDumperInstance := new(loggers.PassiveCanDumper)
 
-				cycles, err1 := strconv.Atoi(os.Args[2])
-				bitrate, err2 := strconv.Atoi(os.Args[3])
-				if err1 == nil && err2 == nil {
+				bitrate, err1 := strconv.Atoi(os.Args[2])
+				cycles, err2 := strconv.Atoi(os.Args[3])
+				if err1 == nil && err2 == nil && len(os.Args) > 4 {
 					if s == "-candump" {
-						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate)
-						//canDumperInstance.WriteToFile("testcandump.txt")
-					} else if s == "-postmqtt" {
-						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate)
-						//canDumperInstance.WriteToElastic(unitID.String())
-					} else if s == "-testmqtt" && len(os.Args) > 4 {
+						canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
+						if canErr != nil {
+							println(canErr.Error())
+							os.Exit(1)
+						}
+						fileName := os.Args[4]
+						fileErr := canDumperInstance.WriteToFile(fileName)
+						if fileErr != nil {
+							println(fileErr.Error())
+							os.Exit(1)
+						}
+					} else if s == "-sendcandump" && len(os.Args) > 4 {
 
 						chunkSize, err3 := strconv.Atoi(os.Args[4])
 						if err3 != nil {
+							println("unable to read chunkSize value from command")
 							println(err3.Error())
-							os.Exit(0)
+							os.Exit(1)
 						}
-						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBus(cycles, bitrate)
-						canDumperInstance.ReadCanBus(cycles, bitrate)
+						canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
+						if canErr != nil {
+							println(canErr.Error())
+							os.Exit(1)
+						}
+						/*
+							//This code is useful when testing commands without a vehicle attached
+							canDumperInstance.ReadCanBusTest(cycles, bitrate)
+						*/
 
-						// This code is useful when testing commands without a vehicle attached
-						//canDumperInstance.DetailedCanFrames = canDumperInstance.ReadCanBusTest(cycles, bitrate)
 						currentTime, _ := time.Now().MarshalJSON()
 						currentTime = currentTime[1 : len(currentTime)-1]
-						canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), false)
+						writeToLocalFiles := false
+
+						if len(os.Args) > 5 && os.Args[5] == "savelocal" {
+							writeToLocalFiles = true
+						}
+						mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
+						//canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), writeToLocalFiles)
+						if mqttErr != nil {
+							println(mqttErr.Error())
+							os.Exit(1)
+						}
 					}
 				} else {
 					println("error converting cycle count or bitrate to int")
