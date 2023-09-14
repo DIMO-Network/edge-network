@@ -173,15 +173,14 @@ func main() {
 	}
 	lss := loggers.NewLoggerSettingsService()
 	vinLogger := loggers.NewVINLogger()
-	pidLogger := loggers.NewPIDLogger()
-	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
-	pidLogger := loggers.NewPIDLogger(lss, unitID)
+	pidLogger := loggers.NewPIDLogger(unitID)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
 	err = loggerSvc.Fingerprint()
 	if err != nil {
 		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
+
 	v, _ := lss.ReadVINConfig()
 	// only start PID loggers if have a VIN
 	// todo: We'll need an option for cars where VIN comes from cloud b/c we couldn't get the VIN via OBD
