@@ -14,11 +14,12 @@ type PIDLogger interface {
 }
 
 type pidLogger struct {
-	mu sync.Mutex
+	mu     sync.Mutex
+	unitID uuid.UUID
 }
 
-func NewPIDLogger() PIDLogger {
-	return &pidLogger{}
+func NewPIDLogger(unitID uuid.UUID) PIDLogger {
+	return &pidLogger{unitID: unitID}
 }
 
 func (vl *pidLogger) ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) (err error) {
