@@ -19,12 +19,21 @@ type VehicleSignalDecodingAPIService interface {
 }
 
 type PIDConfigResponse struct {
-	ID       int64  `json:"id"`
-	Header   string `json:"header"`
-	Mode     string `json:"mode"`
-	Pid      string `json:"pid"`
-	Formula  string `json:"formula"`
-	Protocol string `json:"protocol"`
+	Requests     []PIDConfigItemResponse `json:"requests"`
+	TemplateName string                  `json:"template_name"`
+	Version      string                  `json:"version"`
+}
+
+type PIDConfigItemResponse struct {
+	ID              int64  `json:"id"`
+	Header          int64  `json:"header"`
+	Mode            int64  `json:"mode"`
+	Pid             int64  `json:"pid"`
+	Formula         string `json:"formula"`
+	Protocol        string `json:"protocol"`
+	IntervalSeconds int    `json:"interval_seconds"`
+	Name            int64  `json:"name"`
+	Version         string `json:"version"`
 }
 
 type vehicleSignalDecodingAPIService struct {

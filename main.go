@@ -173,6 +173,8 @@ func main() {
 	}
 	lss := loggers.NewLoggerSettingsService()
 	vinLogger := loggers.NewVINLogger()
+	pidLogger := loggers.NewPIDLogger()
+	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	pidLogger := loggers.NewPIDLogger(lss, unitID)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
@@ -191,18 +193,33 @@ func main() {
 	}
 
 	// Register Custom Workers
-	tasks := make([]internal.WorkerTask, 1)
+	pidsConfig, _ := lss.ReadPIDsConfig()
+	tasks := make([]internal.WorkerTask, len(pidsConfig.PIDs))
 
-	tasks[0] = internal.WorkerTask{
-		Name:     "Execute PIDs",
-		Interval: 5,
-		Params:   map[string]interface{}{"UnitID": unitID},
-		Func: func(ctx internal.WorkerTaskContext) {
-			err = pidLogger.ExecutePID()
-			if err != nil {
-				log.Printf("failed execute pid loggers: %s \n", err.Error())
-			}
-		},
+	for i, task := range pidsConfig.PIDs {
+		tasks[i] = internal.WorkerTask{
+			Name:     task.Name,
+			Interval: task.Interval,
+			Params: map[string]interface{}{
+				"UnitID":   unitID,
+				"Header":   task.Header,
+				"Mode":     task.Mode,
+				"PID":      task.PID,
+				"Formula":  task.Formula,
+				"Protocol": task.Protocol,
+			},
+			Func: func(ctx internal.WorkerTaskContext) {
+				err = pidLogger.ExecutePID(ctx.Params["UnitID"].(uuid.UUID),
+					ctx.Params["Header"].(string),
+					ctx.Params["Mode"].(string),
+					ctx.Params["PID"].(string),
+					ctx.Params["Formula"].(string),
+					ctx.Params["Protocol"].(string))
+				if err != nil {
+					log.Printf("failed execute pid loggers: %s \n", err.Error())
+				}
+			},
+		}
 	}
 
 	var wg sync.WaitGroup

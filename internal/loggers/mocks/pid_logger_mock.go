@@ -35,15 +35,15 @@ func (m *MockPIDLogger) EXPECT() *MockPIDLoggerMockRecorder {
 }
 
 // ExecutePID mocks base method.
-func (m *MockPIDLogger) ExecutePID(unitID uuid.UUID) error {
+func (m *MockPIDLogger) ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecutePID", unitID)
+	ret := m.ctrl.Call(m, "ExecutePID", unitID, header, mode, pid, formula, protocol)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ExecutePID indicates an expected call of ExecutePID.
-func (mr *MockPIDLoggerMockRecorder) ExecutePID(unitID interface{}) *gomock.Call {
+func (mr *MockPIDLoggerMockRecorder) ExecutePID(unitID, header, mode, pid, formula, protocol interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutePID", reflect.TypeOf((*MockPIDLogger)(nil).ExecutePID), unitID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutePID", reflect.TypeOf((*MockPIDLogger)(nil).ExecutePID), unitID, header, mode, pid, formula, protocol)
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"strconv"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -138,14 +139,27 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 	}
 
 	if config != nil {
-		if len(config.PID) == 0 {
+		if len(config.PIDs) == 0 {
 			pids, err := ls.vehicleSignalDecodingSvc.GetPIDsTemplateByVIN(vin)
 			if err != nil {
 				log.Printf("could not get pids template from api, continuing: %s", err)
 				return err
 			}
 
-			config = &loggers.PIDLoggerSettings{Formula: pids.Formula, Protocol: pids.Protocol, PID: pids.Pid, Mode: pids.Mode, Header: pids.Header}
+			config = &loggers.PIDLoggerSettings{}
+			if len(pids.Requests) > 0 {
+				for _, item := range pids.Requests {
+					config.PIDs = append(config.PIDs, loggers.PIDLoggerItemSettings{
+						Formula:  item.Formula,
+						Protocol: item.Protocol,
+						PID:      strconv.FormatInt(item.Pid, 10),
+						Mode:     strconv.FormatInt(item.Mode, 10),
+						Header:   strconv.FormatInt(item.Header, 10),
+						Interval: item.IntervalSeconds,
+					})
+				}
+			}
+
 			err = ls.loggerSettingsSvc.WritePIDsConfig(*config)
 			if err != nil {
 				log.WithError(err).Log(log.ErrorLevel)
