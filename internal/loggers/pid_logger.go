@@ -10,30 +10,23 @@ import (
 
 //go:generate mockgen -source pid_logger.go -destination mocks/pid_logger_mock.go
 type PIDLogger interface {
-	ExecutePID() (err error)
+	ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) (err error)
 }
 
 type pidLogger struct {
-	mu                sync.Mutex
-	loggerSettingsSvc LoggerSettingsService
-	unitID            uuid.UUID
+	mu sync.Mutex
 }
 
-func NewPIDLogger(loggerSettingsSvc LoggerSettingsService, id uuid.UUID) PIDLogger {
-	return &pidLogger{loggerSettingsSvc: loggerSettingsSvc, unitID: id}
+func NewPIDLogger() PIDLogger {
+	return &pidLogger{}
 }
 
-func (vl *pidLogger) ExecutePID() (err error) {
+func (vl *pidLogger) ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) (err error) {
 	vl.mu.Lock()
 	defer vl.mu.Unlock()
 
-	config, err := vl.loggerSettingsSvc.ReadPIDsConfig()
-	if err != nil {
-		return err
-	}
-
 	cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
-		config.Header, config.Mode, config.PID, config.Formula, config.Protocol)
+		header, mode, pid, formula, protocol)
 
 	req := api.ExecuteRawRequest{Command: cmd}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", vl.unitID)
