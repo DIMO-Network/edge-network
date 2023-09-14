@@ -117,7 +117,9 @@ type VINLoggerSettings struct {
 }
 
 type PIDLoggerSettings struct {
-	PIDs []PIDLoggerItemSettings `json:"items"`
+	PidURL  string                  `json:"pidUrl"`
+	Version string                  `json:"version"`
+	PIDs    []PIDLoggerItemSettings `json:"items"`
 }
 
 type PIDLoggerItemSettings struct {

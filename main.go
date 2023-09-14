@@ -11,7 +11,6 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal"
@@ -181,56 +180,6 @@ func main() {
 		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
-	v, _ := lss.ReadVINConfig()
-	// only start PID loggers if have a VIN
-	// todo: We'll need an option for cars where VIN comes from cloud b/c we couldn't get the VIN via OBD
-	if len(v.VIN) > 0 {
-		err = loggerSvc.PIDLoggers(v.VIN)
-		if err != nil {
-			log.Printf("failed to pid loggers: %s \n", err.Error())
-		}
-	}
-
-	// Register Custom Workers
-	pidsConfig, _ := lss.ReadPIDsConfig()
-	tasks := make([]internal.WorkerTask, len(pidsConfig.PIDs))
-
-	for i, task := range pidsConfig.PIDs {
-		tasks[i] = internal.WorkerTask{
-			Name:     task.Name,
-			Interval: task.Interval,
-			Params: map[string]interface{}{
-				"UnitID":   unitID,
-				"Header":   task.Header,
-				"Mode":     task.Mode,
-				"PID":      task.PID,
-				"Formula":  task.Formula,
-				"Protocol": task.Protocol,
-			},
-			Func: func(ctx internal.WorkerTaskContext) {
-				err = pidLogger.ExecutePID(ctx.Params["UnitID"].(uuid.UUID),
-					ctx.Params["Header"].(string),
-					ctx.Params["Mode"].(string),
-					ctx.Params["PID"].(string),
-					ctx.Params["Formula"].(string),
-					ctx.Params["Protocol"].(string))
-				if err != nil {
-					log.Printf("failed execute pid loggers: %s \n", err.Error())
-				}
-			},
-		}
-	}
-
-	var wg sync.WaitGroup
-
-	for i, task := range tasks {
-		wg.Add(1)
-		go func(idx int, t internal.WorkerTask) {
-			defer wg.Done()
-			t.Execute(idx)
-		}(i, task)
-	}
-
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
 		err = setupBluez(name)
@@ -249,7 +198,9 @@ func main() {
 	sig := <-sigChan
 	log.Printf("Terminating from signal: %s", sig)
 
-	wg.Wait()
+	// Execute Worker in background
+	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, loggerSvc)
+	runnerSvc.Run()
 }
 
 func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc, context.CancelFunc) {
