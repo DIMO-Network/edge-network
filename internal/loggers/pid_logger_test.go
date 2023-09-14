@@ -21,9 +21,9 @@ func TestExecutePID(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vl := NewPIDLogger()
+	vl := NewPIDLogger(unitID)
 
-	err := vl.ExecutePID(unitID, "", "", "", "", "")
+	err := vl.ExecutePID("", "", "", "", "")
 	require.NoError(t, err)
 }
 
@@ -38,8 +38,8 @@ func TestExecutePIDWithError(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(500, respJSON))
 
-	vl := NewPIDLogger()
+	vl := NewPIDLogger(unitID)
 
-	err := vl.ExecutePID(unitID, "", "", "", "", "")
+	err := vl.ExecutePID("", "", "", "", "")
 	require.Error(t, err)
 }

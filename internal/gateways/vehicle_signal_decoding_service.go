@@ -16,6 +16,14 @@ var ErrBadRequest = errors.New("bad request")
 //go:generate mockgen -source vehicle_signal_decoding_service.go -destination mocks/vehicle_signal_decoding_service_mock.go
 type VehicleSignalDecodingAPIService interface {
 	GetPIDsTemplateByVIN(vin string) (*PIDConfigResponse, error)
+	GetUrls(vin string) (*UrlConfigResponse, error)
+}
+
+type UrlConfigResponse struct {
+	PidURL           string `json:"pidUrl"`
+	DeviceSettingURL string `json:"deviceSettingUrl"`
+	DbcURL           string `json:"dbcURL"`
+	Version          string `json:"version"`
 }
 
 type PIDConfigResponse struct {
@@ -75,6 +83,35 @@ func (v *vehicleSignalDecodingAPIService) GetPIDsTemplateByVIN(vin string) (*PID
 	var response PIDConfigResponse
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
 		return nil, errors.Wrapf(err, "error deserializing PID configurations by vin %s", vin)
+	}
+
+	return &response, nil
+}
+
+func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*UrlConfigResponse, error) {
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("/v1/device-config/%s/pids", vin), "GET", nil)
+	if err != nil {
+		if _, ok := err.(shared.HTTPResponseError); !ok {
+			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
+		}
+	}
+	defer res.Body.Close() // nolint
+	if res.StatusCode == 404 {
+		return nil, ErrNotFound
+	}
+
+	if res.StatusCode == 400 {
+		return nil, ErrBadRequest
+	}
+
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error get URL configurations by vin %s", vin)
+	}
+
+	var response UrlConfigResponse
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		return nil, errors.Wrapf(err, "error deserializing URL configurations by vin %s", vin)
 	}
 
 	return &response, nil

@@ -10,7 +10,7 @@ import (
 
 //go:generate mockgen -source pid_logger.go -destination mocks/pid_logger_mock.go
 type PIDLogger interface {
-	ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) (err error)
+	ExecutePID(header, mode, pid, formula, protocol string) (err error)
 }
 
 type pidLogger struct {
@@ -22,7 +22,7 @@ func NewPIDLogger(unitID uuid.UUID) PIDLogger {
 	return &pidLogger{unitID: unitID}
 }
 
-func (vl *pidLogger) ExecutePID(unitID uuid.UUID, header, mode, pid, formula, protocol string) (err error) {
+func (vl *pidLogger) ExecutePID(header, mode, pid, formula, protocol string) (err error) {
 	vl.mu.Lock()
 	defer vl.mu.Unlock()
 
