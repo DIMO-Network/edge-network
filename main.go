@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/DIMO-Network/edge-network/internal/queue"
 	"log"
 	"math"
 	"os"
@@ -171,8 +172,9 @@ func main() {
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 	lss := loggers.NewLoggerSettingsService()
+	qs := queue.NewStorageQueue(unitID)
 	vinLogger := loggers.NewVINLogger()
-	pidLogger := loggers.NewPIDLogger(unitID)
+	pidLogger := loggers.NewPIDLogger(unitID, qs)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService)
 	err = loggerSvc.Fingerprint()

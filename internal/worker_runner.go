@@ -63,6 +63,15 @@ func (wr *workerRunner) Run() {
 				}
 			}
 
+			// Execute Message
+			tasks[len(tasks)+1] = WorkerTask{
+				Name:     "Notify Message",
+				Interval: 30,
+				Func: func(ctx WorkerTaskContext) {
+
+				},
+			}
+
 			var wg sync.WaitGroup
 
 			for i, task := range tasks {
