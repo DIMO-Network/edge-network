@@ -171,8 +171,17 @@ func main() {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
+
 	lss := loggers.NewLoggerSettingsService()
-	qs := queue.NewStorageQueue(unitID)
+	var qs queue.StorageQueue
+	useMemoryQueue := true
+
+	if useMemoryQueue {
+		qs = queue.NewMemoryStorageQueue(unitID)
+	} else {
+		qs = queue.NewDiskStorageQueue(unitID)
+	}
+
 	vinLogger := loggers.NewVINLogger()
 	pidLogger := loggers.NewPIDLogger(unitID, qs)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
@@ -201,7 +210,7 @@ func main() {
 	log.Printf("Terminating from signal: %s", sig)
 
 	// Execute Worker in background
-	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, loggerSvc)
+	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, loggerSvc, qs, ds)
 	runnerSvc.Run()
 }
 
