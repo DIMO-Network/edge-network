@@ -227,9 +227,14 @@ type FingerprintData struct {
 
 type DeviceStatusData struct {
 	CommonData
-	Vin    string    `json:"vin"`
-	Time   time.Time `json:"time"`
-	Signal string    `json:"signal,omitempty"`
+	Time    time.Time    `json:"time"`
+	Signals []SignalData `json:"signals,omitempty"`
+}
+
+type SignalData struct {
+	Time  time.Time `json:"time"`
+	Name  string    `json:"name"`
+	Value string    `json:"value"`
 }
 
 type DeviceErrorsCloudEvent struct {

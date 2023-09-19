@@ -20,7 +20,6 @@ import (
 type LoggerService interface {
 	Fingerprint() error
 	PIDLoggers(vin string) error
-	NotifyPIDLoggers() error
 }
 
 type loggerService struct {
@@ -175,17 +174,6 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 				}
 			}
 		}
-	}
-
-	return nil
-}
-
-func (ls *loggerService) NotifyPIDLoggers() error {
-	data := network.DeviceStatusData{}
-
-	err := ls.dataSender.SendDeviceStatusData(data)
-	if err != nil {
-		log.WithError(err).Log(log.ErrorLevel)
 	}
 
 	return nil
