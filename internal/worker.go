@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"github.com/DIMO-Network/edge-network/internal/loggers"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -11,14 +12,14 @@ type WorkerTask struct {
 	Executions    int
 	MaxExecutions int
 	Interval      int
-	Params        map[string]interface{}
+	Params        loggers.PIDLoggerItemSettings
 	Func          func(WorkerTaskContext)
 }
 
 type WorkerTaskContext struct {
 	Name       string
 	Executions int
-	Params     map[string]interface{}
+	Params     loggers.PIDLoggerItemSettings
 }
 
 func (t *WorkerTask) Register() {

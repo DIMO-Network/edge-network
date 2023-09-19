@@ -29,6 +29,7 @@ type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 	SendErrorsData(data ErrorsData) error
 	SendFingerprintData(data FingerprintData) error
+	SendDeviceStatusData(data DeviceStatusData) error
 }
 
 type dataSender struct {
@@ -56,6 +57,27 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	}
 	ceh := newCloudEventHeaders(ds.ethAddr)
 	ce := DeviceFingerprintCloudEvent{
+		CloudEventHeaders: ceh,
+		Data:              data,
+	}
+	payload, err := json.Marshal(ce)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshall cloudevent")
+	}
+
+	err = ds.sendPayload(payload)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+	ceh := newCloudEventHeaders(ds.ethAddr)
+	ce := DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -191,11 +213,23 @@ type DeviceFingerprintCloudEvent struct {
 	Data FingerprintData `json:"data"`
 }
 
+type DeviceDataStatusCloudEvent struct {
+	CloudEventHeaders
+	Data DeviceStatusData `json:"data"`
+}
+
 type FingerprintData struct {
 	CommonData
 	Vin      string  `json:"vin"`
 	Protocol string  `json:"protocol"`
 	Odometer float64 `json:"odometer,omitempty"`
+}
+
+type DeviceStatusData struct {
+	CommonData
+	Vin    string    `json:"vin"`
+	Time   time.Time `json:"time"`
+	Signal string    `json:"signal,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {
