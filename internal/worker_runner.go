@@ -5,6 +5,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/queue"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/google/uuid"
@@ -59,18 +60,23 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 		Name:     "Sender Task",
 		Interval: 60,
 		Func: func(ctx WorkerTaskContext) {
-			q, err := wr.queueSvc.Dequeue()
-			if err != nil {
-				log.Printf("failed to queue pids: %s \n", err.Error())
-			}
-
-			if err == nil && len(q) > 0 {
-				for _, message := range q {
-					wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
-						Time:   message.Time,
-						Signal: message.Content,
-					})
+			for {
+				messages, err := wr.queueSvc.Dequeue()
+				if err != nil {
+					log.Printf("failed to queue pids: %s \n", err.Error())
+					break
 				}
+				if len(messages) == 0 {
+					break
+				}
+				signals := make([]network.SignalData, len(messages))
+				for i, message := range messages {
+					signals[i] = network.SignalData{Time: message.Time, Name: message.Name, Value: message.Content}
+				}
+				wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
+					Time:    time.Now(),
+					Signals: signals,
+				})
 			}
 		},
 	})
