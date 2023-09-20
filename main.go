@@ -821,7 +821,11 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Fatalf("Failed to initialize app: %s", err)
 	}
 
-	cancel, err := app.Advertise(math.MaxUint32)
+	advertisedServices := []string{}
+	advertisedServices = append(advertisedServices, app.GenerateUUID(deviceServiceUUIDFragment))
+	log.Printf("Advertising Packet: LocalName:%s ServiceUUID:%s", name, deviceService.Properties.UUID)
+
+	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)
 	}
