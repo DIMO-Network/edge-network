@@ -82,12 +82,14 @@ func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "canbus/dump", "1.0", "zone.dimo.aftermarket.device.fingerprint")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus.dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
 	ce := CanDumpCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
+	println("Sending can dump data: (payload)")
 	payload, err := json.Marshal(ce)
+	println(payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
