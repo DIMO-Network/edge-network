@@ -178,8 +178,8 @@ func main() {
 					if len(os.Args) > 5 && os.Args[5] == "savelocal" {
 						writeToLocalFiles = true
 					}
-					println("WriteToMQTT args:")
-					print(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
+					//println("WriteToMQTT args:")
+					//print(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
 					mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
 					//canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), writeToLocalFiles)
 					if mqttErr != nil {
