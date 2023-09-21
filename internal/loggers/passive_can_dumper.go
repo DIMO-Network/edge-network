@@ -121,7 +121,7 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, "canbus.dump")
+		ds := network.NewDataSender(UnitID, EthAddr, "topic.device.protocol.canbus.dump")
 		sendErr := ds.SendCanDumpData(network.CanDumpData{
 			CommonData: network.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),
