@@ -154,7 +154,6 @@ func main() {
 						os.Exit(1)
 					}
 				} else if s == "-sendcandump" && len(os.Args) > 4 {
-
 					chunkSize, err3 := strconv.Atoi(os.Args[4])
 					if err3 != nil {
 						println("unable to read chunkSize value from command")
