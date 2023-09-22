@@ -82,7 +82,7 @@ func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus.dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
 	ce := CanDumpCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
