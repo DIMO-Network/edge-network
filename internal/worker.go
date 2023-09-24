@@ -1,9 +1,10 @@
 package internal
 
 import (
-	"github.com/DIMO-Network/edge-network/internal/loggers"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/loggers"
 )
 
 type WorkerTask struct {
@@ -38,22 +39,22 @@ func (t *WorkerTask) Register() {
 	}
 }
 
-func (t *WorkerTask) Execute(idx int) {
+func (t *WorkerTask) Execute(idx int, logger zerolog.Logger) {
 	ctx := WorkerTaskContext{Name: t.Name, Params: t.Params}
 
 	if !t.Once {
 		for t.Executions < t.MaxExecutions || t.MaxExecutions == 0 {
-			log.Printf("Start task %s: %d", t.Name, t.Executions)
+			logger.Info().Msgf("Start task %s: %d", t.Name, t.Executions)
 			t.Func(ctx)
-			log.Printf("End task %s: %d", t.Name, t.Executions)
+			logger.Info().Msgf("End task %s: %d", t.Name, t.Executions)
 			t.Executions++
 			ctx.Executions++
 			time.Sleep(time.Duration(t.Interval) * time.Second)
 		}
 	} else {
-		log.Printf("Start task %s: %d", t.Name, t.Executions)
+		logger.Info().Msgf("Start task %s: %d", t.Name, t.Executions)
 		t.Func(ctx)
-		log.Printf("End task %s: %d", t.Name, t.Executions)
+		logger.Info().Msgf("End task %s: %d", t.Name, t.Executions)
 		t.Executions++
 	}
 }

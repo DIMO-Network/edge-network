@@ -1,13 +1,13 @@
 package internal
 
 import (
-	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/DIMO-Network/edge-network/internal/queue"
-	"log"
+	"github.com/rs/zerolog"
 	"sync"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/network"
+	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/google/uuid"
 )
 
@@ -22,10 +22,11 @@ type workerRunner struct {
 	loggerSvc         LoggerService
 	queueSvc          queue.StorageQueue
 	dataSender        network.DataSender
+	logger            zerolog.Logger
 }
 
-func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, loggerSvc LoggerService, queueSvc queue.StorageQueue, dataSender network.DataSender) WorkerRunner {
-	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, loggerSvc: loggerSvc, queueSvc: queueSvc, dataSender: dataSender}
+func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, loggerSvc LoggerService, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger) WorkerRunner {
+	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, loggerSvc: loggerSvc, queueSvc: queueSvc, dataSender: dataSender, logger: logger}
 }
 
 func (wr *workerRunner) Run() {
@@ -46,7 +47,7 @@ func (wr *workerRunner) Run() {
 		wg.Add(1)
 		go func(idx int, t WorkerTask) {
 			defer wg.Done()
-			t.Execute(idx)
+			t.Execute(idx, wr.logger)
 		}(i, task)
 	}
 
@@ -63,7 +64,7 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 			for {
 				messages, err := wr.queueSvc.Dequeue()
 				if err != nil {
-					log.Printf("failed to queue pids: %s \n", err.Error())
+					wr.logger.Info().Msgf("failed to queue pids: %s \n", err.Error())
 					break
 				}
 				if len(messages) == 0 {
@@ -92,7 +93,7 @@ func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
 	if len(v.VIN) > 0 {
 		err := wr.loggerSvc.PIDLoggers(v.VIN)
 		if err != nil {
-			log.Printf("failed to pid loggers: %s \n", err.Error())
+			wr.logger.Info().Msgf("failed to pid loggers: %s \n", err.Error())
 		}
 
 		if err == nil {
@@ -112,7 +113,7 @@ func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
 							ctx.Params.Formula,
 							ctx.Params.Protocol)
 						if err != nil {
-							log.Printf("failed execute pid loggers: %s \n", err.Error())
+							wr.logger.Info().Msgf("failed execute pid loggers: %s \n", err.Error())
 						}
 					},
 				}

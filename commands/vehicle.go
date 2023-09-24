@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"github.com/rs/zerolog"
 	"strings"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 func DetectCanbus(unitID uuid.UUID) (canbusInfo api.CanbusInfo, err error) {
@@ -38,7 +38,7 @@ func ClearDiagnosticCodes(unitID uuid.UUID) (err error) {
 	return
 }
 
-func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
+func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, err error) {
 	codes = ""
 	req := api.ExecuteRawRequest{Command: api.GetDiagnosticCodeCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -49,7 +49,7 @@ func GetDiagnosticCodes(unitID uuid.UUID) (codes string, err error) {
 		return
 	}
 
-	log.Print("Response", resp)
+	logger.Info().Msgf("Response %s", resp)
 	formattedResponse := ""
 	for _, s := range resp.Values {
 		formattedResponse += s.Code + ","

@@ -3,6 +3,7 @@ package loggers
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/rs/zerolog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 //go:generate mockgen -source vin_logger.go -destination mocks/vin_logger_mock.go
@@ -21,11 +21,12 @@ type VINLogger interface {
 }
 
 type vinLogger struct {
-	mu sync.Mutex
+	mu     sync.Mutex
+	logger zerolog.Logger
 }
 
-func NewVINLogger() VINLogger {
-	return &vinLogger{}
+func NewVINLogger(logger zerolog.Logger) VINLogger {
+	return &vinLogger{logger: logger}
 }
 
 const VINLoggerVersion = 1 // increment this if improve support for decoding VINs
@@ -41,7 +42,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 	for _, part := range getVinCommandParts() {
 		if queryName != nil {
 			if *queryName == citroenQueryName {
-				return passiveScanCitroen()
+				return passiveScanCitroen(vl.logger)
 			}
 			if *queryName != part.QueryName {
 				continue // skip until get to matching query
@@ -65,16 +66,16 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 
 		err = api.ExecuteRequest("POST", url, req, &resp)
 		if err != nil {
-			log.WithError(err).Error("failed to execute POST request to get vin")
+			vl.logger.Fatal().Err(err).Msg("failed to execute POST request to get vin")
 			continue // try again with different command if err
 		}
-		log.Infof("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
+		vl.logger.Info().Msgf("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
 		// if no error, we want to make sure we get a semblance of a vin back
 		if len(part.Formula) == 0 {
 			// if no formula, means we got raw hex back so lets try extracting vin from that
 			vin, _, err = extractVIN(resp.Value)
 			if err != nil {
-				log.WithError(err).Error("could not extract vin from hex")
+				vl.logger.Fatal().Err(err).Msg("could not extract vin from hex")
 				continue // try again on next loop with different command
 			}
 		} else {
@@ -92,7 +93,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 
 	// if all PIDs fail, try passive scan, currently specific to Citroen
 	if err != nil {
-		vinResp, _ = passiveScanCitroen()
+		vinResp, _ = passiveScanCitroen(vl.logger)
 		if vinResp != nil {
 			err = nil
 		}
@@ -199,7 +200,7 @@ func findVINLineStart(lines []string) int {
 	return pos - 1
 }
 
-func passiveScanCitroen() (*VINResponse, error) {
+func passiveScanCitroen(logger zerolog.Logger) (*VINResponse, error) {
 	vin := ""
 	// unable to get VIN via PID queries, so try passive scan
 	vinReader := newPassiveVinReader()
@@ -222,7 +223,7 @@ func passiveScanCitroen() (*VINResponse, error) {
 	// Wait for either the function result or the timeout signal
 	select {
 	case vinResult := <-resultChan:
-		log.Infof("Citroen VIN scan completed within timeout: %s", vinResult)
+		logger.Info().Msgf("Citroen VIN scan completed within timeout: %s", vinResult)
 		if validateVIN(vin) {
 			return &VINResponse{
 				VIN:       vinResult,

@@ -3,17 +3,19 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/rs/zerolog"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 type scanVINCmd struct {
 	unitID uuid.UUID
 	send   bool
+	logger zerolog.Logger
 }
 
 func (*scanVINCmd) Name() string { return "scan-vin" }
@@ -29,20 +31,20 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	log.Infof("trying to get VIN\n")
+	p.logger.Info().Msg("trying to get VIN\n")
 	// this is purposely left un-refactored
 	vl := loggers.NewVINLogger()
 	addr, err := commands.GetEthereumAddress(p.unitID)
 	if err != nil {
-		log.Panicf("could not get eth address %s", err.Error())
+		p.logger.Panic().Msgf("could not get eth address %s", err.Error())
 	}
 	ds := network.NewDataSender(p.unitID, *addr)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		log.Panicf("could not get vin %s", vinErr.Error())
+		p.logger.Panic().Msgf("could not get vin %s", vinErr.Error())
 	}
-	log.Infof("VIN: %s\n", vinResp.VIN)
-	log.Infof("Protocol: %s\n", vinResp.Protocol)
+	p.logger.Info().Msgf("VIN: %s\n", vinResp.VIN)
+	p.logger.Info().Msgf("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
 		data := network.FingerprintData{
 			Vin:      vinResp.VIN,
@@ -50,7 +52,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 		}
 		err = ds.SendFingerprintData(data)
 		if err != nil {
-			log.Errorf("failed to send vin over mqtt: %s", err.Error())
+			p.logger.Fatal().Err(err).Msgf("failed to send vin over mqtt: %s", err.Error())
 			return subcommands.ExitFailure
 		}
 	}

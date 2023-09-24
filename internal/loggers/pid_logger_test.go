@@ -3,7 +3,9 @@ package loggers
 import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/queue"
+	"github.com/rs/zerolog"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,8 +25,11 @@ func TestExecutePID(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
 	qs := queue.NewDiskStorageQueue(unitID)
-
-	vl := NewPIDLogger(unitID, qs)
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+	vl := NewPIDLogger(unitID, qs, logger)
 
 	err := vl.ExecutePID("", "", "", "", "")
 	require.NoError(t, err)
@@ -40,9 +45,12 @@ func TestExecutePIDWithError(t *testing.T) {
 	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(500, respJSON))
-
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
 	qs := queue.NewDiskStorageQueue(unitID)
-	vl := NewPIDLogger(unitID, qs)
+	vl := NewPIDLogger(unitID, qs, logger)
 
 	err := vl.ExecutePID("", "", "", "", "")
 	require.Error(t, err)

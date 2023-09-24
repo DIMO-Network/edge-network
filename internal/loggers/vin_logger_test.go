@@ -2,7 +2,9 @@ package loggers
 
 import (
 	"fmt"
+	"github.com/rs/zerolog"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -144,7 +146,12 @@ func TestGetVIN(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vl := NewVINLogger()
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	vl := NewVINLogger(logger)
 
 	vinResp, err := vl.GetVIN(unitID, nil)
 	require.NoError(t, err)
@@ -164,7 +171,12 @@ func TestGetVIN_withQueryName(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vl := NewVINLogger()
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	vl := NewVINLogger(logger)
 	qn := "vin_18DB33F1_09_02"
 	vinResp, err := vl.GetVIN(unitID, &qn)
 	require.NoError(t, err)

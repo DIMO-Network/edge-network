@@ -2,12 +2,11 @@ package service
 
 import (
 	"fmt"
-
 	"github.com/godbus/dbus/v5"
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type Service struct {
@@ -17,6 +16,7 @@ type Service struct {
 	Properties *gatt.GattService1Properties
 	chars      map[dbus.ObjectPath]*Char
 	iprops     *api.DBusProperties
+	logger     zerolog.Logger
 }
 
 func (s *Service) DBusProperties() *api.DBusProperties {
@@ -115,7 +115,7 @@ func (s *Service) AddChar(char *Char) error {
 		return err
 	}
 
-	log.Tracef("Added GATT Characteristic UUID=%s %s", char.UUID, char.Path())
+	s.logger.Trace().Msgf("Added GATT Characteristic UUID=%s %s", char.UUID, char.Path())
 
 	err = s.App().ExportTree()
 	return err

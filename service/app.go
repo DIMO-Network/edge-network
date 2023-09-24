@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"github.com/rs/zerolog"
 	"strings"
 
 	"github.com/godbus/dbus/v5"
@@ -13,7 +14,6 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/advertising"
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
-	log "github.com/sirupsen/logrus"
 )
 
 // AppPath default app path
@@ -28,6 +28,7 @@ type AppOptions struct {
 	AgentSetAsDefault bool
 	UUIDSuffix        string
 	UUID              string
+	Logger            zerolog.Logger
 }
 
 // NewApp initialize a new bluetooth service (app)
@@ -98,7 +99,7 @@ func (app *App) init() error {
 	}
 	app.adapter = a
 
-	agent1, err := app.createAgent()
+	agent1, err := app.createAgent(app.Options.Logger)
 	if err != nil {
 		return err
 	}
@@ -184,7 +185,7 @@ func (app *App) ExportTree() (err error) {
 // Run initialize the application
 func (app *App) Run() (err error) {
 
-	log.Tracef("Expose %s (%s)", app.Path(), bluez.ObjectManagerInterface)
+	app.Options.Logger.Trace().Msgf("Expose %s (%s)", app.Path(), bluez.ObjectManagerInterface)
 	err = app.conn.Export(app.objectManager, app.Path(), bluez.ObjectManagerInterface)
 	if err != nil {
 		return err
@@ -195,7 +196,7 @@ func (app *App) Run() (err error) {
 		return err
 	}
 
-	err = app.ExposeAgent(app.Options.AgentCaps, app.Options.AgentSetAsDefault)
+	err = app.ExposeAgent(app.Options.AgentCaps, app.Options.AgentSetAsDefault, app.Options.Logger)
 	if err != nil {
 		return fmt.Errorf("ExposeAgent: %s", err)
 	}
@@ -219,7 +220,7 @@ func (app *App) Close() {
 
 		err := agent.RemoveAgent(app.agent)
 		if err != nil {
-			log.Warnf("RemoveAgent: %s", err)
+			app.Options.Logger.Warn().Msgf("RemoveAgent: %s", err)
 		}
 
 		// err =
@@ -232,7 +233,7 @@ func (app *App) Close() {
 	if app.gm != nil {
 		err1 := app.gm.UnregisterApplication(app.Path())
 		if err1 != nil {
-			log.Warnf("GattManager1.UnregisterApplication: %s", err1)
+			app.Options.Logger.Warn().Msgf("GattManager1.UnregisterApplication: %s", err1)
 		}
 	}
 }

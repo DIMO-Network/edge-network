@@ -1,8 +1,6 @@
 package service
 
 import (
-	"log"
-
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez/profile/advertising"
 )
@@ -27,7 +25,7 @@ func (app *App) Advertise(timeout uint32, localName string, advertisedServices [
 	log.Printf("Advertising Packet:%+v ", adv)
 
 	if err != nil {
-		log.Fatalf("Failed advertising: %s", err)
+		app.Options.Logger.Fatal().Err(err).Msgf("Failed advertising: %s", err)
 	}
 	return cancel, err
 }
