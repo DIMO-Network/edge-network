@@ -2,9 +2,12 @@ package internal
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"strconv"
 	"time"
+
+	"github.com/rs/zerolog"
+
+	"github.com/DIMO-Network/edge-network/internal/gateways"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 
@@ -29,10 +32,11 @@ type loggerService struct {
 	dataSender               network.DataSender
 	loggerSettingsSvc        loggers.LoggerSettingsService
 	vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService
+	logger                   zerolog.Logger
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc}
+func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) LoggerService {
+	return &loggerService{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc, logger: logger}
 }
 
 const maxFailureAttempts = 5
@@ -41,7 +45,7 @@ const maxFailureAttempts = 5
 // Runs only once when successful.  Checks for saved VIN query from previous run.
 func (ls *loggerService) Fingerprint() error {
 	// check if ok to start making obd calls etc
-	log.Infof("loggers: starting - checking if can start scanning")
+	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)
@@ -52,11 +56,11 @@ func (ls *loggerService) Fingerprint() error {
 		_ = ls.dataSender.SendErrorPayload(e, &status)
 		return e
 	}
-	log.Infof("loggers: checks passed to start scanning")
+	ls.logger.Info().Msg("loggers: checks passed to start scanning")
 	// read any existing settings
 	config, err := ls.loggerSettingsSvc.ReadVINConfig()
 	if err != nil {
-		log.Printf("could not read settings, continuing: %s", err)
+		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
 	}
 	var vqn *string
 	if config != nil {
@@ -120,7 +124,7 @@ func (ls *loggerService) Fingerprint() error {
 
 func (ls *loggerService) PIDLoggers(vin string) error {
 	// check if ok to start making obd calls etc
-	log.Infof("loggers: starting - checking if can start scanning")
+	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)
@@ -131,25 +135,25 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 		_ = ls.dataSender.SendErrorPayload(e, &status)
 		return e
 	}
-	log.Infof("loggers: checks passed to start PID loggers")
+	ls.logger.Info().Msg("loggers: checks passed to start PID loggers")
 	// read any existing settings
 	config, err := ls.loggerSettingsSvc.ReadPIDsConfig()
 	if err != nil {
-		log.Printf("could not read settings, continuing: %s", err)
+		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
 	}
 
 	if config != nil {
 
 		pidUrl, err := ls.vehicleSignalDecodingSvc.GetUrls(vin)
 		if err != nil {
-			log.Printf("could not get pid URL, continuing: %s", err)
+			ls.logger.Info().Msgf("could not get pid URL, continuing: %s", err)
 		}
 
 		if pidUrl != nil {
 			if pidUrl.PidURL != config.PidURL || pidUrl.Version != config.Version {
 				pids, err := ls.vehicleSignalDecodingSvc.GetPIDsTemplateByVIN(vin)
 				if err != nil {
-					log.Printf("could not get pids template from api, continuing: %s", err)
+					ls.logger.Info().Msgf("could not get pids template from api, continuing: %s", err)
 					return err
 				}
 
@@ -200,7 +204,7 @@ func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusRespon
 		time.Sleep(2 * time.Second)
 	}
 
-	log.Infof("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
+	ls.logger.Info().Msgf("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
 	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" || status.Spm.LastTrigger.Up == "stn" {
 		if status.Spm.Battery.Voltage >= voltageMin {
 			// good to start scanning

@@ -2,7 +2,9 @@ package internal
 
 import (
 	"fmt"
+	"github.com/rs/zerolog"
 	"net/http"
+	"os"
 	"testing"
 
 	mock_gateways "github.com/DIMO-Network/edge-network/internal/gateways/mocks"
@@ -32,7 +34,13 @@ func Test_loggerService_VINLoggers(t *testing.T) {
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
 	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -69,7 +77,13 @@ func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
 	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -105,7 +119,13 @@ func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
 	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -147,7 +167,13 @@ func Test_loggerService_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T
 	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
 	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)

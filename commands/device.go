@@ -3,26 +3,25 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog"
 	"os"
 	"strconv"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
-
 	"github.com/google/uuid"
 )
 
-func GetDeviceName() (bluetoothName string, unitID uuid.UUID) {
+func GetDeviceName(logger zerolog.Logger) (bluetoothName string, unitID uuid.UUID) {
 	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
 	if err != nil {
-		log.Fatalf("Could not read unit ID from file: %s", err)
+		logger.Fatal().Err(err).Msgf("Could not read unit ID from file: %s", err)
 	}
 
 	unitIDBytes = bytes.TrimSpace(unitIDBytes)
 
 	unitID, err = uuid.ParseBytes(unitIDBytes)
 	if err != nil {
-		log.Fatalf("Invalid unit id: %s", err)
+		logger.Fatal().Err(err).Msgf("Invalid unit id: %s", err)
 	}
 
 	unitIDStr := unitID.String()
@@ -89,7 +88,7 @@ func ExtendSleepTimer(unitID uuid.UUID) (err error) {
 	return
 }
 
-func AnnounceCode(unitID uuid.UUID, intro string, code uint32) (err error) {
+func AnnounceCode(unitID uuid.UUID, intro string, code uint32, logger zerolog.Logger) (err error) {
 	announcement := `audio.speak '` + intro + ` , `
 
 	stringCode := strconv.Itoa(int(code))
@@ -99,7 +98,7 @@ func AnnounceCode(unitID uuid.UUID, intro string, code uint32) (err error) {
 	}
 
 	announcement += `'`
-	log.Printf("Announcement Command: %s", announcement)
+	logger.Info().Msgf("Announcement Command: %s", announcement)
 	req := api.ExecuteRawRequest{Command: announcement}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 

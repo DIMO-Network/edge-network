@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -16,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/sjson"
 )
 
@@ -37,11 +37,12 @@ type dataSender struct {
 	client  mqtt.Client
 	unitID  uuid.UUID
 	ethAddr common.Address
+	logger  zerolog.Logger
 	topic   string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, topic string) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, topic string) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -50,6 +51,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, topic string) DataSend
 		client:  client,
 		unitID:  unitID,
 		ethAddr: addr,
+		logger:  logger,
 		topic:   topic,
 	}
 }
@@ -65,11 +67,13 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
+		ds.logger.Error().Err(err).Msg("failed to marshall cloudevent")
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
 	err = ds.sendPayload(payload)
 	if err != nil {
+		ds.logger.Error().Err(err).Msg("failed send payload")
 		return err
 	}
 	return nil
@@ -147,8 +151,8 @@ func (ds *dataSender) sendPayload(payload []byte) error {
 		return fmt.Errorf("payload did not have expected subject cloud event property")
 	}
 
-	log.Infof("sending payload:\n")
-	log.Infof("%s", string(payload))
+	ds.logger.Info().Msg("sending payload:\n")
+	ds.logger.Info().Msgf("%s", string(payload))
 
 	// Connect to the MQTT broker
 	if token := ds.client.Connect(); token.Wait() && token.Error() != nil {

@@ -1,18 +1,22 @@
 package service
 
 import (
+	"github.com/rs/zerolog"
+	"os"
 	"testing"
 
 	"github.com/muka/go-bluetooth/api"
-	log "github.com/sirupsen/logrus"
 )
 
 func createTestApp(t *testing.T) *App {
 
-	log.SetLevel(log.TraceLevel)
-
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
 	a, err := NewApp(AppOptions{
 		AdapterID: api.GetDefaultAdapterID(),
+		Logger:    logger,
 	})
 	if err != nil {
 		t.Fatal(err)

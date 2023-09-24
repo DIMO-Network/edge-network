@@ -2,11 +2,12 @@ package loggers
 
 import (
 	"fmt"
+	"github.com/rs/zerolog"
+	"sync"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-	"sync"
 )
 
 //go:generate mockgen -source pid_logger.go -destination mocks/pid_logger_mock.go
@@ -18,10 +19,11 @@ type pidLogger struct {
 	mu           sync.Mutex
 	unitID       uuid.UUID
 	storageQueue queue.StorageQueue
+	logger       zerolog.Logger
 }
 
-func NewPIDLogger(unitID uuid.UUID, storageQueue queue.StorageQueue) PIDLogger {
-	return &pidLogger{unitID: unitID, storageQueue: storageQueue}
+func NewPIDLogger(unitID uuid.UUID, storageQueue queue.StorageQueue, logger zerolog.Logger) PIDLogger {
+	return &pidLogger{unitID: unitID, storageQueue: storageQueue, logger: logger}
 }
 
 func (vl *pidLogger) ExecutePID(header, mode, pid, formula, protocol string) (err error) {
@@ -38,10 +40,10 @@ func (vl *pidLogger) ExecutePID(header, mode, pid, formula, protocol string) (er
 
 	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
-		log.WithError(err).Error("failed to execute POST request")
+		vl.logger.Fatal().Err(err).Msg("failed to execute POST request")
 		return err
 	}
-	log.Infof("received PID response value: %s \n", resp.Value) // for debugging - will want this to validate.
+	vl.logger.Info().Msgf("received PID response value: %s \n", resp.Value) // for debugging - will want this to validate.
 
 	vl.storageQueue.Enqueue(resp.Value)
 
