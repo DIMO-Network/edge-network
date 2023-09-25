@@ -17,9 +17,14 @@ func (app *App) Advertise(timeout uint32, localName string, advertisedServices [
 
 	adv.Timeout = uint16(timeout)
 	adv.Duration = uint16(timeout)
+	adv.Discoverable = true
+	adv.DiscoverableTimeout = uint16(timeout)
 	adv.LocalName = localName
+	adv.Type = "peripheral"
 	adv.ServiceUUIDs = advertisedServices
 	cancel, err := api.ExposeAdvertisement(app.adapterID, adv, timeout)
+
+	log.Printf("Advertising Packet:%+v ", adv)
 
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)

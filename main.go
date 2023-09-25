@@ -821,15 +821,6 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Fatalf("Failed to initialize app: %s", err)
 	}
 
-	advertisedServices := []string{}
-	advertisedServices = append(advertisedServices, app.GenerateUUID(deviceServiceUUIDFragment))
-	log.Printf("Advertising Packet: LocalName:%s ServiceUUID:%s", name, deviceService.Properties.UUID)
-
-	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
-	if err != nil {
-		log.Fatalf("Failed advertising: %s", err)
-	}
-
 	//Check if we should disable new connections
 	devices, err := app.Adapter().GetDevices()
 	if err != nil {
@@ -859,9 +850,12 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}
 
-	err = btManager.SetAdvertising(true)
+	advertisedServices := []string{}
+	advertisedServices = append(advertisedServices, app.GenerateUUID(deviceServiceUUIDFragment))
+
+	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
-		log.Fatalf("failed to set advertising on the controller: %s", err)
+		log.Fatalf("Failed advertising: %s", err)
 	}
 
 	log.Printf("Canbus Protocol Info: %v", canBusInformation)
