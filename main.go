@@ -877,9 +877,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 			if v == nil {
 				return
 			}
-			if v.Name == bluez.InterfacesAdded {
-				continue
-			} else if v.Name == bluez.InterfacesRemoved {
+			if v.Name == bluez.InterfacesRemoved {
 				cmd.Exec("hciconfig", adapterID, "leadv 0")
 			} else {
 				continue
