@@ -122,7 +122,8 @@ func main() {
 		Timestamp().
 		Str("app", "edge-network").
 		Str("version", Version).
-		Logger()
+		Logger().
+		Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
