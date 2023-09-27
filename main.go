@@ -851,15 +851,14 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}
 
-	advertisedServices := []string{}
-	advertisedServices = append(advertisedServices, app.GenerateUUID(deviceServiceUUIDFragment))
+	advertisedServices := []string{app.GenerateUUID(deviceServiceUUIDFragment)}
 
 	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
 		log.Fatalf("Failed advertising: %s", err)
 	}
 
-	signal, omSignalCancel, err := app.Adapter().GetObjectManagerSignal()
+	omSignal, omSignalCancel, err := app.Adapter().GetObjectManagerSignal()
 	if err != nil {
 		log.Fatalf("Failed to Get Signal")
 	}
@@ -872,7 +871,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 			}
 		}()
 
-		for v := range signal {
+		for v := range omSignal {
 
 			if v == nil {
 				return
