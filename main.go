@@ -877,6 +877,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 				return
 			}
 			if v.Name == bluez.InterfacesRemoved {
+				// re-enables advertising, bug in the driver
 				_, err := cmd.Exec("hciconfig", adapterID, "leadv 0")
 				if err != nil {
 					log.Printf("error executing hciconfig: %s", err)
