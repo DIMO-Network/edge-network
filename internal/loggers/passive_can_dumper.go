@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/DIMO-Network/edge-network/internal/network"
@@ -13,9 +12,7 @@ import (
 	"go.einride.tech/can"
 	"go.einride.tech/can/pkg/candevice"
 	"go.einride.tech/can/pkg/socketcan"
-	"io"
 	"os"
-	"os/exec"
 	"strconv"
 	"time"
 )
@@ -40,42 +37,6 @@ type PassiveCanDumper struct {
 	CapturedFrames       []can.Frame
 	capturedFrameStrings []string
 	DetailedCanFrames    []ParsedCanFrame
-}
-
-func (a *PassiveCanDumper) TestMQTT() {
-	var payload []byte
-	var err error
-	mcdm := MqttCandumpMessage{
-		UnitId:     "unitId",
-		Page:       1,
-		TotalPages: 5,
-	}
-	var rcf []ParsedCanFrame
-
-	rcf = append(rcf, *new(ParsedCanFrame))
-
-	mcdm.RawData = rcf
-	payload, err = json.Marshal(mcdm)
-	if err != nil {
-		println("could not execute mosquitto_pub")
-		println(err)
-	} else {
-		//println(string(payload))
-	}
-	cmd := exec.Command("mosquitto_pub", "-h", "test.mosquitto.org", "-t", "testtopic", "-m", string(payload))
-	println(cmd.Output())
-	var bufstr bytes.Buffer
-	notgz := io.Writer(&bufstr)
-	_, _ = notgz.Write(payload)
-	//_ = notgz.Close()
-	cmd = exec.Command("mosquitto_pub", "-h", "test.mosquitto.org", "-t", "testtopic", "-m", base64.StdEncoding.EncodeToString(bufstr.Bytes()))
-	println(cmd.Output())
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	_, _ = gz.Write(payload)
-	_ = gz.Close()
-	cmd = exec.Command("mosquitto_pub", "-h", "test.mosquitto.org", "-t", "testtopic", "-m", base64.StdEncoding.EncodeToString(buf.Bytes()))
-	println(cmd.Output())
 }
 
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,

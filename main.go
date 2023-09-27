@@ -116,14 +116,13 @@ func main() {
 	name, unitID = commands.GetDeviceName()
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 
-	/* // This code is useful as an alternative to the above when testing commands without a vehicle attached
-	name = "name"
-	unitID = *new(uuid.UUID)
-	ethAddr = new(common.Address)
-	*/
+	// - To scan can bus and save local copy on autopi, with custom name:
+	//./edge-network -candump <baudrate> <cycle_count> <file_out>
 
-	// ./edge-network -candump <baudrate> <cycle_count> <file_out>
+	// - To scan can bus and send dump to mqtt:
 	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size>
+
+	// - To scan can bus and send dump to mqtt AND save local copy on autopi:
 	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal
 
 	if len(os.Args) > 1 {
@@ -135,7 +134,6 @@ func main() {
 		} else if len(os.Args) > 4 {
 
 			// if we receive a candump argument, we will passively read from the can bus and print results to terminal
-			// for testing
 			canDumperInstance := new(loggers.PassiveCanDumper)
 
 			bitrate, err1 := strconv.Atoi(os.Args[2])
@@ -177,10 +175,8 @@ func main() {
 					if len(os.Args) > 5 && os.Args[5] == "savelocal" {
 						writeToLocalFiles = true
 					}
-					//println("WriteToMQTT args:")
-					//print(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
+
 					mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
-					//canDumperInstance.WriteToMQTT(unitID, *ethAddr, "test.mosquitto.org", "testtopic489", chunkSize, string(currentTime), writeToLocalFiles)
 					if mqttErr != nil {
 						println(mqttErr.Error())
 						os.Exit(1)
