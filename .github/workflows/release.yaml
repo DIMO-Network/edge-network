@@ -13,7 +13,7 @@ jobs:
       uses: dawidd6/action-get-tag@v1
       with:
         strip_v: true
-    - uses: wangyoucao577/go-release-action@v1.32
+    - uses: wangyoucao577/go-release-action@v1.40
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
