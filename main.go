@@ -23,9 +23,11 @@ import (
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/service"
 	"github.com/google/uuid"
+	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/device"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
+	"github.com/muka/go-bluetooth/hw/linux/cmd"
 
 	"github.com/sirupsen/logrus"
 
@@ -143,8 +145,6 @@ func main() {
 	}
 	log.Printf("Bluetooth name: %s", name)
 	log.Printf("Version: %s", Version)
-	log.Printf("Sleeping 7 seconds before setting up bluez.") // why do we do this?
-	time.Sleep(7 * time.Second)
 	// Used by go-bluetooth.
 	logrus.SetLevel(logrus.InfoLevel) // we don't use logrus consistenly in this project
 
@@ -182,9 +182,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to setup BlueZ: %s", err)
 		}
-		app, cancel := setupBluetoothApplication(coldBoot, vinLogger, lss)
+		app, cancel, obCancel := setupBluetoothApplication(coldBoot, vinLogger, lss)
 		defer app.Close()
 		defer cancel()
+		defer obCancel()
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -194,7 +195,7 @@ func main() {
 	log.Printf("Terminating from signal: %s", sig)
 }
 
-func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc) {
+func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc, context.CancelFunc) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
@@ -821,11 +822,6 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Fatalf("Failed to initialize app: %s", err)
 	}
 
-	cancel, err := app.Advertise(math.MaxUint32)
-	if err != nil {
-		log.Fatalf("Failed advertising: %s", err)
-	}
-
 	//Check if we should disable new connections
 	devices, err := app.Adapter().GetDevices()
 	if err != nil {
@@ -855,10 +851,42 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 		log.Printf("Failed to autodetect a canbus: %s", err)
 	}
 
-	err = btManager.SetAdvertising(true)
+	advertisedServices := []string{app.GenerateUUID(deviceServiceUUIDFragment)}
+
+	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
-		log.Fatalf("failed to set advertising on the controller: %s", err)
+		log.Fatalf("Failed advertising: %s", err)
 	}
+
+	omSignal, omSignalCancel, err := app.Adapter().GetObjectManagerSignal()
+	if err != nil {
+		log.Fatalf("Failed to Get Signal")
+	}
+
+	go func() {
+		// Recover from panic on errors in the loop
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("Recovering from panic: %s", err)
+			}
+		}()
+
+		for v := range omSignal {
+
+			if v == nil {
+				return
+			}
+			if v.Name == bluez.InterfacesRemoved {
+				// re-enables advertising, bug in the driver
+				_, err := cmd.Exec("hciconfig", adapterID, "leadv 0")
+				if err != nil {
+					log.Printf("error executing hciconfig: %s", err)
+				}
+			} else {
+				continue
+			}
+		}
+	}()
 
 	log.Printf("Canbus Protocol Info: %v", canBusInformation)
 	log.Printf("Adapter address: %s", app.Adapter().Properties.Address)
@@ -885,7 +913,7 @@ func setupBluetoothApplication(coldBoot bool, vinLogger loggers.VINLogger, lss l
 	log.Printf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
 	log.Printf("  Sign hash characteristic: %s", signChar.Properties.UUID)
 
-	return app, cancel
+	return app, cancel, omSignalCancel
 }
 
 // Utility Function

@@ -12,8 +12,10 @@ require (
 	github.com/jarcoal/httpmock v1.3.0
 	github.com/muka/go-bluetooth v0.0.0-20200903202100-13616d14eca5
 	github.com/pkg/errors v0.9.1
+	github.com/segmentio/ksuid v1.0.4
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0
+	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	go.einride.tech/can v0.5.5
 )
@@ -29,8 +31,6 @@ require (
 	github.com/mdlayher/netlink v1.7.1 // indirect
 	github.com/mdlayher/socket v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/segmentio/ksuid v1.0.4 // indirect
-	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
