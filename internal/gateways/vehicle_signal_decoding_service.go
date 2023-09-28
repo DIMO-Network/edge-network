@@ -15,7 +15,7 @@ var ErrBadRequest = errors.New("bad request")
 
 //go:generate mockgen -source vehicle_signal_decoding_service.go -destination mocks/vehicle_signal_decoding_service_mock.go
 type VehicleSignalDecodingAPIService interface {
-	GetPIDsTemplateByVIN(vin string) (*PIDConfigResponse, error)
+	GetPIDs(url string) (*PIDConfigResponse, error)
 	GetUrls(vin string) (*UrlConfigResponse, error)
 }
 
@@ -48,22 +48,22 @@ type vehicleSignalDecodingAPIService struct {
 	httpClient shared.HTTPClientWrapper
 }
 
-const VEHICLE_SIGNAL_DECODING_API_URL = "https://vehicle-signal-decoding.dev.dimo.zone"
+const VehicleSignalDecodingApiUrl = "https://vehicle-signal-decoding.dimo.zone"
 
 func NewVehicleSignalDecodingAPIService() VehicleSignalDecodingAPIService {
 	h := map[string]string{}
-	hcw, _ := shared.NewHTTPClientWrapper(VEHICLE_SIGNAL_DECODING_API_URL, "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
+	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
 
 	return &vehicleSignalDecodingAPIService{
 		httpClient: hcw,
 	}
 }
 
-func (v *vehicleSignalDecodingAPIService) GetPIDsTemplateByVIN(vin string) (*PIDConfigResponse, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("/v1/device-config/vin/%s/pids", vin), "GET", nil)
+func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*PIDConfigResponse, error) {
+	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
-			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
+			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations from url %s", url)
 		}
 	}
 	defer res.Body.Close() // nolint
@@ -77,19 +77,19 @@ func (v *vehicleSignalDecodingAPIService) GetPIDsTemplateByVIN(vin string) (*PID
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error get PID configurations by vin %s", vin)
+		return nil, errors.Wrapf(err, "error get PID configurations from url %s", url)
 	}
 
 	var response PIDConfigResponse
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
-		return nil, errors.Wrapf(err, "error deserializing PID configurations by vin %s", vin)
+		return nil, errors.Wrapf(err, "error deserializing PID configurations from url %s", url)
 	}
 
 	return &response, nil
 }
 
 func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*UrlConfigResponse, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("/v1/device-config/%s/pids", vin), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingApiUrl, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
