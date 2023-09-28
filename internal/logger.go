@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -122,6 +121,7 @@ func (ls *loggerService) Fingerprint() error {
 	return nil
 }
 
+// PIDLoggers TODO this is not the right place for this, this seems to mostly just get the configuration for pid loggers
 func (ls *loggerService) PIDLoggers(vin string) error {
 	// check if ok to start making obd calls etc
 	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
@@ -144,14 +144,14 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 
 	if config != nil {
 
-		pidUrl, err := ls.vehicleSignalDecodingSvc.GetUrls(vin)
+		configURLs, err := ls.vehicleSignalDecodingSvc.GetUrls(vin)
 		if err != nil {
-			ls.logger.Info().Msgf("could not get pid URL, continuing: %s", err)
+			ls.logger.Err(err).Msgf("could not get pid URL, continuing: %s", err)
 		}
 
-		if pidUrl != nil {
-			if pidUrl.PidURL != config.PidURL || pidUrl.Version != config.Version {
-				pids, err := ls.vehicleSignalDecodingSvc.GetPIDsTemplateByVIN(vin)
+		if configURLs != nil {
+			if configURLs.PidURL != config.PidURL || configURLs.Version != config.Version {
+				pids, err := ls.vehicleSignalDecodingSvc.GetPIDs(configURLs.PidURL)
 				if err != nil {
 					ls.logger.Info().Msgf("could not get pids template from api, continuing: %s", err)
 					return err
@@ -160,12 +160,13 @@ func (ls *loggerService) PIDLoggers(vin string) error {
 				config = &loggers.PIDLoggerSettings{}
 				if len(pids.Requests) > 0 {
 					for _, item := range pids.Requests {
+						// todo why are we using a different object than what we get from return object?
 						config.PIDs = append(config.PIDs, loggers.PIDLoggerItemSettings{
 							Formula:  item.Formula,
 							Protocol: item.Protocol,
-							PID:      strconv.FormatInt(item.Pid, 10),
-							Mode:     strconv.FormatInt(item.Mode, 10),
-							Header:   strconv.FormatInt(item.Header, 10),
+							PID:      item.Pid,
+							Mode:     item.Mode,
+							Header:   item.Header,
 							Interval: item.IntervalSeconds,
 						})
 					}
