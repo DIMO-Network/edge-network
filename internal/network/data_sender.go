@@ -92,11 +92,12 @@ func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
+	ds.logger.Debug().Msgf("sending payload: %s", string(payload))
 
-	err = ds.sendPayload(payload)
-	if err != nil {
-		return err
-	}
+	//err = ds.sendPayload(payload)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 

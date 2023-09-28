@@ -60,7 +60,7 @@ func NewVehicleSignalDecodingAPIService() VehicleSignalDecodingAPIService {
 }
 
 func (v *vehicleSignalDecodingAPIService) GetPIDsTemplateByVIN(vin string) (*PIDConfigResponse, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("/v1/device-config/%s/pids", vin), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("/v1/device-config/vin/%s/pids", vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)

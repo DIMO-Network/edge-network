@@ -52,6 +52,7 @@ func (wr *workerRunner) Run() {
 	}
 
 	wg.Wait()
+	wr.logger.Debug().Msg("worker Run completed")
 }
 
 func (wr *workerRunner) registerSenderTasks() []WorkerTask {
@@ -74,10 +75,13 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 				for i, message := range messages {
 					signals[i] = network.SignalData{Time: message.Time, Name: message.Name, Value: message.Content}
 				}
-				wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
+				err = wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
 					Time:    time.Now(),
 					Signals: signals,
 				})
+				if err != nil {
+					wr.logger.Err(err).Msg("Unable to send device status data")
+				}
 			}
 		},
 	})
