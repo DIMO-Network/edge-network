@@ -34,9 +34,9 @@ type PIDConfigResponse struct {
 
 type PIDConfigItemResponse struct {
 	ID              int64  `json:"id"`
-	Header          int64  `json:"header"`
-	Mode            int64  `json:"mode"`
-	Pid             int64  `json:"pid"`
+	Header          uint32 `json:"header"`
+	Mode            uint32 `json:"mode"`
+	Pid             uint32 `json:"pid"`
 	Formula         string `json:"formula"`
 	Protocol        string `json:"protocol"`
 	IntervalSeconds int    `json:"interval_seconds"`

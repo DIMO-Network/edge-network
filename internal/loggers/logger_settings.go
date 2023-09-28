@@ -126,8 +126,8 @@ type PIDLoggerItemSettings struct {
 	Name     string `json:"name"`
 	Formula  string `json:"formula"`
 	Protocol string `json:"protocol"`
-	Header   string `json:"header"`
-	PID      string `json:"PID"`
-	Mode     string `json:"mode"`
+	Header   uint32 `json:"header"`
+	PID      uint32 `json:"PID"`
+	Mode     uint32 `json:"mode"`
 	Interval int    `json:"interval"`
 }
