@@ -15,16 +15,14 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/rs/zerolog"
 
+	"github.com/DIMO-Network/edge-network/agent"
+	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal"
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/google/subcommands"
-	"github.com/pkg/errors"
-
-	"github.com/DIMO-Network/edge-network/agent"
-	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/service"
+	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/device"
@@ -159,10 +157,12 @@ func main() {
 	logger.Info().Msgf("Version: %s", Version)
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
+	// temporary for us
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	hwRevision, err := commands.GetHardwareRevision(unitID)
 	if err != nil {
-		logger.Info().Msgf("error getting hardware rev: %s", err)
+		logger.Err(err).Msg("error getting hardware rev")
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
@@ -170,16 +170,12 @@ func main() {
 
 	if ethAddr == nil {
 		if ethErr != nil {
-			logger.Info().Msgf("eth addr error: %s", ethErr.Error())
+			logger.Err(ethErr).Msg("eth addr error")
 		}
-		logger.Fatal().Err(err).Msgf("could not get ethereum address")
+		logger.Fatal().Msgf("could not get ethereum address")
 	}
 	// OBD / CAN Loggers
 	ds := network.NewDataSender(unitID, *ethAddr, logger)
-	if ethErr != nil {
-		logger.Info().Msgf("error getting ethereum address: %s", err)
-		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
-	}
 
 	lss := loggers.NewLoggerSettingsService()
 	var qs queue.StorageQueue
@@ -216,12 +212,12 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
-	sig := <-sigChan
-	logger.Info().Msgf("Terminating from signal: %s", sig)
-
 	// Execute Worker in background
 	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, loggerSvc, qs, ds, logger)
-	runnerSvc.Run()
+	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
+
+	sig := <-sigChan
+	logger.Info().Msgf("Terminating from signal: %s", sig)
 }
 
 func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc, context.CancelFunc) {

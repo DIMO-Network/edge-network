@@ -44,17 +44,17 @@ func (t *WorkerTask) Execute(idx int, logger zerolog.Logger) {
 
 	if !t.Once {
 		for t.Executions < t.MaxExecutions || t.MaxExecutions == 0 {
-			logger.Info().Msgf("Start task %s: %d", t.Name, t.Executions)
+			logger.Debug().Msgf("Start task %s: %d", t.Name, t.Executions)
 			t.Func(ctx)
-			logger.Info().Msgf("End task %s: %d", t.Name, t.Executions)
+			logger.Debug().Msgf("End task %s: %d", t.Name, t.Executions)
 			t.Executions++
 			ctx.Executions++
 			time.Sleep(time.Duration(t.Interval) * time.Second)
 		}
 	} else {
-		logger.Info().Msgf("Start task %s: %d", t.Name, t.Executions)
+		logger.Debug().Msgf("Start task %s: %d", t.Name, t.Executions)
 		t.Func(ctx)
-		logger.Info().Msgf("End task %s: %d", t.Name, t.Executions)
+		logger.Debug().Msgf("End task %s: %d", t.Name, t.Executions)
 		t.Executions++
 	}
 }
