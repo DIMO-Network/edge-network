@@ -19,19 +19,19 @@ import (
 )
 
 type ParsedCanFrame struct {
-	FrameHex  string `json:"FrameHex"`
-	FrameInt  int    `json:"FrameInt"`
-	FrameData string `json:"Data"`
+	FrameHex  string `json:"frameHex"`
+	FrameInt  int    `json:"frameInt"`
+	FrameData string `json:"data"`
 }
 
 type MqttCandumpMessage struct {
-	UnitId           string           `json:"UnitId,omitempty"`
-	EthAddress       string           `json:"EthAddress,omitempty"`
-	TimeStamp        string           `json:"TimeStamp,omitempty"`
-	Page             int              `json:"Page,omitempty"`
-	TotalPages       int              `json:"TotalPages,omitempty"`
-	DeviceDefinition string           `json:"DeviceDefinition,omitempty"`
-	RawData          []ParsedCanFrame `json:"RawData"`
+	UnitId           string           `json:"unitId,omitempty"`
+	EthAddress       string           `json:"ethAddress,omitempty"`
+	TimeStamp        string           `json:"timeStamp,omitempty"`
+	Page             int              `json:"page,omitempty"`
+	TotalPages       int              `json:"totalPages,omitempty"`
+	DeviceDefinition string           `json:"deviceDefinition,omitempty"`
+	RawData          []ParsedCanFrame `json:"rawData"`
 }
 
 type PassiveCanDumper struct {

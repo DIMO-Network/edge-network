@@ -244,7 +244,7 @@ type FingerprintData struct {
 
 type CanDumpData struct {
 	CommonData
-	Payload string `json:"EncodedMessage,omitempty"`
+	Payload string `json:"dataBase64,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {
