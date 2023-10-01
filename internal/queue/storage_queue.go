@@ -4,5 +4,6 @@ package queue
 
 type StorageQueue interface {
 	Enqueue(message string) error
+	// Dequeue grabs all messages that have been Enqueue so far
 	Dequeue() ([]Message, error)
 }

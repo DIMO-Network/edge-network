@@ -3,13 +3,14 @@ package loggers
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/rs/zerolog"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
@@ -174,6 +175,7 @@ func isEven(num int) bool {
 func findVINLineStart(lines []string) int {
 	const defaultPosition = 5
 	pos := defaultPosition
+	//nolint
 	var contentLines []string
 	// remove lines that aren't core part
 	for _, line := range lines {

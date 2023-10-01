@@ -2,8 +2,9 @@ package loggers
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
 	"sync"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/queue"
@@ -44,6 +45,7 @@ func (vl *pidLogger) ExecutePID(header, mode, pid uint32, formula, protocol, nam
 		return err
 	}
 	vl.logger.Debug().Str("command", cmd).Msgf("received PID response value: %s \n", resp.Value)
+	vl.logger.Debug().Msgf("formula is: %s", formula)
 	// todo: apply formula
 
 	_ = vl.storageQueue.Enqueue(resp.Value)

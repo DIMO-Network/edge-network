@@ -50,10 +50,10 @@ func (mr *MockVehicleSignalDecodingAPIServiceMockRecorder) GetPIDsTemplateByVIN(
 }
 
 // GetUrls mocks base method.
-func (m *MockVehicleSignalDecodingAPIService) GetUrls(vin string) (*gateways.UrlConfigResponse, error) {
+func (m *MockVehicleSignalDecodingAPIService) GetUrls(vin string) (*gateways.URLConfigResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUrls", vin)
-	ret0, _ := ret[0].(*gateways.UrlConfigResponse)
+	ret0, _ := ret[0].(*gateways.URLConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

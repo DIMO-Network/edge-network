@@ -2,8 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
 	"strings"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"

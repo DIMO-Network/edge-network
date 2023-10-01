@@ -1,14 +1,12 @@
 package internal
 
 import (
-	"github.com/rs/zerolog"
-	"sync"
-	"time"
-
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"sync"
 )
 
 type WorkerRunner interface {
@@ -57,7 +55,7 @@ func (wr *workerRunner) Run() {
 
 func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 	var tasks []WorkerTask
-
+	// build up task that sends mqtt payload every 60 seconds
 	tasks = append(tasks, WorkerTask{
 		Name:     "Sender Task",
 		Interval: 60,
@@ -65,7 +63,7 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 			for {
 				messages, err := wr.queueSvc.Dequeue()
 				if err != nil {
-					wr.logger.Info().Msgf("failed to queue pids: %s \n", err.Error())
+					wr.logger.Err(err).Msg("failed to Dequeue vehicle data signals")
 					break
 				}
 				if len(messages) == 0 {
@@ -73,10 +71,9 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 				}
 				signals := make([]network.SignalData, len(messages))
 				for i, message := range messages {
-					signals[i] = network.SignalData{Time: message.Time, Name: message.Name, Value: message.Content}
+					signals[i] = network.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}
 				}
 				err = wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
-					Time:    time.Now(),
 					Signals: signals,
 				})
 				if err != nil {

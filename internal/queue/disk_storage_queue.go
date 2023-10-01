@@ -3,14 +3,15 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/constants"
-	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/constants"
+	"github.com/google/uuid"
 )
 
 type diskStorageQueue struct {
