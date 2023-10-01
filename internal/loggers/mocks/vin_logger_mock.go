@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	loggers "github.com/DIMO-Network/edge-network/internal/loggers"
-	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockVINLogger is a mock of VINLogger interface.

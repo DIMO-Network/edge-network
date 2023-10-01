@@ -9,7 +9,7 @@ import (
 
 	api "github.com/DIMO-Network/edge-network/internal/api"
 	network "github.com/DIMO-Network/edge-network/internal/network"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDataSender is a mock of DataSender interface.

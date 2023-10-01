@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	loggers "github.com/DIMO-Network/edge-network/internal/loggers"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLoggerSettingsService is a mock of LoggerSettingsService interface.

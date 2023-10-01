@@ -21,8 +21,7 @@ func (app *App) Advertise(timeout uint32, localName string, advertisedServices [
 	adv.Type = "peripheral"
 	adv.ServiceUUIDs = advertisedServices
 	cancel, err := api.ExposeAdvertisement(app.adapterID, adv, timeout)
-
-	log.Printf("Advertising Packet:%+v ", adv)
+	app.Options.Logger.Info().Msgf("Advertising Packet:%+v ", adv)
 
 	if err != nil {
 		app.Options.Logger.Fatal().Err(err).Msgf("Failed advertising: %s", err)

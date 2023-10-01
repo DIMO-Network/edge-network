@@ -11,10 +11,10 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func Test_loggerService_VINLoggers(t *testing.T) {

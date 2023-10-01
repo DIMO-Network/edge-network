@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gateways "github.com/DIMO-Network/edge-network/internal/gateways"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockVehicleSignalDecodingAPIService is a mock of VehicleSignalDecodingAPIService interface.
@@ -34,19 +34,19 @@ func (m *MockVehicleSignalDecodingAPIService) EXPECT() *MockVehicleSignalDecodin
 	return m.recorder
 }
 
-// GetPIDsTemplateByVIN mocks base method.
-func (m *MockVehicleSignalDecodingAPIService) GetPIDsTemplateByVIN(vin string) (*gateways.PIDConfigResponse, error) {
+// GetPIDs mocks base method.
+func (m *MockVehicleSignalDecodingAPIService) GetPIDs(url string) (*gateways.PIDConfigResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPIDsTemplateByVIN", vin)
+	ret := m.ctrl.Call(m, "GetPIDs", url)
 	ret0, _ := ret[0].(*gateways.PIDConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetPIDsTemplateByVIN indicates an expected call of GetPIDsTemplateByVIN.
-func (mr *MockVehicleSignalDecodingAPIServiceMockRecorder) GetPIDsTemplateByVIN(vin interface{}) *gomock.Call {
+// GetPIDs indicates an expected call of GetPIDs.
+func (mr *MockVehicleSignalDecodingAPIServiceMockRecorder) GetPIDs(url interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPIDsTemplateByVIN", reflect.TypeOf((*MockVehicleSignalDecodingAPIService)(nil).GetPIDsTemplateByVIN), vin)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPIDs", reflect.TypeOf((*MockVehicleSignalDecodingAPIService)(nil).GetPIDs), url)
 }
 
 // GetUrls mocks base method.
