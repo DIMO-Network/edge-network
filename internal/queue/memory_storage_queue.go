@@ -1,9 +1,10 @@
 package queue
 
 import (
-	"github.com/google/uuid"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type memoryStorageQueue struct {

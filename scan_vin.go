@@ -33,15 +33,15 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	p.logger.Info().Msg("trying to get VIN\n")
 	// this is purposely left un-refactored
-	vl := loggers.NewVINLogger()
+	vl := loggers.NewVINLogger(p.logger)
 	addr, err := commands.GetEthereumAddress(p.unitID)
 	if err != nil {
-		p.logger.Panic().Msgf("could not get eth address %s", err.Error())
+		p.logger.Fatal().Msgf("could not get eth address %s", err.Error())
 	}
-	ds := network.NewDataSender(p.unitID, *addr, "fingerprint")
+	ds := network.NewDataSender(p.unitID, *addr, p.logger, "fingerprint")
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		p.logger.Panic().Msgf("could not get vin %s", vinErr.Error())
+		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())
 	}
 	p.logger.Info().Msgf("VIN: %s\n", vinResp.VIN)
 	p.logger.Info().Msgf("Protocol: %s\n", vinResp.Protocol)

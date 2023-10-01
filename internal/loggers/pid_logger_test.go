@@ -2,11 +2,12 @@ package loggers
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/queue"
-	"github.com/rs/zerolog"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/DIMO-Network/edge-network/internal/queue"
+	"github.com/rs/zerolog"
 
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
@@ -31,7 +32,7 @@ func TestExecutePID(t *testing.T) {
 		Logger()
 	vl := NewPIDLogger(unitID, qs, logger)
 
-	err := vl.ExecutePID("", "", "", "", "")
+	err := vl.ExecutePID(uint32(2015), uint32(1), uint32(47), "", "", "vin")
 	require.NoError(t, err)
 }
 
@@ -52,6 +53,6 @@ func TestExecutePIDWithError(t *testing.T) {
 	qs := queue.NewDiskStorageQueue(unitID)
 	vl := NewPIDLogger(unitID, qs, logger)
 
-	err := vl.ExecutePID("", "", "", "", "")
+	err := vl.ExecutePID(uint32(2015), uint32(1), uint32(47), "", "", "vin")
 	require.Error(t, err)
 }

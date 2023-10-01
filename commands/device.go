@@ -3,9 +3,10 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"github.com/rs/zerolog"
 	"os"
 	"strconv"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"

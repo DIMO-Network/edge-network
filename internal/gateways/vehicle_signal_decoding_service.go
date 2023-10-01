@@ -3,9 +3,10 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/DIMO-Network/shared"
 )
@@ -16,10 +17,10 @@ var ErrBadRequest = errors.New("bad request")
 //go:generate mockgen -source vehicle_signal_decoding_service.go -destination mocks/vehicle_signal_decoding_service_mock.go
 type VehicleSignalDecodingAPIService interface {
 	GetPIDs(url string) (*PIDConfigResponse, error)
-	GetUrls(vin string) (*UrlConfigResponse, error)
+	GetUrls(vin string) (*URLConfigResponse, error)
 }
 
-type UrlConfigResponse struct {
+type URLConfigResponse struct {
 	PidURL           string `json:"pidUrl"`
 	DeviceSettingURL string `json:"deviceSettingUrl"`
 	DbcURL           string `json:"dbcURL"`
@@ -48,7 +49,7 @@ type vehicleSignalDecodingAPIService struct {
 	httpClient shared.HTTPClientWrapper
 }
 
-const VehicleSignalDecodingApiUrl = "https://vehicle-signal-decoding.dimo.zone"
+const VehicleSignalDecodingAPIURL = "https://vehicle-signal-decoding.dimo.zone"
 
 func NewVehicleSignalDecodingAPIService() VehicleSignalDecodingAPIService {
 	h := map[string]string{}
@@ -88,8 +89,8 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*PIDConfigRespons
 	return &response, nil
 }
 
-func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*UrlConfigResponse, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingApiUrl, vin), "GET", nil)
+func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*URLConfigResponse, error) {
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingAPIURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
@@ -109,7 +110,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*UrlConfigRespons
 		return nil, errors.Wrapf(err, "error get URL configurations by vin %s", vin)
 	}
 
-	var response UrlConfigResponse
+	var response URLConfigResponse
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
 		return nil, errors.Wrapf(err, "error deserializing URL configurations by vin %s", vin)
 	}

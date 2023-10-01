@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/segmentio/ksuid"
@@ -20,16 +21,18 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// thought: should we have another topic for errors? ie. signals we could not get
-
-const broker = "tcp://localhost:1883"
+// thought: should we have a different topic for errors? eg. signals we could not get, failed fingerprinting
+const fingerprintTopic = "fingerprint"
+const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 	SendErrorsData(data ErrorsData) error
+	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
 	SendFingerprintData(data FingerprintData) error
 	SendCanDumpData(data CanDumpData) error
+	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api
 	SendDeviceStatusData(data DeviceStatusData) error
 }
 
@@ -70,8 +73,9 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 		ds.logger.Error().Err(err).Msg("failed to marshall cloudevent")
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
+	ds.logger.Debug().Msgf("sending fingerprint payload: %s", string(payload))
 
-	err = ds.sendPayload(payload)
+	err = ds.sendPayload(fingerprintTopic, payload)
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("failed send payload")
 		return err
@@ -92,9 +96,9 @@ func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
-	ds.logger.Debug().Msgf("sending payload: %s", string(payload))
+	ds.logger.Debug().Msgf("sending status payload: %s", string(payload))
 
-	//err = ds.sendPayload(payload)
+	//err = ds.sendPayload(payload) what topic to use?
 	//if err != nil {
 	//	return err
 	//}
@@ -138,7 +142,7 @@ func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(payload)
+	err = ds.sendPayload(fingerprintTopic, payload) // i think this is a bit funky, like errors should go in their own topic, we want to build an observable system
 	if err != nil {
 		return err
 	}
@@ -146,14 +150,11 @@ func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 }
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address, should already be in json format
-func (ds *dataSender) sendPayload(payload []byte) error {
+func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	if !gjson.GetBytes(payload, "subject").Exists() {
 		return fmt.Errorf("payload did not have expected subject cloud event property")
 	}
-
-	ds.logger.Info().Msg("sending payload:\n")
-	ds.logger.Info().Msgf("%s", string(payload))
 
 	// Connect to the MQTT broker
 	if token := ds.client.Connect(); token.Wait() && token.Error() != nil {
@@ -269,14 +270,14 @@ type CanDumpData struct {
 
 type DeviceStatusData struct {
 	CommonData
-	Time    time.Time    `json:"time"`
 	Signals []SignalData `json:"signals,omitempty"`
 }
 
 type SignalData struct {
-	Time  time.Time `json:"time"`
-	Name  string    `json:"name"`
-	Value string    `json:"value"`
+	// Timestamp is in unix millis, when signal was queried
+	Timestamp int64  `json:"timestamp"`
+	Name      string `json:"name"`
+	Value     string `json:"value"`
 }
 
 type DeviceErrorsCloudEvent struct {
@@ -293,5 +294,6 @@ type ErrorsData struct {
 type CommonData struct {
 	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
 	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
-	Timestamp      int64   `json:"timestamp"`
+	// Timestamp is in unix millis, when payload was sent
+	Timestamp int64 `json:"timestamp"`
 }

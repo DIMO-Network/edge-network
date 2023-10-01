@@ -2,10 +2,11 @@ package loggers
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"

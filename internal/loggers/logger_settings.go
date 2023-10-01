@@ -3,9 +3,10 @@ package loggers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/constants"
 	"os"
 	"sync"
+
+	"github.com/DIMO-Network/edge-network/internal/constants"
 )
 
 //go:generate mockgen -source logger_settings.go -destination mocks/logger_settings_mock.go
