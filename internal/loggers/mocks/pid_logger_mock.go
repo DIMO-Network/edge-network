@@ -7,7 +7,7 @@ package mock_loggers
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockPIDLogger is a mock of PIDLogger interface.
@@ -34,15 +34,15 @@ func (m *MockPIDLogger) EXPECT() *MockPIDLoggerMockRecorder {
 }
 
 // ExecutePID mocks base method.
-func (m *MockPIDLogger) ExecutePID(header, mode, pid, formula, protocol string) error {
+func (m *MockPIDLogger) ExecutePID(header, mode, pid uint32, formula, protocol, name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecutePID", header, mode, pid, formula, protocol)
+	ret := m.ctrl.Call(m, "ExecutePID", header, mode, pid, formula, protocol, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ExecutePID indicates an expected call of ExecutePID.
-func (mr *MockPIDLoggerMockRecorder) ExecutePID(header, mode, pid, formula, protocol interface{}) *gomock.Call {
+func (mr *MockPIDLoggerMockRecorder) ExecutePID(header, mode, pid, formula, protocol, name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutePID", reflect.TypeOf((*MockPIDLogger)(nil).ExecutePID), header, mode, pid, formula, protocol)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutePID", reflect.TypeOf((*MockPIDLogger)(nil).ExecutePID), header, mode, pid, formula, protocol, name)
 }

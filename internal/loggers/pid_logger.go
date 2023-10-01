@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source pid_logger.go -destination mocks/pid_logger_mock.go
 type PIDLogger interface {
-	ExecutePID(header, mode, pid, formula, protocol string) (err error)
+	ExecutePID(header, mode, pid uint32, formula, protocol, name string) (err error)
 }
 
 type pidLogger struct {
@@ -26,12 +26,12 @@ func NewPIDLogger(unitID uuid.UUID, storageQueue queue.StorageQueue, logger zero
 	return &pidLogger{unitID: unitID, storageQueue: storageQueue, logger: logger}
 }
 
-func (vl *pidLogger) ExecutePID(header, mode, pid, formula, protocol string) (err error) {
+func (vl *pidLogger) ExecutePID(header, mode, pid uint32, formula, protocol, name string) (err error) {
 	vl.mu.Lock()
 	defer vl.mu.Unlock()
-
-	cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
-		header, mode, pid, formula, protocol)
+	// in future could add canflow control
+	cmd := fmt.Sprintf(`obd.query %s %X mode=%X pid=%X force=True protocol=%s`,
+		name, header, mode, pid, protocol)
 
 	req := api.ExecuteRawRequest{Command: cmd}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", vl.unitID)
@@ -40,12 +40,13 @@ func (vl *pidLogger) ExecutePID(header, mode, pid, formula, protocol string) (er
 
 	err = api.ExecuteRequest("POST", url, req, &resp)
 	if err != nil {
-		vl.logger.Fatal().Err(err).Msg("failed to execute POST request")
+		vl.logger.Err(err).Str("command", cmd).Msg("failed to execute POST request")
 		return err
 	}
-	vl.logger.Info().Msgf("received PID response value: %s \n", resp.Value) // for debugging - will want this to validate.
+	vl.logger.Debug().Str("command", cmd).Msgf("received PID response value: %s \n", resp.Value)
+	// todo: apply formula
 
-	vl.storageQueue.Enqueue(resp.Value)
+	_ = vl.storageQueue.Enqueue(resp.Value)
 
 	return
 }

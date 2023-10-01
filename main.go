@@ -199,9 +199,10 @@ func main() {
 	// todo way to enable/disable this but default disabled, get config by ethaddr
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
+	// fingerprint logger, runs once on start, sends VIN & protocol
 	err = loggerSvc.Fingerprint()
 	if err != nil {
-		logger.Info().Msgf("failed to start loggers: %s \n", err.Error())
+		logger.Err(err).Msg("failed to start fingerprint logger.")
 	}
 
 	// if hw revision is anything other than 5.2, setup BLE
