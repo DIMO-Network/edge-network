@@ -90,7 +90,7 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 }
 
 func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
-	var tasks []WorkerTask
+
 	v, _ := wr.loggerSettingsSvc.ReadVINConfig()
 	// only start PID loggers if have a VIN
 	// todo: We'll need an option for cars where VIN comes from cloud b/c we couldn't get the VIN via OBD
@@ -110,14 +110,15 @@ func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
 					Interval: task.Interval,
 					Once:     task.Interval == 0,
 					Params:   task,
-					Func: func(ctx WorkerTaskContext) {
-						err := wr.pidLog.ExecutePID(ctx.Params.Header,
-							ctx.Params.Mode,
-							ctx.Params.PID,
-							ctx.Params.Formula,
-							ctx.Params.Protocol)
+					Func: func(wCtx WorkerTaskContext) {
+						err := wr.pidLog.ExecutePID(wCtx.Params.Header,
+							wCtx.Params.Mode,
+							wCtx.Params.PID,
+							wCtx.Params.Formula,
+							wCtx.Params.Protocol,
+							wCtx.Params.Name)
 						if err != nil {
-							wr.logger.Info().Msgf("failed execute pid loggers: %s \n", err.Error())
+							wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
 						}
 					},
 				}
@@ -131,8 +132,10 @@ func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
 
 				},
 			}
+
+			return tasks
 		}
 	}
 
-	return tasks
+	return []WorkerTask{}
 }
