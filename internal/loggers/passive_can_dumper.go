@@ -35,9 +35,9 @@ type MqttCandumpMessage struct {
 }
 
 type PassiveCanDumper struct {
-	CapturedFrames       []can.Frame
-	capturedFrameStrings []string
-	DetailedCanFrames    []ParsedCanFrame
+	//CapturedFrames       []can.Frame
+	//capturedFrameStrings []string
+	DetailedCanFrames []ParsedCanFrame
 }
 
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,

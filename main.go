@@ -10,7 +10,6 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"strconv"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal"
@@ -131,7 +130,7 @@ func main() {
 		if s == "-v" {
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
-		} else if len(os.Args) > 4 {
+		} /*else if len(os.Args) > 4 {
 
 			// if we receive a candump argument, we will passively read from the can bus and print results to terminal
 			canDumperInstance := new(loggers.PassiveCanDumper)
@@ -163,10 +162,7 @@ func main() {
 						println(canErr.Error())
 						os.Exit(1)
 					}
-					/*
-						//This code is useful when testing commands without a vehicle attached
-						canDumperInstance.ReadCanBusTest(cycles, bitrate)
-					*/
+
 
 					currentTime, _ := time.Now().MarshalJSON()
 					currentTime = currentTime[1 : len(currentTime)-1]
@@ -190,7 +186,7 @@ func main() {
 		} else {
 			println("Invalid syntax:\n To generate local can dump to single file:\n   ./edge-network -candump <baudrate> <cycle_count> <file_out>\n   \n      example: ./edge-network -candump 500000 2000 outfile.txt\n\nTo generate local can dump and send over mqtt:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> \n   \n      example: ./edge-network -sendcandump 500000 2000 500\n\nTo generate local can dump and send over mqtt, AND save local copies of chunked messages to file:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal\n   \n      example: ./edge-network -sendcandump 500000 2000 500 savelocal")
 			os.Exit(1)
-		}
+		}*/
 	}
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
@@ -201,6 +197,7 @@ func main() {
 
 	subcommands.Register(&scanVINCmd{unitID: unitID}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{}, "info")
+	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
 
 	if len(os.Args) > 1 {
 		ctx := context.Background()
