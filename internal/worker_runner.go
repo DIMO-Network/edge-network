@@ -21,16 +21,33 @@ type workerRunner struct {
 	queueSvc          queue.StorageQueue
 	dataSender        network.DataSender
 	logger            zerolog.Logger
+	vehicleTemplates  VehicleTemplates
 }
 
-func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, loggerSvc LoggerService, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger) WorkerRunner {
-	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, loggerSvc: loggerSvc, queueSvc: queueSvc, dataSender: dataSender, logger: logger}
+func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, loggerSvc LoggerService, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
+	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, loggerSvc: loggerSvc, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
 }
 
 func (wr *workerRunner) Run() {
+
+	vin, err := wr.loggerSettingsSvc.ReadVINConfig()
+	if err != nil {
+		wr.logger.Err(err).Msg("unable to start worker runner b/c can't get VIN")
+		return
+	}
+	wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
+
+	loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(vin.VIN)
+	if err != nil {
+		// this means we really cannot start
+		wr.logger.Err(err).Msg("unable to start worker runner b/c can't get vehicle template")
+		return
+	}
+	wr.logger.Info().Msgf("starting worker runner with logger settings: %+v", *loggerSettings)
+
 	var tasks []WorkerTask
 
-	pidTasks := wr.registerPIDsTasks()
+	pidTasks := wr.registerPIDsTasks(*loggerSettings)
 	for _, task := range pidTasks {
 		tasks = append(tasks, task)
 	}
@@ -86,52 +103,41 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 	return tasks
 }
 
-func (wr *workerRunner) registerPIDsTasks() []WorkerTask {
+func (wr *workerRunner) registerPIDsTasks(pidsConfig loggers.PIDLoggerSettings) []WorkerTask {
 
-	v, _ := wr.loggerSettingsSvc.ReadVINConfig()
-	// only start PID loggers if have a VIN
-	// todo: We'll need an option for cars where VIN comes from cloud b/c we couldn't get the VIN via OBD
-	if len(v.VIN) > 0 {
-		err := wr.loggerSvc.PIDLoggers(v.VIN)
-		if err != nil {
-			wr.logger.Info().Msgf("failed to pid loggers: %s \n", err.Error())
-		}
+	if len(pidsConfig.PIDs) > 0 {
+		tasks := make([]WorkerTask, len(pidsConfig.PIDs))
 
-		if err == nil {
-			pidsConfig, _ := wr.loggerSettingsSvc.ReadPIDsConfig()
-			tasks := make([]WorkerTask, len(pidsConfig.PIDs))
-
-			for i, task := range pidsConfig.PIDs {
-				tasks[i] = WorkerTask{
-					Name:     task.Name,
-					Interval: task.Interval,
-					Once:     task.Interval == 0,
-					Params:   task,
-					Func: func(wCtx WorkerTaskContext) {
-						err := wr.pidLog.ExecutePID(wCtx.Params.Header,
-							wCtx.Params.Mode,
-							wCtx.Params.PID,
-							wCtx.Params.Formula,
-							wCtx.Params.Protocol,
-							wCtx.Params.Name)
-						if err != nil {
-							wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
-						}
-					},
-				}
-			}
-
-			// Execute Message
-			tasks[len(tasks)+1] = WorkerTask{
-				Name:     "Notify Message",
-				Interval: 30,
-				Func: func(ctx WorkerTaskContext) {
-
+		for i, task := range pidsConfig.PIDs {
+			tasks[i] = WorkerTask{
+				Name:     task.Name,
+				Interval: task.Interval,
+				Once:     task.Interval == 0,
+				Params:   task,
+				Func: func(wCtx WorkerTaskContext) {
+					err := wr.pidLog.ExecutePID(wCtx.Params.Header,
+						wCtx.Params.Mode,
+						wCtx.Params.PID,
+						wCtx.Params.Formula,
+						wCtx.Params.Protocol,
+						wCtx.Params.Name)
+					if err != nil {
+						wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
+					}
 				},
 			}
-
-			return tasks
 		}
+
+		// Execute Message
+		tasks[len(tasks)+1] = WorkerTask{
+			Name:     "Notify Message",
+			Interval: 30,
+			Func: func(ctx WorkerTaskContext) {
+
+			},
+		}
+
+		return tasks
 	}
 
 	return []WorkerTask{}

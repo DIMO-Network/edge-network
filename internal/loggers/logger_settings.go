@@ -18,6 +18,7 @@ type LoggerSettingsService interface {
 	WritePIDsConfig(settings PIDLoggerSettings) error
 }
 
+// loggerSettingsService wraps reading and writing different configurations
 type loggerSettingsService struct {
 	mu sync.Mutex
 }
