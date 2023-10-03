@@ -3,11 +3,12 @@ package internal
 import (
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 )
 
 type VehicleTemplates interface {
-	GetTemplateSettings(vin string) (*loggers.PIDLoggerSettings, error)
+	GetTemplateSettings(vin string, addr *common.Address) (*loggers.PIDLoggerSettings, error)
 }
 
 type vehicleTemplates struct {
@@ -22,13 +23,24 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Can error if can't communicate over http to dimo api. todo: return dbc and device-settings too.
-func (vt *vehicleTemplates) GetTemplateSettings(vin string) (*loggers.PIDLoggerSettings, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address) (*loggers.PIDLoggerSettings, error) {
 	// read any existing settings
 	config, err := vt.lss.ReadPIDsConfig()
 	if err != nil {
 		vt.logger.Err(err).Msg("could not read settings for templates, continuing")
 	}
-	configURLs, err := vt.vsd.GetUrls(vin)
+	var configURLs *gateways.URLConfigResponse
+	if len(vin) == 17 {
+		configURLs, err = vt.vsd.GetUrlsByVin(vin)
+		if err != nil {
+			vt.logger.Err(err).Msg("unable to get template urls by vin")
+		}
+	} else {
+		configURLs, err = vt.vsd.GetUrlsByEthAddr(addr)
+		if err != nil {
+			vt.logger.Err(err).Msg("unable to get template urls by eth addr")
+		}
+	}
 	if err != nil {
 		vt.logger.Err(err).Msgf("could not get pids URL for configuration.")
 		if config != nil {
