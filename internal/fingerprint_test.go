@@ -17,7 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func Test_loggerService_VINLoggers(t *testing.T) {
+func Test_fungerprintRunner_VINLoggers(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -40,7 +40,7 @@ func Test_loggerService_VINLoggers(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -60,7 +60,7 @@ func Test_loggerService_VINLoggers(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
+func Test_fingerprintRunner_VINLoggers_nilSettings(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -83,7 +83,7 @@ func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -104,7 +104,7 @@ func Test_loggerService_VINLoggers_nilSettings(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
+func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -125,7 +125,7 @@ func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -153,7 +153,7 @@ func Test_loggerService_VINLoggers_noVINResponse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_loggerService_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T) {
+func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -173,7 +173,7 @@ func Test_loggerService_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewLoggerService(unitID, vl, pidl, ds, lss, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, pidl, ds, lss, vsd, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)

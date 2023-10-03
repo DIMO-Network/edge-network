@@ -191,10 +191,9 @@ func main() {
 	pidLogger := loggers.NewPIDLogger(unitID, qs, logger)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
 
-	// todo should loggerSvc become fingerprintSvc
-	loggerSvc := internal.NewLoggerService(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
+	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
 	// fingerprint logger, runs once on start, sends VIN & protocol
-	err = loggerSvc.Fingerprint() // this is blocking, should it be after bluetooth setup? or run in a go func
+	err = fingerprintRunner.Fingerprint() // this is blocking, should it be after bluetooth setup? or run in a go func
 	if err != nil {
 		logger.Err(err).Msg("failed to start fingerprint logger.")
 	}
@@ -215,10 +214,10 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
-	// todo way to enable/disable our own logger engine
+	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
 
-	// Execute Worker in background. todo: why is loggerSvc used in here, can we remove
-	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, loggerSvc, qs, ds, logger, vehicleTemplates)
+	// Execute Worker in background.
+	runnerSvc := internal.NewWorkerRunner(unitID, lss, pidLogger, qs, ds, logger, vehicleTemplates)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

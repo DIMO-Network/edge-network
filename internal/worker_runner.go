@@ -17,15 +17,14 @@ type workerRunner struct {
 	unitID            uuid.UUID
 	loggerSettingsSvc loggers.LoggerSettingsService
 	pidLog            loggers.PIDLogger
-	loggerSvc         LoggerService
 	queueSvc          queue.StorageQueue
 	dataSender        network.DataSender
 	logger            zerolog.Logger
 	vehicleTemplates  VehicleTemplates
 }
 
-func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, loggerSvc LoggerService, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
-	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, loggerSvc: loggerSvc, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
+func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
+	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
 }
 
 func (wr *workerRunner) Run() {
