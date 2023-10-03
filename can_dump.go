@@ -25,7 +25,7 @@ func (*canDumpCmd) Synopsis() string {
 	return "Performs can dump to local file and/or remote file via MQTT"
 }
 func (*canDumpCmd) Usage() string {
-	return `candump [-cycles <int>] [-send <chunkSize int>] [-save]`
+	return `candump [-cycles <int>] [-send <chunkSize_int>] [-save]`
 }
 
 func (p *canDumpCmd) SetFlags(f *flag.FlagSet) {
