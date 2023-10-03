@@ -76,6 +76,7 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 		_ = gz.Close()
 
 		if writeToLocalFiles {
+			println(timeStamp + "_page_" + strconv.Itoa(message.Page))
 			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 666)
 			if fileErr != nil {
 				println(fileErr.Error())
