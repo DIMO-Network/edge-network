@@ -70,20 +70,22 @@ To view logs, from the AP cloud terminal, run the following: `journalctl -u edge
 
 ## Can Dump Commands from terminal
 
+        edge-network candump -cycles <cycle_count> -send <chunk_size> -save
+        
     To generate local can dump to single file:
-       ./edge-network -candump <baudrate> <cycle_count> <file_out>
+       ./edge-network candump -cycles <cycle_count> -save
        
-          example: ./edge-network -candump 500000 2000 outfile.txt
+          example: ./edge-network candump -cycles 100 -save
 
-    To generate local can dump and send over mqtt:
-       ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> 
+    To generate can dump and send over mqtt:
+       ./edge-network candump -cycles <cycle_count> -send <chunk_size>
        
-          example: ./edge-network -sendcandump 500000 2000 500
+          example: ./edge-network candump -cycles 100 -send 50
 
     To generate local can dump and send over mqtt, AND save local copies of chunked messages to file:
-       ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal
+       ./edge-network candump -cycles <cycle_count> -send <chunk_size> -save
        
-          example: ./edge-network -sendcandump 500000 2000 500 savelocal
+          example: ./edge-network candump -cycles 100 -send 50 -save
 
 
 
