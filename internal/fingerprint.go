@@ -19,11 +19,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LoggerService interface {
+type FingerprintRunner interface {
 	Fingerprint() error
 }
 
-type loggerService struct {
+type fingerprintRunner struct {
 	unitID                   uuid.UUID
 	vinLog                   loggers.VINLogger
 	pidLog                   loggers.PIDLogger
@@ -33,15 +33,15 @@ type loggerService struct {
 	logger                   zerolog.Logger
 }
 
-func NewLoggerService(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) LoggerService {
-	return &loggerService{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc, logger: logger}
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
+	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc, logger: logger}
 }
 
 const maxFailureAttempts = 5
 
 // Fingerprint checks if ok to start scanning the vehicle and then tries to get the VIN & Protocol via various methods.
 // Runs only once when successful.  Checks for saved VIN query from previous run.
-func (ls *loggerService) Fingerprint() error {
+func (ls *fingerprintRunner) Fingerprint() error {
 	// check if ok to start making obd calls etc
 	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
@@ -128,7 +128,7 @@ func (ls *loggerService) Fingerprint() error {
 //its a more advanced obd logger pausing
 
 // isOkToScan checks if the power status and other heuristics to determine if ok to start Open CAN scanning and PID requests. Blocking.
-func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusResponse, err error) {
+func (ls *fingerprintRunner) isOkToScan() (result bool, status api.PowerStatusResponse, err error) {
 	const maxTries = 100
 	const voltageMin = 13.2
 	tries := 0

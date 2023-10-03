@@ -41,7 +41,7 @@ func (t *WorkerTask) Register() {
 
 func (t *WorkerTask) Execute(idx int, logger zerolog.Logger) {
 	ctx := WorkerTaskContext{Name: t.Name, Params: t.Params}
-
+	// todo could have a check here to make sure isOkToScan (eg. using same code as in fingerprint stuff)
 	if !t.Once {
 		for t.Executions < t.MaxExecutions || t.MaxExecutions == 0 {
 			logger.Debug().Msgf("Start task %s: %d", t.Name, t.Executions)
