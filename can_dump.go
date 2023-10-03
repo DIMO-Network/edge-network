@@ -32,7 +32,7 @@ func (p *canDumpCmd) SetFlags(f *flag.FlagSet) {
 	//f.BoolVar(&p.send, "send", false, "send result over mqtt to the s3 bucket")
 	f.BoolVar(&p.save, "save", false, "save result to local file")
 	f.IntVar(&p.cycleCount, "cycles", 100, "the qty of cycles to record in can dump, default=100")
-	f.IntVar(&p.chunkSize, "send", 0, "send result over mqtt to the s3 bucket <the max qty of frames to send in a single MQTT message>")
+	f.IntVar(&p.chunkSize, "send", 0, "send result over mqtt to the s3 bucket using <chunk_size>")
 }
 
 func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {

@@ -115,14 +115,14 @@ func main() {
 	name, unitID = commands.GetDeviceName()
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 
-	// - To scan can bus and save local copy on autopi, with custom name:
-	//./edge-network -candump <baudrate> <cycle_count> <file_out>
+	// - To scan can bus and save local copy on autopi:
+	// ./edge-network candump -cycles <cycle_count>  -save
 
-	// - To scan can bus and send dump to mqtt:
-	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size>
+	// - To scan can bus and send chunked dump to mqtt:
+	// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>]
 
-	// - To scan can bus and send dump to mqtt AND save local copy on autopi:
-	// ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal
+	// - To scan can bus and send chunked dump to mqtt AND save local copies on autopi:
+	// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>] -save
 
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
@@ -130,63 +130,7 @@ func main() {
 		if s == "-v" {
 			log.Printf("Version: %s", Version)
 			os.Exit(0)
-		} /*else if len(os.Args) > 4 {
-
-			// if we receive a candump argument, we will passively read from the can bus and print results to terminal
-			canDumperInstance := new(loggers.PassiveCanDumper)
-
-			bitrate, err1 := strconv.Atoi(os.Args[2])
-			cycles, err2 := strconv.Atoi(os.Args[3])
-			if err1 == nil && err2 == nil && len(os.Args) > 4 {
-				if s == "-candump" {
-					canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
-					if canErr != nil {
-						println(canErr.Error())
-						os.Exit(1)
-					}
-					fileName := os.Args[4]
-					fileErr := canDumperInstance.WriteToFile(fileName)
-					if fileErr != nil {
-						println(fileErr.Error())
-						os.Exit(1)
-					}
-				} else if s == "-sendcandump" && len(os.Args) > 4 {
-					chunkSize, err3 := strconv.Atoi(os.Args[4])
-					if err3 != nil {
-						println("unable to read chunkSize value from command")
-						println(err3.Error())
-						os.Exit(1)
-					}
-					canErr := canDumperInstance.ReadCanBus(cycles, bitrate)
-					if canErr != nil {
-						println(canErr.Error())
-						os.Exit(1)
-					}
-
-
-					currentTime, _ := time.Now().MarshalJSON()
-					currentTime = currentTime[1 : len(currentTime)-1]
-					writeToLocalFiles := false
-
-					if len(os.Args) > 5 && os.Args[5] == "savelocal" {
-						writeToLocalFiles = true
-					}
-
-					mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, chunkSize, string(currentTime), writeToLocalFiles)
-					if mqttErr != nil {
-						println(mqttErr.Error())
-						os.Exit(1)
-					}
-				}
-			} else {
-				println("error converting cycle count or bitrate to int")
-			}
-			os.Exit(0)
-
-		} else {
-			println("Invalid syntax:\n To generate local can dump to single file:\n   ./edge-network -candump <baudrate> <cycle_count> <file_out>\n   \n      example: ./edge-network -candump 500000 2000 outfile.txt\n\nTo generate local can dump and send over mqtt:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> \n   \n      example: ./edge-network -sendcandump 500000 2000 500\n\nTo generate local can dump and send over mqtt, AND save local copies of chunked messages to file:\n   ./edge-network -sendcandump <baudrate> <cycle_count> <chunk_size> savelocal\n   \n      example: ./edge-network -sendcandump 500000 2000 500 savelocal")
-			os.Exit(1)
-		}*/
+		}
 	}
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
