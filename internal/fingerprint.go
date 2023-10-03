@@ -16,7 +16,6 @@ import (
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 type FingerprintRunner interface {
@@ -101,7 +100,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		config = &loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
 		err := ls.loggerSettingsSvc.WriteVINConfig(*config)
 		if err != nil {
-			log.WithError(err).Log(log.ErrorLevel)
+			ls.logger.Err(err).Send()
 			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &status)
 		}
 	}
@@ -115,7 +114,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 
 	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {
-		log.WithError(err).Log(log.ErrorLevel)
+		ls.logger.Err(err).Send()
 	}
 
 	return nil

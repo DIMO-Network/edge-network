@@ -52,7 +52,7 @@ func (lcs *loggerSettingsService) WriteVINConfig(settings VINLoggerSettings) err
 }
 
 func (lcs *loggerSettingsService) ReadPIDsConfig() (*PIDLoggerSettings, error) {
-	data, err := lcs.readConfig(constants.VINPIDLoggerFile)
+	data, err := lcs.readConfig(constants.PIDConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
@@ -67,7 +67,7 @@ func (lcs *loggerSettingsService) ReadPIDsConfig() (*PIDLoggerSettings, error) {
 }
 
 func (lcs *loggerSettingsService) WritePIDsConfig(settings PIDLoggerSettings) error {
-	err := lcs.writeConfig(constants.VINPIDLoggerFile, settings)
+	err := lcs.writeConfig(constants.PIDConfigFile, settings)
 	if err != nil {
 		return err
 	}

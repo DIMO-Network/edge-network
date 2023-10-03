@@ -50,9 +50,9 @@ func (mr *MockVehicleSignalDecodingAPIServiceMockRecorder) GetPIDs(url interface
 }
 
 // GetUrls mocks base method.
-func (m *MockVehicleSignalDecodingAPIService) GetUrls(vin string) (*gateways.URLConfigResponse, error) {
+func (m *MockVehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*gateways.URLConfigResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUrls", vin)
+	ret := m.ctrl.Call(m, "GetUrlsByVin", vin)
 	ret0, _ := ret[0].(*gateways.URLConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -61,5 +61,5 @@ func (m *MockVehicleSignalDecodingAPIService) GetUrls(vin string) (*gateways.URL
 // GetUrls indicates an expected call of GetUrls.
 func (mr *MockVehicleSignalDecodingAPIServiceMockRecorder) GetUrls(vin interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUrls", reflect.TypeOf((*MockVehicleSignalDecodingAPIService)(nil).GetUrls), vin)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUrlsByVin", reflect.TypeOf((*MockVehicleSignalDecodingAPIService)(nil).GetUrlsByVin), vin)
 }

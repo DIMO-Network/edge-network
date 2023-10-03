@@ -4,6 +4,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/DIMO-Network/edge-network/internal/queue"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"sync"
@@ -21,22 +22,21 @@ type workerRunner struct {
 	dataSender        network.DataSender
 	logger            zerolog.Logger
 	vehicleTemplates  VehicleTemplates
+	ethAddr           *common.Address
 }
 
-func NewWorkerRunner(unitID uuid.UUID, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
-	return &workerRunner{unitID: unitID, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
+func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
+	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
 }
 
 func (wr *workerRunner) Run() {
-
 	vin, err := wr.loggerSettingsSvc.ReadVINConfig()
 	if err != nil {
-		wr.logger.Err(err).Msg("unable to start worker runner b/c can't get VIN")
-		return
+		wr.logger.Err(err).Msg("unable to get vin for worker runner from vehicle")
 	}
 	wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
 
-	loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(vin.VIN)
+	loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(vin.VIN, wr.ethAddr)
 	if err != nil {
 		// this means we really cannot start
 		wr.logger.Err(err).Msg("unable to start worker runner b/c can't get vehicle template")
