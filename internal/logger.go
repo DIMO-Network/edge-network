@@ -21,7 +21,6 @@ import (
 
 type LoggerService interface {
 	Fingerprint() error
-	PIDLoggers(vin string) error
 }
 
 type loggerService struct {
@@ -65,120 +64,58 @@ func (ls *loggerService) Fingerprint() error {
 	if config != nil {
 		vqn = &config.VINQueryName
 		// check if we do not want to continue scanning VIN for this car - currently determines if we run any loggers (but do note some cars won't respond VIN but yes on most OBD2 stds)
-		if config.VINLoggerVersion == loggers.VINLoggerVersion { // if vin logger improves, basically ignore failed attempts as maybe we decoded it.
+		if config.VINLoggerVersion == loggers.VINLoggerVersion { // if vin vinLogger improves, basically ignore failed attempts as maybe we decoded it.
 			if config.VINLoggerFailedAttempts >= maxFailureAttempts {
 				if config.VINQueryName != "" {
 					// this would be really weird and needs to be addressed
 					_ = ls.dataSender.SendErrorPayload(fmt.Errorf("failed attempts exceeded but was previously able to get VIN with query: %s", config.VINQueryName), &status)
 				}
-				return fmt.Errorf("failed attempts for VIN logger exceeded, not starting loggers")
+				return fmt.Errorf("failed attempts for VIN vinLogger exceeded, not starting loggers")
 			}
 		}
 	}
+	// scan for VIN
+	vinLogger := LoggerProperties{
+		SignalName: "vin",
+		Interval:   0,
+		ScanFunc:   ls.vinLog.GetVIN,
+	}
+	vinResp, err := vinLogger.ScanFunc(ls.unitID, vqn)
+	if err != nil {
+		if config == nil {
+			config = &loggers.VINLoggerSettings{}
+		}
+		ls.logger.Err(err).Msgf("failed to scan for vin. fail count: %d", config.VINLoggerFailedAttempts)
+		// update local settings to increment fail count
+		config.VINLoggerVersion = loggers.VINLoggerVersion
+		config.VINLoggerFailedAttempts++
+		writeErr := ls.loggerSettingsSvc.WriteVINConfig(*config)
+		if writeErr != nil {
+			ls.logger.Err(writeErr).Send()
+		}
 
-	// loop over loggers and call them. This needs to be reworked to support more than one thing that is not VIN etc
-	for _, logger := range ls.getLoggerConfigs() {
-		vinResp, err := logger.ScanFunc(ls.unitID, vqn)
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &status)
+	}
+	// save vin query name in settings if not set
+	if config == nil || config.VINQueryName == "" {
+		config = &loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
+		err := ls.loggerSettingsSvc.WriteVINConfig(*config)
 		if err != nil {
 			log.WithError(err).Log(log.ErrorLevel)
-			// update local settings to increment fail count
-			if config == nil {
-				config = &loggers.VINLoggerSettings{}
-			}
-			config.VINLoggerVersion = loggers.VINLoggerVersion
-			config.VINLoggerFailedAttempts++
-			writeErr := ls.loggerSettingsSvc.WriteVINConfig(*config)
-			if writeErr != nil {
-				log.WithError(writeErr).Log(log.ErrorLevel)
-			}
-
-			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from logger"), &status)
-			break
-		}
-		// save vin query name in settings if not set
-		if config == nil || config.VINQueryName == "" {
-			config = &loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
-			err := ls.loggerSettingsSvc.WriteVINConfig(*config)
-			if err != nil {
-				log.WithError(err).Log(log.ErrorLevel)
-				_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write logger settings"), &status)
-			}
-		}
-
-		data := network.FingerprintData{
-			Vin:      vinResp.VIN,
-			Protocol: vinResp.Protocol,
-		}
-		data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
-		data.BatteryVoltage = status.Spm.Battery.Voltage
-
-		err = ls.dataSender.SendFingerprintData(data)
-		if err != nil {
-			log.WithError(err).Log(log.ErrorLevel)
+			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &status)
 		}
 	}
 
-	return nil
-}
+	data := network.FingerprintData{
+		Vin:      vinResp.VIN,
+		Protocol: vinResp.Protocol,
+	}
+	data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
+	data.BatteryVoltage = status.Spm.Battery.Voltage
 
-// PIDLoggers TODO this is not the right place for this, this seems to mostly just get the configuration for pid loggers
-func (ls *loggerService) PIDLoggers(vin string) error {
-	// check if ok to start making obd calls etc
-	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
-	ok, status, err := ls.isOkToScan()
+	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {
-		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)
-		return errors.Wrap(err, "checks to start loggers failed, no action")
-	}
-	if !ok {
-		e := fmt.Errorf("checks to start loggers failed but no errors reported")
-		_ = ls.dataSender.SendErrorPayload(e, &status)
-		return e
-	}
-	ls.logger.Info().Msg("loggers: checks passed to start PID loggers")
-	// read any existing settings
-	config, err := ls.loggerSettingsSvc.ReadPIDsConfig()
-	if err != nil {
-		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
-	}
-
-	if config != nil {
-
-		configURLs, err := ls.vehicleSignalDecodingSvc.GetUrls(vin)
-		if err != nil {
-			ls.logger.Err(err).Msgf("could not get pid URL, continuing: %s", err)
-		}
-
-		if configURLs != nil {
-			if configURLs.PidURL != config.PidURL || configURLs.Version != config.Version {
-				pids, err := ls.vehicleSignalDecodingSvc.GetPIDs(configURLs.PidURL)
-				if err != nil {
-					ls.logger.Info().Msgf("could not get pids template from api, continuing: %s", err)
-					return err
-				}
-
-				config = &loggers.PIDLoggerSettings{}
-				if len(pids.Requests) > 0 {
-					for _, item := range pids.Requests {
-						// todo why are we using a different object than what we get from return object?
-						config.PIDs = append(config.PIDs, loggers.PIDLoggerItemSettings{
-							Formula:  item.Formula,
-							Protocol: item.Protocol,
-							PID:      item.Pid,
-							Mode:     item.Mode,
-							Header:   item.Header,
-							Interval: item.IntervalSeconds,
-						})
-					}
-				}
-
-				err = ls.loggerSettingsSvc.WritePIDsConfig(*config)
-				if err != nil {
-					log.WithError(err).Log(log.ErrorLevel)
-					_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write pids logger settings"), &status)
-				}
-			}
-		}
+		log.WithError(err).Log(log.ErrorLevel)
 	}
 
 	return nil
@@ -232,17 +169,6 @@ func (ls *loggerService) isOkToScan() (result bool, status api.PowerStatusRespon
 	// this may be an initial pair or something else so we don't wanna start loggers, just exit
 	result = false
 	return
-}
-
-func (ls *loggerService) getLoggerConfigs() []LoggerProperties {
-
-	return []LoggerProperties{
-		{
-			SignalName: "vin",
-			Interval:   0,
-			ScanFunc:   ls.vinLog.GetVIN,
-		},
-	}
 }
 
 type LoggerProperties struct {

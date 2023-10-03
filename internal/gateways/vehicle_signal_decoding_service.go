@@ -41,7 +41,7 @@ type PIDConfigItemResponse struct {
 	Formula         string `json:"formula"`
 	Protocol        string `json:"protocol"`
 	IntervalSeconds int    `json:"interval_seconds"`
-	Name            int64  `json:"name"`
+	Name            string `json:"name"`
 	Version         string `json:"version"`
 }
 
@@ -60,7 +60,10 @@ func NewVehicleSignalDecodingAPIService() VehicleSignalDecodingAPIService {
 	}
 }
 
+// todo add method to get DBC's and device settings
+
 func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*PIDConfigResponse, error) {
+	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -90,6 +93,7 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*PIDConfigRespons
 }
 
 func (v *vehicleSignalDecodingAPIService) GetUrls(vin string) (*URLConfigResponse, error) {
+	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingAPIURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
