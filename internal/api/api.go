@@ -149,6 +149,15 @@ type PowerStatusResponse struct {
 			} `json:"wake_level"`
 		} `json:"volt_triggers"`
 	} `json:"spm"`
+	Stn struct {
+		Battery struct {
+			Level   int     `json:"level"`
+			State   string  `json:"state"`
+			Voltage float64 `json:"voltage"`
+		} `json:"battery"`
+	} `json:"stn"`
+	//VoltageFound is added after by picking wherever we find voltage as it may be in two places
+	VoltageFound float64
 }
 
 func ExecuteRequest(method, path string, reqVal, respVal any) (err error) {

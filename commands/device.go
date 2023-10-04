@@ -172,6 +172,12 @@ func GetPowerStatus(unitID uuid.UUID) (responseObject api.PowerStatusResponse, e
 		return
 	}
 
+	// check both stn and spm for voltage, return the one that has it, new property for voltagefound
+	if resp.Stn.Battery.Voltage > 0 {
+		resp.VoltageFound = resp.Stn.Battery.Voltage
+	} else {
+		resp.VoltageFound = resp.Spm.Battery.Voltage
+	}
 	responseObject = resp
 	return
 }

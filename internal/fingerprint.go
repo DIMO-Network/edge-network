@@ -110,7 +110,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		Protocol: vinResp.Protocol,
 	}
 	data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
-	data.BatteryVoltage = status.Spm.Battery.Voltage
+	data.BatteryVoltage = status.Stn.Battery.Voltage
 
 	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {
@@ -129,7 +129,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 // isOkToScan checks if the power status and other heuristics to determine if ok to start Open CAN scanning and PID requests. Blocking.
 func (ls *fingerprintRunner) isOkToScan() (result bool, status api.PowerStatusResponse, err error) {
 	const maxTries = 100
-	const voltageMin = 13.2
+	const voltageMin = 13.2 // todo this should come from device config but have defaults
 	tries := 0
 	status, httpError := commands.GetPowerStatus(ls.unitID)
 	for httpError != nil {
@@ -141,18 +141,19 @@ func (ls *fingerprintRunner) isOkToScan() (result bool, status api.PowerStatusRe
 		time.Sleep(2 * time.Second)
 	}
 
-	ls.logger.Info().Msgf("loggers: Last Start Reason: %s. Voltage: %f", status.Spm.LastTrigger.Up, status.Spm.Battery.Voltage)
+	ls.logger.Info().Msgf("loggers: Last Start Reason: %s - Voltage: %f", status.Spm.LastTrigger.Up, status.VoltageFound)
 	if status.Spm.LastTrigger.Up == "volt_change" || status.Spm.LastTrigger.Up == "volt_level" || status.Spm.LastTrigger.Up == "stn" || status.Spm.LastTrigger.Up == "spm" {
-		if status.Spm.Battery.Voltage >= voltageMin {
+		if status.VoltageFound >= voltageMin {
 			// good to start scanning
 			result = true
 			return
 		}
 		// loop a few more times
 		tries = 0
-		for status.Spm.Battery.Voltage < voltageMin {
+		for status.VoltageFound < voltageMin {
 			if tries > maxTries {
-				err = fmt.Errorf("loggers: did not reach a satisfactory voltage to start loggers: %f", status.Spm.Battery.Voltage)
+				err = fmt.Errorf("loggers: did not reach a satisfactory voltage to start loggers: %f", status.Stn.Battery.Voltage)
+				ls.logger.Err(err).Send()
 				break
 			}
 			status, httpError = commands.GetPowerStatus(ls.unitID)
@@ -163,7 +164,9 @@ func (ls *fingerprintRunner) isOkToScan() (result bool, status api.PowerStatusRe
 			err = httpError
 		}
 	} else {
-		return false, status, fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger: %s", status.Spm.LastTrigger.Up)
+		return false, status,
+			fmt.Errorf("loggers: Spm.LastTrigger.Up value not expected so not starting logger: %s - Voltage: %f - required Voltage: %f",
+				status.Spm.LastTrigger.Up, status.VoltageFound, voltageMin)
 	}
 	// this may be an initial pair or something else so we don't wanna start loggers, just exit
 	result = false
