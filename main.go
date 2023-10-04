@@ -223,6 +223,7 @@ func main() {
 
 	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
 
+	logger.Debug().Msg("debug message before starting worker run")
 	// Execute Worker in background.
 	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, vehicleTemplates)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
