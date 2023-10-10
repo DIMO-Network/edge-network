@@ -14,7 +14,6 @@ import (
 
 type canDumpCmd struct {
 	unitID     uuid.UUID
-	send       bool
 	save       bool
 	cycleCount int
 	chunkSize  int
