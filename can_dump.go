@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+// - To scan can bus and save local copy on autopi:
+// ./edge-network candump -cycles <cycle_count>  -save
+
+// - To scan can bus and send chunked dump to mqtt:
+// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>]
+
+// - To scan can bus and send chunked dump to mqtt AND save local copies on autopi:
+// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>] -save
+
 type canDumpCmd struct {
 	unitID     uuid.UUID
 	save       bool
@@ -28,7 +37,6 @@ func (*canDumpCmd) Usage() string {
 }
 
 func (p *canDumpCmd) SetFlags(f *flag.FlagSet) {
-	//f.BoolVar(&p.send, "send", false, "send result over mqtt to the s3 bucket")
 	f.BoolVar(&p.save, "save", false, "save result to local file")
 	f.IntVar(&p.cycleCount, "cycles", 100, "the qty of cycles to record in can dump, default=100")
 	f.IntVar(&p.chunkSize, "send", 0, "send result over mqtt to the s3 bucket using <chunk_size>")

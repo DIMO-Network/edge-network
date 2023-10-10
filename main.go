@@ -111,19 +111,6 @@ func setupBluez(name string) error {
 }
 
 func main() {
-
-	name, unitID = commands.GetDeviceName()
-	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
-
-	// - To scan can bus and save local copy on autopi:
-	// ./edge-network candump -cycles <cycle_count>  -save
-
-	// - To scan can bus and send chunked dump to mqtt:
-	// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>]
-
-	// - To scan can bus and send chunked dump to mqtt AND save local copies on autopi:
-	// ./edge-network candump -cycles <cycle_count> [-send <chunk_size>] -save
-
 	if len(os.Args) > 1 {
 		// this is necessary for the salt stack to correctly update and download the edge-network binaries. See README
 		s := os.Args[1]
@@ -132,8 +119,10 @@ func main() {
 			os.Exit(0)
 		}
 	}
+
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
+	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
