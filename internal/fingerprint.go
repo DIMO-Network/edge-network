@@ -27,12 +27,12 @@ type fingerprintRunner struct {
 	vinLog                   loggers.VINLogger
 	pidLog                   loggers.PIDLogger
 	dataSender               network.DataSender
-	loggerSettingsSvc        loggers.LoggerSettingsService
+	loggerSettingsSvc        loggers.TemplateStore
 	vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService
 	logger                   zerolog.Logger
 }
 
-func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.LoggerSettingsService, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.TemplateStore, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
 	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc, logger: logger}
 }
 
@@ -42,7 +42,7 @@ const maxFailureAttempts = 5
 // Runs only once when successful.  Checks for saved VIN query from previous run.
 func (ls *fingerprintRunner) Fingerprint() error {
 	// check if ok to start making obd calls etc
-	ls.logger.Info().Msg("loggers: starting - checking if can start scanning")
+	ls.logger.Info().Msg("fingerprint starting, checking if can start scanning")
 	ok, status, err := ls.isOkToScan()
 	if err != nil {
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "checks to start loggers failed"), &status)

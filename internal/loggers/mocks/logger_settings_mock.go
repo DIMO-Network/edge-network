@@ -11,7 +11,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockLoggerSettingsService is a mock of LoggerSettingsService interface.
+// MockLoggerSettingsService is a mock of TemplateStore interface.
 type MockLoggerSettingsService struct {
 	ctrl     *gomock.Controller
 	recorder *MockLoggerSettingsServiceMockRecorder

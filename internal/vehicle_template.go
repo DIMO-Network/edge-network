@@ -4,6 +4,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -14,10 +15,10 @@ type VehicleTemplates interface {
 type vehicleTemplates struct {
 	logger zerolog.Logger
 	vsd    gateways.VehicleSignalDecodingAPIService
-	lss    loggers.LoggerSettingsService
+	lss    loggers.TemplateStore
 }
 
-func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodingAPIService, lss loggers.LoggerSettingsService) VehicleTemplates {
+func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodingAPIService, lss loggers.TemplateStore) VehicleTemplates {
 	return &vehicleTemplates{logger: logger, vsd: vsd, lss: lss}
 }
 
@@ -84,4 +85,40 @@ func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address
 	}
 
 	return config, nil
+}
+
+// GetTemplateURLsByEth calls gateway to get template url's by eth, with retries. persists to tmp folder by calling logger settings svc if different.
+// gets and persists the device settings, pids, and dbc file only if version is different
+func (vt *vehicleTemplates) GetTemplateURLsByEth(addr *common.Address) (*loggers.PIDLoggerSettings, error) {
+	// todo: need to change the local and external read objects to match better, they should all be saved in different files in tmp
+	outdated := false
+	localConfig, readLocalErr := vt.lss.ReadPIDsConfig()
+	if readLocalErr != nil {
+		outdated = true
+	}
+	configURLs, err := vt.vsd.GetUrlsByEthAddr(addr)
+	// todo retries - abstract into gateway, maybe pass in number of retries
+	if err != nil {
+		// return whatever we had saved locally.
+		return localConfig, errors.Wrap(err, "unable to get template url's by eth addr")
+	}
+	if !outdated && localConfig.Version != configURLs.Version {
+		// todo, lss. write template urls
+
+		outdated = true
+	}
+	if !outdated {
+		return localConfig, nil
+	}
+	pidsConfig, err := vt.vsd.GetPIDs(configURLs.PidURL)
+	if err != nil {
+		return localConfig, err
+	}
+	// todo get device settings, dbc
+	writeErr := vt.lss.WritePIDsConfig(pidsConfig) // need to use same types on both ends
+	if writeErr != nil {
+		vt.logger.Err(writeErr).Send()
+	}
+	return pidsConfig, nil
+
 }

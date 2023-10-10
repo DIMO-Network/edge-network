@@ -184,7 +184,7 @@ func main() {
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 
-	lss := loggers.NewLoggerSettingsService()
+	lss := loggers.NewTemplateStore()
 	var qs queue.StorageQueue
 	useMemoryQueue := true
 
@@ -197,13 +197,6 @@ func main() {
 	vinLogger := loggers.NewVINLogger(logger)
 	pidLogger := loggers.NewPIDLogger(unitID, qs, logger)
 	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
-
-	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
-	// fingerprint logger, runs once on start, sends VIN & protocol
-	err = fingerprintRunner.Fingerprint() // this is blocking, should it be after bluetooth setup? or run in a go func
-	if err != nil {
-		logger.Err(err).Msg("failed to start fingerprint logger.")
-	}
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingService, lss)
 
 	// if hw revision is anything other than 5.2, setup BLE
@@ -217,11 +210,25 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
+	// todo get setting url's by eth addr here. What happens if nothing returns? We need the vin to try by VIN, so push back to later
+	// Get the URL's and the device settings first (assuming we get url's back)
+	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
+	// todo pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
+	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
+	// fingerprint logger, runs once on start, sends VIN & protocol
+	err = fingerprintRunner.Fingerprint() // this is blocking, should be after BLE setup
+	// todo - bug - this is eternally blocking b/c of the isOkToScan function, something is getting blocked there.
+	if err != nil {
+		logger.Err(err).Msg("failed to start fingerprint logger.")
+	}
+	// todo if no URL's now get url's by VIN, also get device settings.
+
+	// todo get pid configs and dbc file
+	// todo start runner with passed in config objects
+	// todo future - what about non-obd loggers (eg. location) - these could start with the runner or even earlier on. for v1 just have start as part of runner
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
-
-	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
 
 	logger.Debug().Msg("debug message before starting worker run")
 	// Execute Worker in background.
@@ -232,7 +239,7 @@ func main() {
 	logger.Info().Msgf("Terminating from signal: %s", sig)
 }
 
-func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.LoggerSettingsService) (*service.App, context.CancelFunc, context.CancelFunc) {
+func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.TemplateStore) (*service.App, context.CancelFunc, context.CancelFunc) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
@@ -620,7 +627,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
 		// we want to do this each time in case the device is being paired to a different vehicle
-		err = lss.WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName})
+		err = lss.WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
 		if err != nil {
 			logger.Err(err).Msgf("failed to save vin query name in settings: %s", err)
 		}

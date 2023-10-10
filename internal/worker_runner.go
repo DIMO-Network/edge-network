@@ -16,7 +16,7 @@ type WorkerRunner interface {
 
 type workerRunner struct {
 	unitID            uuid.UUID
-	loggerSettingsSvc loggers.LoggerSettingsService
+	loggerSettingsSvc loggers.TemplateStore
 	pidLog            loggers.PIDLogger
 	queueSvc          queue.StorageQueue
 	dataSender        network.DataSender
@@ -25,7 +25,7 @@ type workerRunner struct {
 	ethAddr           *common.Address
 }
 
-func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.LoggerSettingsService, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
+func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
 }
 
