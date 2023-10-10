@@ -14,7 +14,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	_ "github.com/golang/mock/mockgen/model"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -22,9 +21,6 @@ import (
 )
 
 // thought: should we have another topic for errors? ie. signals we could not get
-//const topic = "fingerprint"
-
-//canbus/dump
 
 const broker = "tcp://localhost:1883"
 
@@ -193,15 +189,6 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 }
 
 func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) CloudEventHeaders {
-	/*ce := CloudEventHeaders{
-		ID:          ksuid.New().String(),
-		Source:      "aftermarket/device/fingerprint",
-		SpecVersion: "1.0",
-		Subject:     ethAddress.Hex(),
-		Time:        time.Now().UTC(),
-		Type:        "zone.dimo.aftermarket.device.fingerprint",
-	}*/
-
 	ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      source,
@@ -244,7 +231,7 @@ type FingerprintData struct {
 
 type CanDumpData struct {
 	CommonData
-	Payload string `json:"dataBase64,omitempty"`
+	Payload string `json:"payloadBase64,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {

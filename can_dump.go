@@ -52,7 +52,6 @@ func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	if p.chunkSize > p.cycleCount {
 		println("chunkSize cannot be greater than cycleCount")
 		log.Errorf("chunkSize cannot be greater than cycleCount")
-		//println(chunkSizeErr.Error())
 		return subcommands.ExitFailure
 	}
 

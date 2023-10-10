@@ -183,12 +183,6 @@ func main() {
 
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
-	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
-	err = loggerSvc.StartLoggers()
-	if err != nil {
-		log.Printf("failed to start loggers: %s \n", err.Error())
-	}
-
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
 		err = setupBluez(name)
@@ -198,6 +192,12 @@ func main() {
 		app, cancel := setupBluetoothApplication(coldBoot, vinLogger, lss)
 		defer app.Close()
 		defer cancel()
+	}
+
+	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
+	err = loggerSvc.StartLoggers()
+	if err != nil {
+		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
 	sigChan := make(chan os.Signal, 1)

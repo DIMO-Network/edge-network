@@ -25,7 +25,7 @@ type ParsedCanFrame struct {
 }
 
 type MqttCandumpMessage struct {
-	UnitId           string           `json:"unitId,omitempty"`
+	UnitID           string           `json:"unitId,omitempty"`
 	EthAddress       string           `json:"ethAddress,omitempty"`
 	TimeStamp        string           `json:"timeStamp,omitempty"`
 	Page             int              `json:"page,omitempty"`
@@ -35,20 +35,20 @@ type MqttCandumpMessage struct {
 }
 
 type PassiveCanDumper struct {
-	//CapturedFrames       []can.Frame
-	//capturedFrameStrings []string
 	DetailedCanFrames []ParsedCanFrame
 }
 
+const canDumpTopic = "protocol/canbus/dump"
+
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
-//and also writes to local files. Can frames from memory will be automatically paginated into appropriate
-//qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
+// and also writes to local files. Can frames from memory will be automatically paginated into appropriate
+// qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
 func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
-	unitId := UnitID.String()
+	unitID := UnitID.String()
 	ethAddr := EthAddr.String()
 
 	message := MqttCandumpMessage{
-		UnitId:     unitId,
+		UnitID:     unitID,
 		EthAddress: ethAddr,
 		TimeStamp:  timeStamp,
 	}
@@ -77,14 +77,14 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 
 		if writeToLocalFiles {
 			println(timeStamp + "_page_" + strconv.Itoa(message.Page))
-			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 666)
+			fileErr := os.WriteFile(timeStamp+"_page_"+strconv.Itoa(message.Page), payload, 0666)
 			if fileErr != nil {
 				println(fileErr.Error())
 				return fileErr
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, "protocol/canbus/dump")
+		ds := network.NewDataSender(UnitID, EthAddr, canDumpTopic)
 		sendErr := ds.SendCanDumpData(network.CanDumpData{
 			CommonData: network.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),
@@ -96,11 +96,6 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 			println("error sending")
 			return sendErr
 		}
-		/*
-			cmd := exec.Command("mosquitto_pub", "-h", hostname, "-t", topic, "-m", base64.StdEncoding.EncodeToString(buf.Bytes()))
-			cmdout, _ := cmd.Output()
-			println(string(cmdout))
-		*/
 
 		message.Page++
 	}
@@ -114,7 +109,7 @@ func (a *PassiveCanDumper) WriteToFile(filename string) error {
 	}
 	outFile, _ := json.Marshal(a.DetailedCanFrames)
 	//print(string(outFile))
-	err := os.WriteFile(filename, outFile, 666)
+	err := os.WriteFile(filename, outFile, 0666)
 	if err != nil {
 		println("error writing to file: ", err)
 		return err
@@ -141,7 +136,7 @@ func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 	var loopNumber = 0
 	a.DetailedCanFrames = *new([]ParsedCanFrame)
 	//a.CapturedFrames = make([]can.Frame, 0)
-	for true {
+	for {
 		//for recv.Receive() {
 		loopNumber++
 		//frame := recv.Frame()
@@ -165,6 +160,7 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
 	d, _ := candevice.New("can0")
 	_ = d.SetBitrate(uint32(bitrate))
 	_ = d.SetUp()
+	// nolint
 	defer d.SetDown()
 
 	conn, err := socketcan.DialContext(context.Background(), "can", "can0")
@@ -194,7 +190,6 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
 
 func getValuesFromCanFrame(frame can.Frame) (frameInt int, frameHex string, data string) {
 	fullStr := frame.String()
-	//fullStr := "215#2710271027102710"
 	i := 0
 	for i < len(fullStr) {
 		if fullStr[i] == '#' {
@@ -204,7 +199,6 @@ func getValuesFromCanFrame(frame can.Frame) (frameInt int, frameHex string, data
 	}
 	frameHex = fullStr[0:i]
 	data = fullStr[i+1:]
-	//IntVal, _ := strconv.ParseInt(frameHex, 16, 32)
 	IntVal := frame.ID
 	return int(IntVal), frameHex, data
 }
