@@ -74,6 +74,8 @@ var name string
 
 var btManager btmgmt.BtMgmt
 
+const fingerprintTopic = "fingerprint"
+
 func setupBluez(name string) error {
 	btManager = *hw.NewBtMgmt(adapterID)
 
@@ -121,8 +123,10 @@ func main() {
 			os.Exit(0)
 		}
 	}
+
 	name, unitID = commands.GetDeviceName()
 	log.Printf("SerialNumber Number: %s", unitID)
+	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
@@ -130,6 +134,7 @@ func main() {
 
 	subcommands.Register(&scanVINCmd{unitID: unitID}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{}, "info")
+	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
 
 	if len(os.Args) > 1 {
 		ctx := context.Background()
@@ -154,8 +159,6 @@ func main() {
 	}
 	log.Printf("hardware version found: %s", hwRevision)
 
-	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
-
 	if ethAddr == nil {
 		if ethErr != nil {
 			log.Printf("eth addr error: %s", ethErr.Error())
@@ -163,19 +166,14 @@ func main() {
 		log.Fatalf("could not get ethereum address")
 	}
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr)
+	ds := network.NewDataSender(unitID, *ethAddr, fingerprintTopic)
 	if ethErr != nil {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
+
 	vinLogger := loggers.NewVINLogger()
 	lss := loggers.NewLoggerSettingsService()
-	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
-	err = loggerSvc.StartLoggers()
-	if err != nil {
-		log.Printf("failed to start loggers: %s \n", err.Error())
-	}
-
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
 		err = setupBluez(name)
@@ -186,6 +184,12 @@ func main() {
 		defer app.Close()
 		defer cancel()
 		defer obCancel()
+	}
+
+	loggerSvc := internal.NewLoggerService(unitID, vinLogger, ds, lss)
+	err = loggerSvc.StartLoggers()
+	if err != nil {
+		log.Printf("failed to start loggers: %s \n", err.Error())
 	}
 
 	sigChan := make(chan os.Signal, 1)

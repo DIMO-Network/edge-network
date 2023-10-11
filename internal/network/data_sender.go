@@ -21,7 +21,7 @@ import (
 )
 
 // thought: should we have another topic for errors? ie. signals we could not get
-const topic = "fingerprint"
+
 const broker = "tcp://localhost:1883"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
@@ -29,16 +29,18 @@ type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
 	SendErrorsData(data ErrorsData) error
 	SendFingerprintData(data FingerprintData) error
+	SendCanDumpData(data CanDumpData) error
 }
 
 type dataSender struct {
 	client  mqtt.Client
 	unitID  uuid.UUID
 	ethAddr common.Address
+	topic   string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, topic string) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -47,6 +49,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address) DataSender {
 		client:  client,
 		unitID:  unitID,
 		ethAddr: addr,
+		topic:   topic,
 	}
 }
 
@@ -54,7 +57,7 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr)
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
 	ce := DeviceFingerprintCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -71,11 +74,34 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	return nil
 }
 
+func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
+	ce := CanDumpCloudEvent{
+		CloudEventHeaders: ceh,
+		Data:              data,
+	}
+	println("Sending can dump data: (payload)")
+	payload, err := json.Marshal(ce)
+	println(payload)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshall cloudevent")
+	}
+
+	err = ds.sendPayload(payload)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr)
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
 	ce := DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -121,7 +147,7 @@ func (ds *dataSender) sendPayload(payload []byte) error {
 		return err
 	}
 	// Publish the MQTT message
-	token := ds.client.Publish(topic, 0, false, string(payload))
+	token := ds.client.Publish(ds.topic, 0, false, string(payload))
 	token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published
@@ -162,14 +188,14 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendErrorsData(data)
 }
 
-func newCloudEventHeaders(ethAddress common.Address) CloudEventHeaders {
+func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) CloudEventHeaders {
 	ce := CloudEventHeaders{
 		ID:          ksuid.New().String(),
-		Source:      "aftermarket/device/fingerprint",
-		SpecVersion: "1.0",
+		Source:      source,
+		SpecVersion: specVersion,
 		Subject:     ethAddress.Hex(),
 		Time:        time.Now().UTC(),
-		Type:        "zone.dimo.aftermarket.device.fingerprint",
+		Type:        eventType,
 	}
 	return ce
 }
@@ -186,6 +212,11 @@ type CloudEventHeaders struct {
 	Signature string `json:"signature"`
 }
 
+type CanDumpCloudEvent struct {
+	CloudEventHeaders
+	Data CanDumpData `json:"data"`
+}
+
 type DeviceFingerprintCloudEvent struct {
 	CloudEventHeaders
 	Data FingerprintData `json:"data"`
@@ -196,6 +227,11 @@ type FingerprintData struct {
 	Vin      string  `json:"vin"`
 	Protocol string  `json:"protocol"`
 	Odometer float64 `json:"odometer,omitempty"`
+}
+
+type CanDumpData struct {
+	CommonData
+	Payload string `json:"payloadBase64,omitempty"`
 }
 
 type DeviceErrorsCloudEvent struct {
