@@ -72,6 +72,8 @@ var name string
 
 var btManager btmgmt.BtMgmt
 
+const fingerprintTopic = "fingerprint"
+
 func setupBluez(name string) error {
 	btManager = *hw.NewBtMgmt(adapterID)
 
@@ -164,7 +166,7 @@ func main() {
 		log.Fatalf("could not get ethereum address")
 	}
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, "fingerprint")
+	ds := network.NewDataSender(unitID, *ethAddr, fingerprintTopic)
 	if ethErr != nil {
 		log.Printf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
