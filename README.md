@@ -27,7 +27,10 @@ For newer devices [7.0 and newer] password should be the first 13 digits INCLUDI
 To get a CAN dump after getting into the autipi network, run the following command to get a CAN dump from your car:
 
 ```
-./edge-network - candump [cycles] [bitrate]
+./edge-network - candump [-cycles <qty>] [-send <chunk_size>]
+e.g.
+cmd.run "edge-network candump -cycles 1000 -send 100"
+....would capture 1000 frames and send them in 100 frame chunks
 
 ```
 This should create a file called testcandump.txt. Permissions may need to be altered if the file should be viewed. To do this, run the following command:
