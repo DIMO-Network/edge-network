@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	VINLoggerFile = "/tmp/vin-settings.json"
-	PIDConfigFile = "/tmp/logger-pid-settings.json"
-	TmpDirectory  = "/tmp/"
+	VINLoggerFile      = "/tmp/vin-settings.json"
+	PIDConfigFile      = "/tmp/logger-pid-settings.json"
+	TemplateURLsFile   = "/tmp/template-urls.json"
+	DeviceSettingsFile = "/tmp/device-settings.json"
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go
@@ -35,7 +36,7 @@ type templateStore struct {
 }
 
 func (ts *templateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
-	data, err := ts.readConfig(constants.PIDConfigFile)
+	data, err := ts.readConfig(TemplateURLsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
@@ -50,7 +51,7 @@ func (ts *templateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
 }
 
 func (ts *templateStore) WriteTemplateURLs(settings models.TemplateURLs) error {
-	err := ts.writeConfig(constants.PIDConfigFile, settings)
+	err := ts.writeConfig(TemplateURLsFile, settings)
 	if err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func (ts *templateStore) WriteTemplateURLs(settings models.TemplateURLs) error {
 }
 
 func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error) {
-	data, err := ts.readConfig(constants.PIDConfigFile)
+	data, err := ts.readConfig(DeviceSettingsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
@@ -74,7 +75,7 @@ func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSet
 }
 
 func (ts *templateStore) WriteTemplateDeviceSettings(settings models.TemplateDeviceSettings) error {
-	err := ts.writeConfig(constants.PIDConfigFile, settings)
+	err := ts.writeConfig(DeviceSettingsFile, settings)
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,7 @@ func NewTemplateStore() TemplateStore {
 }
 
 func (ts *templateStore) ReadVINConfig() (*models.VINLoggerSettings, error) {
-	data, err := ts.readConfig(constants.VINLoggerFile)
+	data, err := ts.readConfig(VINLoggerFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
@@ -102,7 +103,7 @@ func (ts *templateStore) ReadVINConfig() (*models.VINLoggerSettings, error) {
 }
 
 func (ts *templateStore) WriteVINConfig(settings models.VINLoggerSettings) error {
-	err := ts.writeConfig(constants.VINLoggerFile, settings)
+	err := ts.writeConfig(VINLoggerFile, settings)
 	if err != nil {
 		return err
 	}
@@ -111,7 +112,7 @@ func (ts *templateStore) WriteVINConfig(settings models.VINLoggerSettings) error
 }
 
 func (ts *templateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
-	data, err := ts.readConfig(constants.PIDConfigFile)
+	data, err := ts.readConfig(PIDConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
@@ -126,7 +127,7 @@ func (ts *templateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 }
 
 func (ts *templateStore) WritePIDsConfig(settings models.TemplatePIDs) error {
-	err := ts.writeConfig(constants.PIDConfigFile, settings)
+	err := ts.writeConfig(PIDConfigFile, settings)
 	if err != nil {
 		return err
 	}

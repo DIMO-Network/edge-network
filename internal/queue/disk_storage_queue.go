@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/internal/constants"
 	"github.com/google/uuid"
 )
+
+const tmpDirectory = "/tmp/"
 
 type diskStorageQueue struct {
 	mu     sync.Mutex
@@ -24,7 +25,7 @@ func NewDiskStorageQueue(unitID uuid.UUID) StorageQueue {
 }
 
 func (s *diskStorageQueue) Dequeue() ([]Message, error) {
-	files, err := os.ReadDir(constants.TmpDirectory)
+	files, err := os.ReadDir(tmpDirectory)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +35,7 @@ func (s *diskStorageQueue) Dequeue() ([]Message, error) {
 		var enqueueFiles []os.FileInfo
 		for _, file := range files {
 			if strings.HasPrefix(file.Name(), messagePrefix) {
-				file, _ := os.Stat(filepath.Join(constants.TmpDirectory, file.Name()))
+				file, _ := os.Stat(filepath.Join(tmpDirectory, file.Name()))
 				enqueueFiles = append(enqueueFiles, file)
 			}
 		}
@@ -46,7 +47,7 @@ func (s *diskStorageQueue) Dequeue() ([]Message, error) {
 		top := 10
 		for i := 0; i < top && i < len(enqueueFiles); i++ {
 			file := enqueueFiles[i]
-			filePath := filepath.Join(constants.TmpDirectory, file.Name())
+			filePath := filepath.Join(tmpDirectory, file.Name())
 			data, err := os.ReadFile(filePath)
 			if err != nil {
 				return nil, err
@@ -86,7 +87,7 @@ func (s *diskStorageQueue) Enqueue(message string) error {
 	}
 
 	fileName := currentTime.Format("2006-01-02_15-04-05.json")
-	filePath := filepath.Join(constants.TmpDirectory, messagePrefix+fileName)
+	filePath := filepath.Join(tmpDirectory, messagePrefix+fileName)
 
 	// Open the file for writing (create if it doesn't exist)
 	file, err := os.Create(filePath)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/pkg/errors"
 	"math"
 	"os"
@@ -627,7 +628,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
 		// we want to do this each time in case the device is being paired to a different vehicle
-		err = lss.WriteVINConfig(loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
+		err = lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
 		if err != nil {
 			logger.Err(err).Msgf("failed to save vin query name in settings: %s", err)
 		}
