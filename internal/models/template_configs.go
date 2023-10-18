@@ -18,7 +18,6 @@ type TemplatePIDs struct {
 		Name            string `json:"name"`
 		Pid             int    `json:"pid"`
 		Protocol        string `json:"protocol"`
-		Version         string `json:"version"`
 	} `json:"requests"`
 	TemplateName string `json:"template_name"`
 	Version      string `json:"version"`
@@ -28,10 +27,10 @@ type TemplatePIDs struct {
 type TemplateDeviceSettings struct {
 	BatteryCriticalLevelVoltage            string `json:"battery_critical_level_voltage"`
 	SafetyCutOutVoltage                    string `json:"safety_cut_out_voltage"`
-	SleepTimerEventDrivenInterval          string `json:"sleep_timer_event_driven_interval"`
-	SleepTimerEventDrivenPeriod            string `json:"sleep_timer_event_driven_period"`
-	SleepTimerInactivityAfterSleepInterval string `json:"sleep_timer_inactivity_after_sleep_interval"`
-	SleepTimerInactivityFallbackInterval   string `json:"sleep_timer_inactivity_fallback_interval"`
+	SleepTimerEventDrivenInterval          string `json:"sleep_timer_event_driven_interval_secs"`
+	SleepTimerEventDrivenPeriod            string `json:"sleep_timer_event_driven_period_secs"`
+	SleepTimerInactivityAfterSleepInterval string `json:"sleep_timer_inactivity_after_sleep_interval_secs"`
+	SleepTimerInactivityFallbackInterval   string `json:"sleep_timer_inactivity_fallback_interval_secs"`
 	TemplateName                           string `json:"template_name"`
 	WakeTriggerVoltageLevel                string `json:"wake_trigger_voltage_level"`
 }
