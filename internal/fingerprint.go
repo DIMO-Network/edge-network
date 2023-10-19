@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -27,13 +28,13 @@ type fingerprintRunner struct {
 	vinLog                   loggers.VINLogger
 	pidLog                   loggers.PIDLogger
 	dataSender               network.DataSender
-	loggerSettingsSvc        loggers.TemplateStore
+	templateStore            loggers.TemplateStore
 	vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService
 	logger                   zerolog.Logger
 }
 
-func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, loggerSettingsSvc loggers.TemplateStore, vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
-	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, loggerSettingsSvc: loggerSettingsSvc, vehicleSignalDecodingSvc: vehicleSignalDecodingSvc, logger: logger}
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, decodingAPISvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
+	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, templateStore: templateStore, vehicleSignalDecodingSvc: decodingAPISvc, logger: logger}
 }
 
 const maxFailureAttempts = 5
@@ -55,7 +56,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 	}
 	ls.logger.Info().Msg("loggers: checks passed to start scanning")
 	// read any existing settings
-	config, err := ls.loggerSettingsSvc.ReadVINConfig()
+	config, err := ls.templateStore.ReadVINConfig()
 	if err != nil {
 		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
 	}
@@ -82,13 +83,13 @@ func (ls *fingerprintRunner) Fingerprint() error {
 	vinResp, err := vinLogger.ScanFunc(ls.unitID, vqn)
 	if err != nil {
 		if config == nil {
-			config = &loggers.VINLoggerSettings{}
+			config = &models.VINLoggerSettings{}
 		}
 		ls.logger.Err(err).Msgf("failed to scan for vin. fail count: %d", config.VINLoggerFailedAttempts)
 		// update local settings to increment fail count
 		config.VINLoggerVersion = loggers.VINLoggerVersion
 		config.VINLoggerFailedAttempts++
-		writeErr := ls.loggerSettingsSvc.WriteVINConfig(*config)
+		writeErr := ls.templateStore.WriteVINConfig(*config)
 		if writeErr != nil {
 			ls.logger.Err(writeErr).Send()
 		}
@@ -97,8 +98,8 @@ func (ls *fingerprintRunner) Fingerprint() error {
 	}
 	// save vin query name in settings if not set
 	if config == nil || config.VINQueryName == "" {
-		config = &loggers.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
-		err := ls.loggerSettingsSvc.WriteVINConfig(*config)
+		config = &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
+		err := ls.templateStore.WriteVINConfig(*config)
 		if err != nil {
 			ls.logger.Err(err).Send()
 			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &status)

@@ -3,9 +3,10 @@ package loggers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
 	"os"
 	"sync"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
 )
 
 const (

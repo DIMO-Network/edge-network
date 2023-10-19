@@ -3,13 +3,14 @@ package internal
 import (
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
 type VehicleTemplates interface {
-	GetTemplateSettings(vin string, addr *common.Address) (*loggers.PIDLoggerSettings, error)
+	GetTemplateSettings(vin string, addr *common.Address) (*models.TemplatePIDs, error)
 }
 
 type vehicleTemplates struct {
@@ -24,7 +25,7 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Can error if can't communicate over http to dimo api. todo: return dbc and device-settings too.
-func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address) (*loggers.PIDLoggerSettings, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address) (*models.TemplatePIDs, error) {
 	// read any existing settings
 	config, err := vt.lss.ReadPIDsConfig()
 	if err != nil {
@@ -50,7 +51,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address
 		return nil, err
 	}
 	// if no change, just return what we have
-	if configURLs != nil && config != nil && configURLs.Version == config.Version && configURLs.PidURL == config.PidURL {
+	if configURLs != nil && config != nil && configURLs.Version == config.Version {
 		vt.logger.Info().Msgf("vehicle template configuration has not changed, keeping current. version %s", config.Version)
 		return config, nil
 	}
@@ -64,17 +65,17 @@ func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address
 		return nil, err
 	}
 	// copy over the response object to the configuration object // possible optimization here to just use same object
-	config = &loggers.PIDLoggerSettings{}
+	config = &models.TemplatePIDs{}
 	if len(pids.Requests) > 0 {
 		for _, item := range pids.Requests {
-			config.PIDs = append(config.PIDs, loggers.PIDLoggerItemSettings{
-				Formula:  item.Formula,
-				Protocol: item.Protocol,
-				PID:      item.Pid,
-				Mode:     item.Mode,
-				Header:   item.Header,
-				Interval: item.IntervalSeconds,
-				Name:     item.Name,
+			config.Requests = append(config.Requests, models.PIDRequest{
+				Formula:         item.Formula,
+				Protocol:        item.Protocol,
+				Pid:             item.Pid,
+				Mode:            item.Mode,
+				Header:          item.Header,
+				IntervalSeconds: item.IntervalSeconds,
+				Name:            item.Name,
 			})
 		}
 	}
@@ -89,7 +90,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address
 
 // GetTemplateURLsByEth calls gateway to get template url's by eth, with retries. persists to tmp folder by calling logger settings svc if different.
 // gets and persists the device settings, pids, and dbc file only if version is different
-func (vt *vehicleTemplates) GetTemplateURLsByEth(addr *common.Address) (*loggers.PIDLoggerSettings, error) {
+func (vt *vehicleTemplates) GetTemplateURLsByEth(addr *common.Address) (*models.TemplatePIDs, error) {
 	// todo: need to change the local and external read objects to match better, they should all be saved in different files in tmp
 	outdated := false
 	localConfig, readLocalErr := vt.lss.ReadPIDsConfig()
@@ -110,6 +111,7 @@ func (vt *vehicleTemplates) GetTemplateURLsByEth(addr *common.Address) (*loggers
 	if !outdated {
 		return localConfig, nil
 	}
+	// todo: is GetPIDs using a different object, should it be models.TemplatePIDs?
 	pidsConfig, err := vt.vsd.GetPIDs(configURLs.PidURL)
 	if err != nil {
 		return localConfig, err

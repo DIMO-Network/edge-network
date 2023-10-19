@@ -3,9 +3,10 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"io"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/pkg/errors"
 

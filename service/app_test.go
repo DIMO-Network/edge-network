@@ -1,9 +1,10 @@
 package service
 
 import (
-	"github.com/rs/zerolog"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"github.com/muka/go-bluetooth/api"
 )

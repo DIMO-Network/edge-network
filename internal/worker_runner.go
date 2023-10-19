@@ -2,6 +2,7 @@ package internal
 
 import (
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/ethereum/go-ethereum/common"
@@ -102,18 +103,19 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 	return tasks
 }
 
-func (wr *workerRunner) registerPIDsTasks(pidsConfig loggers.PIDLoggerSettings) []WorkerTask {
+func (wr *workerRunner) registerPIDsTasks(pidsConfig models.TemplatePIDs) []WorkerTask {
 
-	if len(pidsConfig.PIDs) > 0 {
-		tasks := make([]WorkerTask, len(pidsConfig.PIDs))
+	if len(pidsConfig.Requests) > 0 {
+		tasks := make([]WorkerTask, len(pidsConfig.Requests))
 
-		for i, task := range pidsConfig.PIDs {
+		for i, task := range pidsConfig.Requests {
 			tasks[i] = WorkerTask{
 				Name:     task.Name,
-				Interval: task.Interval,
-				Once:     task.Interval == 0,
+				Interval: task.IntervalSeconds,
+				Once:     task.IntervalSeconds == 0,
 				Params:   task,
 				Func: func(wCtx WorkerTaskContext) {
+					// todo where does this come from?
 					err := wr.pidLog.ExecutePID(wCtx.Params.Header,
 						wCtx.Params.Mode,
 						wCtx.Params.PID,

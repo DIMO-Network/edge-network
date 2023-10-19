@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+
 	"github.com/godbus/dbus/v5"
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez"

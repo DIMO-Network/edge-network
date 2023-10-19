@@ -10,17 +10,19 @@ type TemplateURLs struct {
 
 // TemplatePIDs holds the pid requests we want to make to the vehicle
 type TemplatePIDs struct {
-	Requests []struct {
-		Formula         string `json:"formula"`
-		Header          int    `json:"header"`
-		IntervalSeconds int    `json:"interval_seconds"`
-		Mode            int    `json:"mode"`
-		Name            string `json:"name"`
-		Pid             int    `json:"pid"`
-		Protocol        string `json:"protocol"`
-	} `json:"requests"`
-	TemplateName string `json:"template_name"`
-	Version      string `json:"version"`
+	Requests     []PIDRequest `json:"requests"`
+	TemplateName string       `json:"template_name"`
+	Version      string       `json:"version"`
+}
+
+type PIDRequest struct {
+	Formula         string `json:"formula"`
+	Header          uint32 `json:"header"`
+	IntervalSeconds int    `json:"interval_seconds"`
+	Mode            uint32 `json:"mode"`
+	Name            string `json:"name"`
+	Pid             uint32 `json:"pid"`
+	Protocol        string `json:"protocol"`
 }
 
 // TemplateDeviceSettings contains configurations options around power and other device settings
