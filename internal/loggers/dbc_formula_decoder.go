@@ -24,21 +24,25 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 	}
 	numBytes := lengthBits / 8
 
-	// Find the index of PID in the hex string, strings.Index returns first occurrence
-	pidIndex := strings.Index(hexData, pid)
+	slicedHexData := hexData
+	if len(hexData) > 7 {
+		slicedHexData = hexData[7:]
+	}
+
+	// Find the index of PID in the sliced hex string
+	pidIndex := strings.Index(slicedHexData, pid)
 	if pidIndex == -1 {
 		return 0, "", errors.New("PID not found")
 	}
 
-	// Calculate the start index of the data after the PID
-	dataStartIndex := pidIndex + len(pid)
-
-	if dataStartIndex+numBytes*2 > len(hexData) {
+	// Adjust pidIndex to account for the initially sliced part
+	totalPidIndex := pidIndex + 7
+	if totalPidIndex+numBytes*2 > len(hexData) {
 		return 0, "", errors.New("not enough data")
 	}
 
 	// Extract the relevant portion of the hex data
-	valueHex := hexData[dataStartIndex : dataStartIndex+numBytes*2]
+	valueHex := hexData[totalPidIndex+len(pid) : totalPidIndex+len(pid)+numBytes*2]
 
 	value, err := strconv.ParseUint(valueHex, 16, 64)
 	if err != nil {
@@ -76,9 +80,9 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 }
 
 func main() {
-	hexData := "7e80641a6000e2a2da"
-	pid := "a6"
-	formula := "31|32@0+ (0.1,0) [1|4294967295] \"km\""
+	hexData := "7e803410425cccccccc"
+	pid := "4"
+	formula := "31|8@0+ (0.39216,0) [0|100] \"%\""
 
 	decodedValue, unit, err := ExtractAndDecodeWithFormula(hexData, pid, formula)
 	if err != nil {
