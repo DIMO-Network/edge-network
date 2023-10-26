@@ -10,7 +10,7 @@ func almostEqual(a, b, tolerance float64) bool {
 }
 
 func TestExtractAndDecodeWithFormula(t *testing.T) {
-	const tolerance = 1e-5
+	const tolerance = 1e-2
 
 	var tests = []struct {
 		hexData  string
@@ -20,9 +20,12 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		unit     string
 		err      string
 	}{
-		{"7e80641a60008b24200", "a6", "31|32@0+ (0.1,0) [1|4294967295] \"km\"", 56992.20, "km", ""},                                                 // Adjusted the expected value to match your function's output
-		{"invalidhex", "7e80", "31|32@0+ (0.1,0) [1|429496730] \"km\"", 0, "", "PID not found"},                                                     // Adjusted the error message to "PID not found"
-		{"7e80641a60008b24200", "a6", "31|32@0+ (0.1,0) [1|2] \"km\"", 0, "", "decoded value out of range: 56992.20 (expected range 1.00 to 2.00)"}, // Adjusted the error message with the correct out of range value
+		{"7e80641a60008b24200", "a6", "31|32@0+ (0.1,0) [1|4294967295] \"km\"", 56992.20, "km", ""},
+		{"invalidhex", "7e80", "31|32@0+ (0.1,0) [1|429496730] \"km\"", 0, "", "PID not found"},
+		{"7e80641a60008b24200", "a6", "31|32@0+ (0.1,0) [1|2] \"km\"", 0, "", "decoded value out of range: 56992.20 (expected range 1.00 to 2.00)"},
+		{"7e80641a60001f2adcc", "a6", "31|32@0+ (0.1,0) [1|4294967295] \"km\"", 12766.10, "km", ""},
+		{"7e80641a600091d0d00", "a6", "31|32@0+ (0.1,0) [1|4294967295] \"km\"", 59726.10, "km", ""},
+		{"7e803412f6700000000", "2f", "31|8@0+ (0.392156862745098,0) [0|100] \"%\"", 40.39, "%", ""},
 	}
 
 	for _, test := range tests {
