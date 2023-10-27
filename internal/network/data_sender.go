@@ -169,8 +169,9 @@ func signPayload(payload []byte, unitID uuid.UUID) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign the status update")
 	}
+	signature := "0x" + hex.EncodeToString(sig)
 	// note the path should match the CloudEventHeaders signature name
-	payload, err = sjson.SetBytes(payload, "signature", hex.EncodeToString(sig))
+	payload, err = sjson.SetBytes(payload, "signature", signature)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to add signature to status update")
 	}
