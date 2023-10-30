@@ -29,11 +29,11 @@ type fingerprintRunner struct {
 	pidLog                   loggers.PIDLogger
 	dataSender               network.DataSender
 	templateStore            loggers.TemplateStore
-	vehicleSignalDecodingSvc gateways.VehicleSignalDecodingAPIService
+	vehicleSignalDecodingSvc gateways.VehicleSignalDecoding
 	logger                   zerolog.Logger
 }
 
-func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, decodingAPISvc gateways.VehicleSignalDecodingAPIService, logger zerolog.Logger) FingerprintRunner {
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, decodingAPISvc gateways.VehicleSignalDecoding, logger zerolog.Logger) FingerprintRunner {
 	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, templateStore: templateStore, vehicleSignalDecodingSvc: decodingAPISvc, logger: logger}
 }
 

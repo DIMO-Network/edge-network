@@ -1,126 +1,94 @@
 package internal
 
 import (
+	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
+// VehicleTemplates idea is to be a layer on top of calling the gateway for VehicleSignalDecoding, that handles
+// caching of configs - checking if there is an updated version of the templates available
 type VehicleTemplates interface {
-	GetTemplateSettings(vin string, addr *common.Address) (*models.TemplatePIDs, error)
+	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
 }
 
 type vehicleTemplates struct {
 	logger zerolog.Logger
-	vsd    gateways.VehicleSignalDecodingAPIService
+	vsd    gateways.VehicleSignalDecoding
 	lss    loggers.TemplateStore
 }
 
-func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodingAPIService, lss loggers.TemplateStore) VehicleTemplates {
+func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecoding, lss loggers.TemplateStore) VehicleTemplates {
 	return &vehicleTemplates{logger: logger, vsd: vsd, lss: lss}
 }
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
-// settings. Can error if can't communicate over http to dimo api. todo: return dbc and device-settings too.
-func (vt *vehicleTemplates) GetTemplateSettings(vin string, addr *common.Address) (*models.TemplatePIDs, error) {
+// settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
+func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
+	vinConfig, err := vt.lss.ReadVINConfig() // should this be more of VIN info? stored VIN info
+	if err != nil {
+		vt.logger.Err(err).Msg("could not read local settings for stored VIN, continuing")
+	}
+	templateURLsLocal, err := vt.lss.ReadTemplateURLs()
+	if err != nil {
+		vt.logger.Err(err).Msg("could not read local settings for template URLs, continuing")
+	}
 	// read any existing settings
-	config, err := vt.lss.ReadPIDsConfig()
+	pidsConfig, err := vt.lss.ReadPIDsConfig()
 	if err != nil {
-		vt.logger.Err(err).Msg("could not read settings for templates, continuing")
+		vt.logger.Err(err).Msg("could not read local settings for PIDs configs, continuing")
 	}
-	var configURLs *gateways.URLConfigResponse
-	if len(vin) == 17 {
-		configURLs, err = vt.vsd.GetUrlsByVin(vin)
-		if err != nil {
-			vt.logger.Err(err).Msg("unable to get template urls by vin")
-		}
-	} else {
-		configURLs, err = vt.vsd.GetUrlsByEthAddr(addr)
-		if err != nil {
-			vt.logger.Err(err).Msg("unable to get template urls by eth addr")
-		}
-	}
+	deviceSettings, err := vt.lss.ReadTemplateDeviceSettings()
 	if err != nil {
-		vt.logger.Err(err).Msgf("could not get pids URL for configuration.")
-		if config != nil {
-			return config, nil
+		vt.logger.Err(err).Msg("could not read local settings for device settings, continuing")
+	}
+
+	var templateURLsRemote *models.TemplateURLs
+	templateURLsRemote, err = vt.vsd.GetUrlsByEthAddr(addr)
+	if err != nil {
+		vt.logger.Err(err).Msg("unable to get template urls by eth addr, trying by VIN next")
+		if vinConfig != nil && len(vinConfig.VIN) == 17 {
+			templateURLsRemote, err = vt.vsd.GetUrlsByVin(vinConfig.VIN)
+			if err != nil {
+				vt.logger.Err(err).Msg("unable to get template urls by vin")
+			}
 		}
-		return nil, err
+	}
+	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
+	if templateURLsLocal == nil && templateURLsRemote == nil {
+		return nil, nil, fmt.Errorf("could not get template URL settings from remote, or from local store, cannot proceed")
+	}
+	// if can't get nothing from remote, just return what we got locally
+	if templateURLsRemote == nil {
+		return pidsConfig, deviceSettings, nil
 	}
 	// if no change, just return what we have
-	if configURLs != nil && config != nil && configURLs.Version == config.Version {
-		vt.logger.Info().Msgf("vehicle template configuration has not changed, keeping current. version %s", config.Version)
-		return config, nil
+	if templateURLsRemote.Version == templateURLsLocal.Version {
+		vt.logger.Info().Msgf("vehicle template configuration has not changed, keeping current. version %s", templateURLsLocal.Version)
+		return pidsConfig, deviceSettings, nil
 	}
-
-	pids, err := vt.vsd.GetPIDs(configURLs.PidURL)
+	// if we get here, means version are different and we must retrieve and update
+	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
+	remotePids, err := vt.vsd.GetPIDs(templateURLsRemote.PidUrl)
 	if err != nil {
-		vt.logger.Err(err).Msgf("could not get pids template from api")
-		if config != nil {
-			return config, nil
-		}
-		return nil, err
-	}
-	// copy over the response object to the configuration object // possible optimization here to just use same object
-	config = &models.TemplatePIDs{}
-	if len(pids.Requests) > 0 {
-		for _, item := range pids.Requests {
-			config.Requests = append(config.Requests, models.PIDRequest{
-				Formula:         item.Formula,
-				Protocol:        item.Protocol,
-				Pid:             item.Pid,
-				Mode:            item.Mode,
-				Header:          item.Header,
-				IntervalSeconds: item.IntervalSeconds,
-				Name:            item.Name,
-			})
+		vt.logger.Err(err).Msgf("could not get pids from api url: %s", templateURLsRemote.PidUrl)
+	} else {
+		pidsConfig = remotePids
+		err = vt.lss.WritePIDsConfig(*pidsConfig)
+		if err != nil {
+			vt.logger.Err(err).Msgf("failed to write pids config locally %+v", *pidsConfig)
 		}
 	}
-
-	err = vt.lss.WritePIDsConfig(*config)
+	// get device settings
+	settings, err := vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingUrl)
 	if err != nil {
-		vt.logger.Err(err).Msg("failed to write pids config locally")
+		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingUrl)
+	} else {
+		deviceSettings = settings
 	}
 
-	return config, nil
-}
-
-// GetTemplateURLsByEth calls gateway to get template url's by eth, with retries. persists to tmp folder by calling logger settings svc if different.
-// gets and persists the device settings, pids, and dbc file only if version is different
-func (vt *vehicleTemplates) GetTemplateURLsByEth(addr *common.Address) (*models.TemplatePIDs, error) {
-	// todo: need to change the local and external read objects to match better, they should all be saved in different files in tmp
-	outdated := false
-	localConfig, readLocalErr := vt.lss.ReadPIDsConfig()
-	if readLocalErr != nil {
-		outdated = true
-	}
-	configURLs, err := vt.vsd.GetUrlsByEthAddr(addr)
-	// todo retries - abstract into gateway, maybe pass in number of retries
-	if err != nil {
-		// return whatever we had saved locally.
-		return localConfig, errors.Wrap(err, "unable to get template url's by eth addr")
-	}
-	if !outdated && localConfig.Version != configURLs.Version {
-		// todo, lss. write template urls
-
-		outdated = true
-	}
-	if !outdated {
-		return localConfig, nil
-	}
-	// todo: is GetPIDs using a different object, should it be models.TemplatePIDs?
-	pidsConfig, err := vt.vsd.GetPIDs(configURLs.PidURL)
-	if err != nil {
-		return localConfig, err
-	}
-	// todo get device settings, dbc
-	writeErr := vt.lss.WritePIDsConfig(pidsConfig) // need to use same types on both ends
-	if writeErr != nil {
-		vt.logger.Err(writeErr).Send()
-	}
-	return pidsConfig, nil
-
+	return pidsConfig, deviceSettings, nil
 }

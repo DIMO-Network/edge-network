@@ -197,8 +197,8 @@ func main() {
 
 	vinLogger := loggers.NewVINLogger(logger)
 	pidLogger := loggers.NewPIDLogger(unitID, qs, logger)
-	vehicleSignalDecodingService := gateways.NewVehicleSignalDecodingAPIService()
-	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingService, lss)
+	vehicleSignalDecodingApi := gateways.NewVehicleSignalDecodingAPIService()
+	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingApi, lss)
 
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
@@ -211,20 +211,24 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
-	// todo get setting url's by eth addr here. What happens if nothing returns? We need the vin to try by VIN, so push back to later
-	// Get the URL's and the device settings first (assuming we get url's back)
-	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
-	// todo pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
-	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingService, logger)
+
+	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
+	if err != nil {
+		logger.Err(err).Msg("unable to get loggers configuration settings")
+		// todo send mqtt error payload reporting this, should have own topic for errors
+
+	}
+	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingApi, logger)
 	// fingerprint logger, runs once on start, sends VIN & protocol
 	err = fingerprintRunner.Fingerprint() // this is blocking, should be after BLE setup
 	// todo - bug - this is eternally blocking b/c of the isOkToScan function, something is getting blocked there.
 	if err != nil {
 		logger.Err(err).Msg("failed to start fingerprint logger.")
 	}
-	// todo if no URL's now get url's by VIN, also get device settings.
 
-	// todo get pid configs and dbc file
+	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
+	// todo pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
+
 	// todo start runner with passed in config objects
 	// todo future - what about non-obd loggers (eg. location) - these could start with the runner or even earlier on. for v1 just have start as part of runner
 

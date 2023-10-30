@@ -115,10 +115,9 @@ func (wr *workerRunner) registerPIDsTasks(pidsConfig models.TemplatePIDs) []Work
 				Once:     task.IntervalSeconds == 0,
 				Params:   task,
 				Func: func(wCtx WorkerTaskContext) {
-					// todo where does this come from?
 					err := wr.pidLog.ExecutePID(wCtx.Params.Header,
 						wCtx.Params.Mode,
-						wCtx.Params.PID,
+						wCtx.Params.Pid,
 						wCtx.Params.Formula,
 						wCtx.Params.Protocol,
 						wCtx.Params.Name)

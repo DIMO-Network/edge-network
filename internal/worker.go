@@ -1,10 +1,9 @@
 package internal
 
 import (
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/rs/zerolog"
 	"time"
-
-	"github.com/DIMO-Network/edge-network/internal/loggers"
 )
 
 type WorkerTask struct {
@@ -13,14 +12,14 @@ type WorkerTask struct {
 	Executions    int
 	MaxExecutions int
 	Interval      int
-	Params        loggers.PIDLoggerItemSettings
+	Params        models.PIDRequest
 	Func          func(WorkerTaskContext)
 }
 
 type WorkerTaskContext struct {
 	Name       string
 	Executions int
-	Params     loggers.PIDLoggerItemSettings
+	Params     models.PIDRequest
 }
 
 func (t *WorkerTask) Register() {
