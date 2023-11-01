@@ -80,9 +80,9 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 }
 
 func main() {
-	hexData := "7e803410425cccccccc"
-	pid := "4"
-	formula := "31|8@0+ (0.39216,0) [0|100] \"%\""
+	hexData := "7e80541670382800000"
+	pid := "5"
+	formula := "31|8@0+ (1,-40) [-40|215] \"Celcius\""
 
 	decodedValue, unit, err := ExtractAndDecodeWithFormula(hexData, pid, formula)
 	if err != nil {
