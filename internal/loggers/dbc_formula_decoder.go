@@ -79,16 +79,3 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 	return decodedValue, unit, nil
 }
 
-func main() {
-	hexData := "7e80541670382800000"
-	pid := "5"
-	formula := "31|8@0+ (1,-40) [-40|215] \"Celcius\""
-
-	decodedValue, unit, err := ExtractAndDecodeWithFormula(hexData, pid, formula)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	fmt.Printf("Decoded Value: %.2f %s\n", decodedValue, unit)
-}
