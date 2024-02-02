@@ -87,7 +87,8 @@ func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr)
+	// todo validate what source should be here
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "1.0", "com.dimo.device.status")
 	ce := DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -120,8 +121,8 @@ func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
-
-	err = ds.sendPayload(payload)
+	// i'm not sure this is correct, the datasender should hold the different topics in a const above and just use them here - not for other modules to decide.
+	err = ds.sendPayload(ds.topic, payload)
 	if err != nil {
 		return err
 	}
@@ -151,6 +152,7 @@ func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address, should already be in json format
 func (ds *dataSender) sendPayload(topic string, payload []byte) error {
+	// todo I think we want to chage topic to come from parameter not from datasender value
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	if !gjson.GetBytes(payload, "subject").Exists() {
 		return fmt.Errorf("payload did not have expected subject cloud event property")

@@ -66,15 +66,15 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		return pidsConfig, deviceSettings, nil
 	}
 	// if no change, just return what we have
-	if templateURLsRemote.Version == templateURLsLocal.Version {
-		vt.logger.Info().Msgf("vehicle template configuration has not changed, keeping current. version %s", templateURLsLocal.Version)
+	if templateURLsRemote.PidURL == templateURLsLocal.PidURL && templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL {
+		vt.logger.Info().Msg("vehicle template configuration has not changed, keeping current.")
 		return pidsConfig, deviceSettings, nil
 	}
 	// if we get here, means version are different and we must retrieve and update
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
-	remotePids, err := vt.vsd.GetPIDs(templateURLsRemote.PidUrl)
+	remotePids, err := vt.vsd.GetPIDs(templateURLsRemote.PidURL)
 	if err != nil {
-		vt.logger.Err(err).Msgf("could not get pids from api url: %s", templateURLsRemote.PidUrl)
+		vt.logger.Err(err).Msgf("could not get pids from api url: %s", templateURLsRemote.PidURL)
 	} else {
 		pidsConfig = remotePids
 		err = vt.lss.WritePIDsConfig(*pidsConfig)
@@ -83,9 +83,9 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		}
 	}
 	// get device settings
-	settings, err := vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingUrl)
+	settings, err := vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingURL)
 	if err != nil {
-		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingUrl)
+		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingURL)
 	} else {
 		deviceSettings = settings
 	}

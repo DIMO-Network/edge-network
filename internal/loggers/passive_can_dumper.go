@@ -7,15 +7,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"go.einride.tech/can"
-	"go.einride.tech/can/pkg/candevice"
-	"go.einride.tech/can/pkg/socketcan"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/network"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"go.einride.tech/can"
+	"go.einride.tech/can/pkg/candevice"
+	"go.einride.tech/can/pkg/socketcan"
 )
 
 type ParsedCanFrame struct {
@@ -43,7 +45,7 @@ const canDumpTopic = "protocol/canbus/dump"
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
 // and also writes to local files. Can frames from memory will be automatically paginated into appropriate
 // qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
-func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
+func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
 	unitID := UnitID.String()
 	ethAddr := EthAddr.String()
 
@@ -84,7 +86,7 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, canDumpTopic)
+		ds := network.NewDataSender(UnitID, EthAddr, log, canDumpTopic)
 		sendErr := ds.SendCanDumpData(network.CanDumpData{
 			CommonData: network.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),

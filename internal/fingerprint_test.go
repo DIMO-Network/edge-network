@@ -31,11 +31,10 @@ func Test_fungerprintRunner_VINLoggers(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
-	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -53,7 +52,7 @@ func Test_fungerprintRunner_VINLoggers(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	lss.EXPECT().ReadVINConfig().Times(1).Return(&models.VINLoggerSettings{VINQueryName: vinQueryName}, nil)
+	ts.EXPECT().ReadVINConfig().Times(1).Return(&models.VINLoggerSettings{VINQueryName: vinQueryName}, nil)
 	vl.EXPECT().GetVIN(unitID, &vinQueryName).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
@@ -75,11 +74,10 @@ func Test_fingerprintRunner_VINLoggers_nilSettings(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
-	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -97,9 +95,9 @@ func Test_fingerprintRunner_VINLoggers_nilSettings(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
-	lss.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: vinDiesel, Protocol: "6", QueryName: vinQueryName}, nil)
-	lss.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: vinDiesel}).Times(1).Return(nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: vinDiesel}).Times(1).Return(nil)
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
 	err := ls.Fingerprint()
@@ -118,10 +116,9 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
-	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
 
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -141,10 +138,10 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
 	// nil settings, eg. first time it runs, incompatiible vehicle
-	lss.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	noVinErr := fmt.Errorf("response contained an invalid vin")
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(nil, noVinErr)
-	lss.EXPECT().WriteVINConfig(models.VINLoggerSettings{
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 1,
@@ -168,9 +165,8 @@ func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testi
 
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
-	lss := mock_loggers.NewMockLoggerSettingsService(mockCtrl)
 	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecodingAPIService(mockCtrl)
+	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -190,7 +186,7 @@ func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testi
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
 
 	// nil settings, eg. first time it runs, incompatiible vehicle
-	lss.EXPECT().ReadVINConfig().Times(1).Return(&models.VINLoggerSettings{
+	ts.EXPECT().ReadVINConfig().Times(1).Return(&models.VINLoggerSettings{
 		VINQueryName:            "",
 		VINLoggerVersion:        loggers.VINLoggerVersion,
 		VINLoggerFailedAttempts: 5,

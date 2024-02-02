@@ -78,4 +78,3 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 
 	return decodedValue, unit, nil
 }
-

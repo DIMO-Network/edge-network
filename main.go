@@ -218,6 +218,19 @@ func main() {
 		// todo send mqtt error payload reporting this, should have own topic for errors
 
 	}
+	if pids != nil {
+		pj, err := json.Marshal(pids)
+		if err != nil {
+			logger.Info().RawJSON("pids", pj).Msg("pids pulled from config")
+		}
+	}
+	if deviceSettings != nil {
+		ds, err := json.Marshal(deviceSettings)
+		if err != nil {
+			logger.Info().RawJSON("deviceSettings", ds).Msg("device settings pulled from config")
+		}
+	}
+
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingApi, logger)
 	// fingerprint logger, runs once on start, sends VIN & protocol
 	err = fingerprintRunner.Fingerprint() // this is blocking, should be after BLE setup

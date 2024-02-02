@@ -37,7 +37,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
 
-	loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(vin.VIN, wr.ethAddr)
+	pids, loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(wr.ethAddr)
 	if err != nil {
 		// this means we really cannot start
 		wr.logger.Err(err).Msg("unable to start worker runner b/c can't get vehicle template")
@@ -47,7 +47,7 @@ func (wr *workerRunner) Run() {
 
 	var tasks []WorkerTask
 
-	pidTasks := wr.registerPIDsTasks(*loggerSettings)
+	pidTasks := wr.registerPIDsTasks(*pids)
 	for _, task := range pidTasks {
 		tasks = append(tasks, task)
 	}

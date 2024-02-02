@@ -113,9 +113,8 @@ func (a passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
 		return a.completeVIN, a.detectedProtocol, a.VinType
 	} else if a.CitroenVinTypeBsegAfound && a.CitroenVinTypeBsegBfound && a.CitroenVinTypeBsegCfound {
 		return a.completeVIN, a.detectedProtocol, a.VinType
-	} else {
-		return "", 0, ""
 	}
+	return "", 0, ""
 }
 
 /*
