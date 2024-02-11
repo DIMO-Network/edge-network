@@ -24,7 +24,8 @@ ssh pi@local.autopi.io
 ```
 
 For newer devices [7.0 and newer] password should be the first 13 digits INCLUDING dashes of your device id. Note that this is different that the unit id, although they are the same length. 
-To get a CAN dump after getting into the autipi network, run the following command to get a CAN dump from your car:
+
+To get a CAN dump after getting into the autopi network, run the following command to get a CAN dump from your car:
 
 ```
 ./edge-network - candump [-cycles <qty>] [-send <chunk_size>]
@@ -71,6 +72,24 @@ if you connec the AP to wifi, but it can't get an internet connection, this stuf
 
 To view logs, from the AP cloud terminal, run the following: `journalctl -u edge-network`
 
+## Loggers / DIMO Client
+
+Change the template on the device to "no loggers" id 117.
+
+### Development Cycle
+- set no loggers on device from ap cloud
+- have it connect to local wifi.
+- enable allow ssh connections on local wifi: https://docs.autopi.io/guides/how-to-ssh-to-your-device/
+- turn on with simulator. 
+- send command so AP doesn't turn off (can also use AP cloud to do this): `power.hibernate delay 3600`
+- find IP address of AP with your wifi router.
+- ssh pi@192.168.181.129
+- see above for ssh password, default pwd is autopi2018
+- Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout
+- If you have pending changes/ updates, connect to car to get higher voltage so it stays on & applies them.
+
+3d020f1f-7a5c-463f-a57a-785bae2ea760
+
 ## Can Dump Commands from terminal
 
         edge-network candump -cycles <cycle_count> -send <chunk_size> -save
@@ -90,10 +109,7 @@ To view logs, from the AP cloud terminal, run the following: `journalctl -u edge
        
           example: ./edge-network candump -cycles 100 -send 50 -save
 
-
-
-
-## Commands
+## BLE Commands
 
 For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` capability.
 

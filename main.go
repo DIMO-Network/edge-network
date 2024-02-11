@@ -115,7 +115,7 @@ func setupBluez(name string) error {
 	}
 
 	return nil
-}
+} 
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().
