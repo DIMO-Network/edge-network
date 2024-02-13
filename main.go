@@ -77,8 +77,6 @@ var name string
 
 var btManager btmgmt.BtMgmt
 
-const fingerprintTopic = "fingerprint"
-
 func setupBluez(name string) error {
 	btManager = *hw.NewBtMgmt(adapterID)
 
@@ -115,7 +113,7 @@ func setupBluez(name string) error {
 	}
 
 	return nil
-} 
+}
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().
@@ -179,7 +177,7 @@ func main() {
 		logger.Fatal().Msgf("could not get ethereum address")
 	}
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, fingerprintTopic)
+	ds := network.NewDataSender(unitID, *ethAddr, logger)
 	if ethErr != nil {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
@@ -211,7 +209,7 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
-
+	// what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend... check every 60s on timer for pairing
 	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Err(err).Msg("unable to get loggers configuration settings")
@@ -231,13 +229,8 @@ func main() {
 		}
 	}
 
-	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, pidLogger, ds, lss, vehicleSignalDecodingApi, logger)
-	// fingerprint logger, runs once on start, sends VIN & protocol
-	err = fingerprintRunner.Fingerprint() // this is blocking, should be after BLE setup
-	// todo - bug - this is eternally blocking b/c of the isOkToScan function, something is getting blocked there.
-	if err != nil {
-		logger.Err(err).Msg("failed to start fingerprint logger.")
-	}
+	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
+	// todo: fingerprintRunner.FingerprintSimple() after determining ok to start scanning for OBD loggers
 
 	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
 	// todo pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
@@ -250,7 +243,7 @@ func main() {
 
 	logger.Debug().Msg("debug message before starting worker run")
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, vehicleTemplates)
+	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, vehicleTemplates, fingerprintRunner)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

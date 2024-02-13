@@ -24,10 +24,12 @@ type workerRunner struct {
 	logger            zerolog.Logger
 	vehicleTemplates  VehicleTemplates
 	ethAddr           *common.Address
+	fingerprintRunner FingerprintRunner
 }
 
-func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates) WorkerRunner {
-	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog, queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates}
+func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore, pidLog loggers.PIDLogger, queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, templates VehicleTemplates, fpRunner FingerprintRunner) WorkerRunner {
+	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog,
+		queueSvc: queueSvc, dataSender: dataSender, logger: logger, vehicleTemplates: templates, fingerprintRunner: fpRunner}
 }
 
 func (wr *workerRunner) Run() {
@@ -37,6 +39,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
 
+	// this was already called in main
 	pids, loggerSettings, err := wr.vehicleTemplates.GetTemplateSettings(wr.ethAddr)
 	if err != nil {
 		// this means we really cannot start
@@ -78,6 +81,7 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 		Interval: 60,
 		Func: func(ctx WorkerTaskContext) {
 			for {
+				// are there many data points in one message? or is each message one signal data point
 				messages, err := wr.queueSvc.Dequeue()
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to Dequeue vehicle data signals")
@@ -86,6 +90,7 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 				if len(messages) == 0 {
 					break
 				}
+				// todo: does this result in the right cloudevent formatted message? or do we need to use sjson.Set
 				signals := make([]network.SignalData, len(messages))
 				for i, message := range messages {
 					signals[i] = network.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}

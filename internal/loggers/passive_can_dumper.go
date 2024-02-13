@@ -40,8 +40,6 @@ type PassiveCanDumper struct {
 	DetailedCanFrames []ParsedCanFrame
 }
 
-const canDumpTopic = "protocol/canbus/dump"
-
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
 // and also writes to local files. Can frames from memory will be automatically paginated into appropriate
 // qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
@@ -86,7 +84,7 @@ func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, Eth
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, log, canDumpTopic)
+		ds := network.NewDataSender(UnitID, EthAddr, log)
 		sendErr := ds.SendCanDumpData(network.CanDumpData{
 			CommonData: network.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),

@@ -26,14 +26,15 @@ type PIDRequest struct {
 
 // TemplateDeviceSettings contains configurations options around power and other device settings
 type TemplateDeviceSettings struct {
-	BatteryCriticalLevelVoltage            string `json:"battery_critical_level_voltage"`
-	SafetyCutOutVoltage                    string `json:"safety_cut_out_voltage"`
-	SleepTimerEventDrivenInterval          string `json:"sleep_timer_event_driven_interval_secs"`
-	SleepTimerEventDrivenPeriod            string `json:"sleep_timer_event_driven_period_secs"`
-	SleepTimerInactivityAfterSleepInterval string `json:"sleep_timer_inactivity_after_sleep_interval_secs"`
-	SleepTimerInactivityFallbackInterval   string `json:"sleep_timer_inactivity_fallback_interval_secs"`
-	TemplateName                           string `json:"template_name"`
-	WakeTriggerVoltageLevel                string `json:"wake_trigger_voltage_level"`
+	BatteryCriticalLevelVoltage            string  `json:"battery_critical_level_voltage"`
+	SafetyCutOutVoltage                    string  `json:"safety_cut_out_voltage"`
+	SleepTimerEventDrivenInterval          string  `json:"sleep_timer_event_driven_interval_secs"`
+	SleepTimerEventDrivenPeriod            string  `json:"sleep_timer_event_driven_period_secs"`
+	SleepTimerInactivityAfterSleepInterval string  `json:"sleep_timer_inactivity_after_sleep_interval_secs"`
+	SleepTimerInactivityFallbackInterval   string  `json:"sleep_timer_inactivity_fallback_interval_secs"`
+	TemplateName                           string  `json:"template_name"`
+	WakeTriggerVoltageLevel                string  `json:"wake_trigger_voltage_level"`
+	MinVoltageOBDLoggers                   float64 `json:"min_voltage_obd_loggers"`
 }
 
 // VINLoggerSettings contains the settings we store locally related to the VIN (last VIN obtained and any other related info)

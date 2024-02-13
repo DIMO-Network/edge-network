@@ -33,6 +33,7 @@ func NewVINLogger(logger zerolog.Logger) VINLogger {
 const VINLoggerVersion = 1 // increment this if improve support for decoding VINs
 const citroenQueryName = "citroen"
 
+// GetVIN gets the vin through a variety of methods. If a queryName is passed in, it uses the specific named method to get VIN
 func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINResponse, err error) {
 	vl.mu.Lock()
 	defer vl.mu.Unlock()
@@ -67,7 +68,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 
 		err = api.ExecuteRequest("POST", url, req, &resp)
 		if err != nil {
-			vl.logger.Fatal().Err(err).Msg("failed to execute POST request to get vin")
+			vl.logger.Err(err).Msg("failed to execute POST request to get vin")
 			continue // try again with different command if err
 		}
 		vl.logger.Info().Msgf("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
@@ -76,7 +77,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			// if no formula, means we got raw hex back so lets try extracting vin from that
 			vin, _, err = extractVIN(resp.Value)
 			if err != nil {
-				vl.logger.Fatal().Err(err).Msg("could not extract vin from hex")
+				vl.logger.Err(err).Msg("could not extract vin from hex")
 				continue // try again on next loop with different command
 			}
 		} else {

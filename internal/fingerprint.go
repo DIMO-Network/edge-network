@@ -7,8 +7,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/DIMO-Network/edge-network/internal/gateways"
-
 	"github.com/DIMO-Network/edge-network/internal/api"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -21,23 +19,81 @@ import (
 
 type FingerprintRunner interface {
 	Fingerprint() error
+	FingerprintSimple(powerStatus api.PowerStatusResponse) error
 }
 
 type fingerprintRunner struct {
-	unitID                   uuid.UUID
-	vinLog                   loggers.VINLogger
-	pidLog                   loggers.PIDLogger
-	dataSender               network.DataSender
-	templateStore            loggers.TemplateStore
-	vehicleSignalDecodingSvc gateways.VehicleSignalDecoding
-	logger                   zerolog.Logger
+	unitID        uuid.UUID
+	vinLog        loggers.VINLogger
+	dataSender    network.DataSender
+	templateStore loggers.TemplateStore
+	logger        zerolog.Logger
 }
 
-func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, pidLog loggers.PIDLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, decodingAPISvc gateways.VehicleSignalDecoding, logger zerolog.Logger) FingerprintRunner {
-	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, pidLog: pidLog, dataSender: dataSender, templateStore: templateStore, vehicleSignalDecodingSvc: decodingAPISvc, logger: logger}
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, logger zerolog.Logger) FingerprintRunner {
+	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, dataSender: dataSender, templateStore: templateStore, logger: logger}
 }
 
 const maxFailureAttempts = 5
+
+func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusResponse) error {
+	// no voltage check, assumption is this has already been checked before here.
+	config, err := ls.templateStore.ReadVINConfig()
+	if err != nil {
+		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
+	}
+	var vqn *string
+	if config != nil {
+		vqn = &config.VINQueryName
+		ls.logger.Info().Msgf("found VIN query name: %s", *vqn)
+	}
+	// scan for VIN
+	vinLogger := LoggerProperties{
+		SignalName: "vin",
+		Interval:   0,
+		ScanFunc:   ls.vinLog.GetVIN,
+	}
+	// assumption here is that the vin query name, if set, will work on this car. If the device has been moved to a different car without pairing again, this won't work
+	vinResp, err := vinLogger.ScanFunc(ls.unitID, vqn)
+	if err != nil {
+		if config == nil {
+			config = &models.VINLoggerSettings{}
+		}
+		ls.logger.Err(err).Msgf("failed to scan for vin. fail count: %d", config.VINLoggerFailedAttempts)
+		// update local settings to increment fail count
+		config.VINLoggerVersion = loggers.VINLoggerVersion
+		config.VINLoggerFailedAttempts++
+		writeErr := ls.templateStore.WriteVINConfig(*config)
+		if writeErr != nil {
+			ls.logger.Err(writeErr).Send()
+		}
+
+		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &powerStatus)
+	}
+	// save vin query name in settings if not set
+	if config == nil || config.VINQueryName == "" {
+		config = &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
+		err := ls.templateStore.WriteVINConfig(*config)
+		if err != nil {
+			ls.logger.Err(err).Send()
+			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &powerStatus)
+		}
+	}
+
+	data := network.FingerprintData{
+		Vin:      vinResp.VIN,
+		Protocol: vinResp.Protocol,
+	}
+	data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	data.BatteryVoltage = powerStatus.VoltageFound
+
+	err = ls.dataSender.SendFingerprintData(data)
+	if err != nil {
+		ls.logger.Err(err).Send()
+	}
+
+	return nil
+}
 
 // Fingerprint checks if ok to start scanning the vehicle and then tries to get the VIN & Protocol via various methods.
 // Runs only once when successful.  Checks for saved VIN query from previous run.

@@ -22,7 +22,11 @@ import (
 )
 
 // thought: should we have a different topic for errors? eg. signals we could not get, failed fingerprinting
+
+// it is the responsibility of the DataSender to determine what topic to use
 const fingerprintTopic = "fingerprint"
+const canDumpTopic = "protocol/canbus/dump"
+const deviceStatusTopic = "status"
 const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
@@ -41,11 +45,10 @@ type dataSender struct {
 	unitID  uuid.UUID
 	ethAddr common.Address
 	logger  zerolog.Logger
-	topic   string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, topic string) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -55,7 +58,6 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		unitID:  unitID,
 		ethAddr: addr,
 		logger:  logger,
-		topic:   topic,
 	}
 }
 
@@ -99,10 +101,10 @@ func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
 	}
 	ds.logger.Debug().Msgf("sending status payload: %s", string(payload))
 
-	//err = ds.sendPayload(payload) what topic to use?
-	//if err != nil {
-	//	return err
-	//}
+	err = ds.sendPayload(deviceStatusTopic, payload)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -122,7 +124,7 @@ func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 	// i'm not sure this is correct, the datasender should hold the different topics in a const above and just use them here - not for other modules to decide.
-	err = ds.sendPayload(ds.topic, payload)
+	err = ds.sendPayload(canDumpTopic, payload)
 	if err != nil {
 		return err
 	}
@@ -152,7 +154,6 @@ func (ds *dataSender) SendErrorsData(data ErrorsData) error {
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address, should already be in json format
 func (ds *dataSender) sendPayload(topic string, payload []byte) error {
-	// todo I think we want to chage topic to come from parameter not from datasender value
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	if !gjson.GetBytes(payload, "subject").Exists() {
 		return fmt.Errorf("payload did not have expected subject cloud event property")
@@ -177,7 +178,7 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 		return err
 	}
 	// Publish the MQTT message
-	token := ds.client.Publish(ds.topic, 0, false, string(payload))
+	token := ds.client.Publish(topic, 0, false, string(payload))
 	token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published

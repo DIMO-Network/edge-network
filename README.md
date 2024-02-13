@@ -76,7 +76,8 @@ To view logs, from the AP cloud terminal, run the following: `journalctl -u edge
 
 Change the template on the device to "no loggers" id 117.
 
-### Development Cycle
+### Development Cycle Setup
+
 - set no loggers on device from ap cloud
 - have it connect to local wifi.
 - enable allow ssh connections on local wifi: https://docs.autopi.io/guides/how-to-ssh-to-your-device/
@@ -84,9 +85,20 @@ Change the template on the device to "no loggers" id 117.
 - send command so AP doesn't turn off (can also use AP cloud to do this): `power.hibernate delay 3600`
 - find IP address of AP with your wifi router.
 - ssh pi@192.168.181.129
-- see above for ssh password, default pwd is autopi2018
+- see above for ssh password, default pwd is autopi2018 on pre 7.0 hw.
 - Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout
 - If you have pending changes/ updates, connect to car to get higher voltage so it stays on & applies them.
+
+### Deploying binary to device
+
+- build binary use command at beginning - targeting linux
+- scp edge-network pi@192.168.181.129:~
+- ssh pi@192.168.181.129
+- sudo systemctl stop edge-network
+- which edge-control (to find where it is)
+- sudo cp edge-network /usr/local/bin/edge-network
+- sudo systemctl start edge-network
+- sudo journalctl -u edge-network -f
 
 3d020f1f-7a5c-463f-a57a-785bae2ea760
 
