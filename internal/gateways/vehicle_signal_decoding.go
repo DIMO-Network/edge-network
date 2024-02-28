@@ -158,7 +158,7 @@ func (v *vehicleSignalDecodingAPIService) GetDeviceSettings(url string) (*models
 
 	response := new(models.TemplateDeviceSettings)
 	if err := json.Unmarshal(bodyBytes, response); err != nil {
-		return nil, errors.Wrapf(err, "error deserializing device settings from url %s", url)
+		return nil, errors.Wrapf(err, "error deserializing device settings from url %s. body: %s", url, string(bodyBytes))
 	}
 
 	return response, nil

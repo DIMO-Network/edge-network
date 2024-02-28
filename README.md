@@ -86,7 +86,7 @@ Change the template on the device to "no loggers" id 117.
 - find IP address of AP with your wifi router.
 - ssh pi@192.168.181.129
 - see above for ssh password, default pwd is autopi2018 on pre 7.0 hw.
-- Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout
+- Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout, or use PowerSupply with 14v
 - If you have pending changes/ updates, connect to car to get higher voltage so it stays on & applies them.
 
 ### Deploying binary to device
@@ -95,12 +95,10 @@ Change the template on the device to "no loggers" id 117.
 - scp edge-network pi@192.168.181.129:~
 - ssh pi@192.168.181.129
 - sudo systemctl stop edge-network
-- which edge-control (to find where it is)
+- which edge-network (to find where it is)
 - sudo cp edge-network /usr/local/bin/edge-network
 - sudo systemctl start edge-network
 - sudo journalctl -u edge-network -f
-
-3d020f1f-7a5c-463f-a57a-785bae2ea760
 
 ## Can Dump Commands from terminal
 

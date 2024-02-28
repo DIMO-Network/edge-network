@@ -66,7 +66,9 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		return pidsConfig, deviceSettings, nil
 	}
 	// if no change, just return what we have
-	if templateURLsRemote.PidURL == templateURLsLocal.PidURL && templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL {
+	if templateURLsLocal != nil &&
+		templateURLsRemote.PidURL == templateURLsLocal.PidURL &&
+		templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL {
 		vt.logger.Info().Msg("vehicle template configuration has not changed, keeping current.")
 		return pidsConfig, deviceSettings, nil
 	}
