@@ -36,6 +36,7 @@ func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender
 
 const maxFailureAttempts = 5
 
+// FingerprintSimple does no voltage checks, just scans for the VIN, saves query used, and sends cloud event signed.
 func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusResponse) error {
 	// no voltage check, assumption is this has already been checked before here.
 	config, err := ls.templateStore.ReadVINConfig()
@@ -86,6 +87,10 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 	}
 	data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
 	data.BatteryVoltage = powerStatus.VoltageFound
+	version, err := commands.GetSoftwareVersion(ls.unitID)
+	if err == nil {
+		data.SoftwareVersion = version
+	}
 
 	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {

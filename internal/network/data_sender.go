@@ -261,9 +261,10 @@ type DeviceDataStatusCloudEvent struct {
 
 type FingerprintData struct {
 	CommonData
-	Vin      string  `json:"vin"`
-	Protocol string  `json:"protocol"`
-	Odometer float64 `json:"odometer,omitempty"`
+	Vin             string  `json:"vin"`
+	Protocol        string  `json:"protocol"`
+	Odometer        float64 `json:"odometer,omitempty"`
+	SoftwareVersion string  `json:"softwareVersion"`
 }
 
 type CanDumpData struct {
@@ -280,7 +281,7 @@ type SignalData struct {
 	// Timestamp is in unix millis, when signal was queried
 	Timestamp int64  `json:"timestamp"`
 	Name      string `json:"name"`
-	Value     string `json:"value"`
+	Value     any    `json:"value"`
 }
 
 type DeviceErrorsCloudEvent struct {

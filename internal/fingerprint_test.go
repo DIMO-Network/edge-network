@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	mock_gateways "github.com/DIMO-Network/edge-network/internal/gateways/mocks"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
@@ -33,15 +32,12 @@ func Test_fungerprintRunner_VINLoggers(t *testing.T) {
 	unitID := uuid.New()
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
-	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
-
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewFingerprintRunner(unitID, vl, pidl, ds, ts, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -76,15 +72,12 @@ func Test_fingerprintRunner_VINLoggers_nilSettings(t *testing.T) {
 	unitID := uuid.New()
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
-	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
-
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewFingerprintRunner(unitID, vl, pidl, ds, ts, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -117,8 +110,6 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 
-	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -126,7 +117,7 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewFingerprintRunner(unitID, vl, pidl, ds, ts, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -165,8 +156,6 @@ func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testi
 
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
-	pidl := mock_loggers.NewMockPIDLogger(mockCtrl)
-	vsd := mock_gateways.NewMockVehicleSignalDecoding(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -174,7 +163,7 @@ func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testi
 		Str("app", "edge-network").
 		Logger()
 
-	ls := NewFingerprintRunner(unitID, vl, pidl, ds, ts, vsd, logger)
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)

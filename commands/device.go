@@ -207,3 +207,66 @@ func GetIMSI(unitID uuid.UUID) (imsi string, err error) {
 	imsi = resp.Data
 	return
 }
+
+// GetModemType should return either just ec2x or le910cx
+func GetModemType(unitID uuid.UUID) (modem string, err error) {
+	req := api.ExecuteRawRequest{Command: api.GetModemCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	err = api.ExecuteRequest("POST", url, req, &modem)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// GetGPSLocation gets lat long, alt, nsat etc, switches command depending on modem type, will always try to populate nsat regardless of modem type
+func GetGPSLocation(unitID uuid.UUID, modem string) (location api.GPSLocationResponse, err error) {
+	var req api.ExecuteRawRequest
+	if modem == "ec2x" {
+		req = api.ExecuteRawRequest{Command: api.GetGPSEc2xCommand}
+	} else if modem == "le910cx" {
+		req = api.ExecuteRawRequest{Command: api.GetGPSLe910cxCommand}
+	}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	err = api.ExecuteRequest("POST", url, req, &location)
+	if err != nil {
+		return
+	}
+	if location.Nsat == 0 {
+		location.Nsat = location.NsatGPS
+	}
+
+	return
+}
+
+func GetQMICellInfo(unitID uuid.UUID) (cell api.QMICellInfoResponse, err error) {
+	req := api.ExecuteRawRequest{Command: api.GetQMICellInfoCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	// note: watch with cell array  - or do we just return the json string as is or simple go map?
+	// we don't really use the resulting object, just pass through the json
+	err = api.ExecuteRequest("POST", url, req, &cell)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// GetCellNetworkIPAddr gets the cell network ip address
+func GetCellNetworkIPAddr(unitID uuid.UUID) (ipaddress string, err error) {
+	req := api.ExecuteRawRequest{Command: api.CellNetworkIPAddrCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	var resp []string
+	err = api.ExecuteRequest("POST", url, req, &resp)
+	if err != nil {
+		return
+	}
+	// returns ["100.69.33.233"]
+	if len(resp) > 0 {
+		ipaddress = resp[0]
+	}
+	return
+}

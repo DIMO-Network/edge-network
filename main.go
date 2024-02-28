@@ -161,7 +161,7 @@ func main() {
 	logger.Info().Msgf("Version: %s", Version)
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
-	// temporary for us
+	// temporary for us, for release want info level - todo make configurable via cli?
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	hwRevision, err := commands.GetHardwareRevision(unitID)
@@ -209,7 +209,7 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
-	// what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend... check every 60s on timer for pairing
+	// todo v2: what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend... check every 60s on timer for pairing
 	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Err(err).Msg("unable to get loggers configuration settings")
@@ -230,20 +230,18 @@ func main() {
 	}
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
-	// todo: fingerprintRunner.FingerprintSimple() after determining ok to start scanning for OBD loggers
+	// todo v1 pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
 
-	// todo way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
-	// todo pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
+	// todo v2: way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
 
-	// todo start runner with passed in config objects
-	// todo future - what about non-obd loggers (eg. location) - these could start with the runner or even earlier on. for v1 just have start as part of runner
+	// todo v1: what about non-obd loggers (eg. location) - these could start with the runner or even earlier on. for v1 just have start as part of runner
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
 	logger.Debug().Msg("debug message before starting worker run")
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, vehicleTemplates, fingerprintRunner)
+	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, fingerprintRunner, pids, deviceSettings)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan
