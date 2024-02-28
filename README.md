@@ -8,7 +8,6 @@ Compile for the AutoPi with
 ```
 brew install --build-from-source upx
 GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network
-
 ```
 Binaries will build [for releases](https://github.com/DIMO-Network/edge-network/releases) from the [workflow](.github/workflows/release.yaml).
 
@@ -88,10 +87,11 @@ Change the template on the device to "no loggers" id 117.
 - see above for ssh password, default pwd is autopi2018 on pre 7.0 hw.
 - Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout, or use PowerSupply with 14v
 - If you have pending changes/ updates, connect to car to get higher voltage so it stays on & applies them.
+- Status LEDs meaning: https://docs.autopi.io/hardware/autopi_tmu_cm4/led-and-button/#status-leds
 
 ### Deploying binary to device
 
-- build binary use command at beginning - targeting linux
+- build binary use command at beginning - targeting linux: `GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network`
 - scp edge-network pi@192.168.181.129:~
 - ssh pi@192.168.181.129
 - sudo systemctl stop edge-network

@@ -45,12 +45,13 @@ func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc l
 func (wr *workerRunner) Run() {
 	// todo v1: if no template settings obtained, we just want to send the status payload without obd stuff.
 
-	vin, err := wr.loggerSettingsSvc.ReadVINConfig()
+	vin, err := wr.loggerSettingsSvc.ReadVINConfig() // this could return nil vin
 	if err != nil {
-		wr.logger.Err(err).Msg("unable to get vin for worker runner from vehicle")
+		wr.logger.Err(err).Msg("unable to get vin for worker runner from past state, continuing")
 	}
-	wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
-
+	if vin != nil {
+		wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
+	}
 	wr.logger.Info().Msgf("starting worker runner with logger settings: %+v", *wr.deviceSettings)
 
 	modem, err := commands.GetModemType(wr.unitID)
@@ -68,7 +69,7 @@ func (wr *workerRunner) Run() {
 		// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
 		queryOBD, powerStatus := wr.isOkToQueryOBD()
 		// maybe start a timer here to know how long this cycle takes?
-		// start a cloudevent
+		// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
 		signals := make([]network.SignalData, 1)
 		signals[0] = network.SignalData{
 			Timestamp: time.Now().UTC().UnixMilli(),

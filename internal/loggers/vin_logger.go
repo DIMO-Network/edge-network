@@ -245,12 +245,12 @@ func passiveScanCitroen(logger zerolog.Logger) (*VINResponse, error) {
 // software interpretation. If remove formula need to interpret it in software, will be raw hex
 func getVinCommandParts() []vinCommandParts {
 	return []vinCommandParts{
-		{Protocol: "6", Header: "7DF", PID: "02", Mode: "09", QueryName: "vin_7DF_09_02"},
-		{Protocol: "6", Header: "7e0", PID: "02", Mode: "09", QueryName: "vin_7e0_09_02"},
-		{Protocol: "7", Header: "18DB33F1", PID: "02", Mode: "09", QueryName: "vin_18DB33F1_09_02"},
-		{Protocol: "6", Header: "7df", PID: "F190", Mode: "22", QueryName: "vin_7DF_UDS"},
-		{Protocol: "6", Header: "7e0", PID: "F190", Mode: "22", QueryName: "vin_7e0_UDS"},
-		{Protocol: "7", Header: "18DB33F1", PID: "F190", Mode: "22", QueryName: "vin_18DB33F1_UDS"},
+		{Protocol: "6", Header: "7DF", PID: "x02", Mode: "x09", QueryName: "vin_7DF_09_02"},
+		{Protocol: "6", Header: "7e0", PID: "x02", Mode: "x09", QueryName: "vin_7e0_09_02"},
+		{Protocol: "7", Header: "18DB33F1", PID: "x02", Mode: "x09", QueryName: "vin_18DB33F1_09_02"},
+		{Protocol: "6", Header: "7df", PID: "xF190", Mode: "x22", QueryName: "vin_7DF_UDS"},
+		{Protocol: "6", Header: "7e0", PID: "xF190", Mode: "x22", QueryName: "vin_7e0_UDS"},
+		{Protocol: "7", Header: "18DB33F1", PID: "xF190", Mode: "x22", QueryName: "vin_18DB33F1_UDS"},
 		{QueryName: "citroen"},
 	}
 }

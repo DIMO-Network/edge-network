@@ -23,6 +23,16 @@ func Test_extractVIN(t *testing.T) {
 		wantErr         bool
 	}{
 		{
+			name: "simulator",
+			hexValue: `|-
+  7E8101462F190574155
+  7E8215247423852324C
+  7E8224E303036323232`,
+			wantVin:         "WAURGB8R2LN006222",
+			wantVinStartPos: 3,
+			wantErr:         false,
+		},
+		{
 			name: "2022_Ford_F150_7DF_22_F190_P6 UDS",
 			hexValue: `|-
   7e8101b62f190314654

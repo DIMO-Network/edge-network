@@ -173,7 +173,7 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 	defer ds.client.Disconnect(250)
 
 	// signature for the payload
-	payload, err := signPayload(payload, ds.unitID)
+	payload, err := ds.signPayload(payload, ds.unitID)
 	if err != nil {
 		return err
 	}
@@ -189,18 +189,23 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 	return nil
 }
 
-func signPayload(payload []byte, unitID uuid.UUID) ([]byte, error) {
+func (ds *dataSender) signPayload(payload []byte, unitID uuid.UUID) ([]byte, error) {
 	dataResult := gjson.GetBytes(payload, "data")
 	if !dataResult.Exists() {
 		return nil, fmt.Errorf("no data json path found to sign")
 	}
 
 	keccak256Hash := crypto.Keccak256Hash([]byte(dataResult.Raw))
+	// temporary
+	ds.logger.Debug().Msgf("signPayload data length: %d", len(dataResult.Raw))
+
 	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign the status update")
 	}
 	signature := "0x" + hex.EncodeToString(sig)
+	// temporary:
+	ds.logger.Debug().Msgf("signPayload signature: %s", signature)
 	// note the path should match the CloudEventHeaders signature name
 	payload, err = sjson.SetBytes(payload, "signature", signature)
 	if err != nil {
