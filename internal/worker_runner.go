@@ -70,8 +70,8 @@ func (wr *workerRunner) Run() {
 		queryOBD, powerStatus := wr.isOkToQueryOBD()
 		// maybe start a timer here to know how long this cycle takes?
 		// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
-		signals := make([]network.SignalData, 1)
-		signals[0] = network.SignalData{
+		signals := make([]models.SignalData, 1)
+		signals[0] = models.SignalData{
 			Timestamp: time.Now().UTC().UnixMilli(),
 			Name:      "batteryVoltage",
 			Value:     fmt.Sprintf("%f", powerStatus.VoltageFound),
@@ -82,7 +82,7 @@ func (wr *workerRunner) Run() {
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to get signal strength")
 		} else {
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: time.Now().UTC().UnixMilli(),
 				Name:      "wifi",
 				Value:     wifiStatus,
@@ -93,22 +93,22 @@ func (wr *workerRunner) Run() {
 			wr.logger.Err(err).Msg("failed to get gps location")
 		} else {
 			ts := time.Now().UTC().UnixMilli()
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: ts,
 				Name:      "hdop",
 				Value:     location.Hdop,
 			})
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: ts,
 				Name:      "nsat",
 				Value:     location.NsatGPS,
 			})
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: ts,
 				Name:      "latitude",
 				Value:     location.Lat,
 			})
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: ts,
 				Name:      "longitude",
 				Value:     location.Lon,
@@ -119,7 +119,7 @@ func (wr *workerRunner) Run() {
 			wr.logger.Err(err).Msg("failed to get qmi cell info")
 		} else {
 			// todo massage format to match what we put in elastic
-			signals = append(signals, network.SignalData{
+			signals = append(signals, models.SignalData{
 				Timestamp: time.Now().UTC().UnixMilli(),
 				Name:      "cell",
 				Value:     cellInfo,
@@ -140,9 +140,8 @@ func (wr *workerRunner) Run() {
 		}
 
 		// send the cloud event
-		// at the very end, wait for next loop
-		s := network.DeviceStatusData{
-			CommonData: network.CommonData{
+		s := models.DeviceStatusData{
+			CommonData: models.CommonData{
 				RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
 				BatteryVoltage: powerStatus.VoltageFound,
 				Timestamp:      time.Now().UTC().UnixMilli(),
@@ -199,11 +198,11 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 					break
 				}
 				// todo: does this result in the right cloudevent formatted message? or do we need to use sjson.Set
-				signals := make([]network.SignalData, len(messages))
+				signals := make([]models.SignalData, len(messages))
 				for i, message := range messages {
-					signals[i] = network.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}
+					signals[i] = models.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}
 				}
-				err = wr.dataSender.SendDeviceStatusData(network.DeviceStatusData{
+				err = wr.dataSender.SendDeviceStatusData(models.DeviceStatusData{
 					Signals: signals,
 				})
 				if err != nil {

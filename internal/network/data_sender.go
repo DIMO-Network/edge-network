@@ -76,7 +76,6 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		ds.logger.Error().Err(err).Msg("failed to marshall cloudevent")
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
-	ds.logger.Debug().Msgf("sending fingerprint payload: %s", string(payload))
 
 	err = ds.sendPayload(fingerprintTopic, payload)
 	if err != nil {
@@ -100,7 +99,6 @@ func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
-	ds.logger.Debug().Msgf("sending status payload: %s", string(payload))
 
 	err = ds.sendPayload(deviceStatusTopic, payload)
 	if err != nil {
@@ -187,6 +185,8 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 		return errors.Wrap(err, "Failed to publish MQTT message")
 	}
 
+	ds.logger.Debug().Msgf("sending mqtt payload to topic: %s with payload: %s", topic, string(payload))
+
 	return nil
 }
 
@@ -197,16 +197,12 @@ func (ds *dataSender) signPayload(payload []byte, unitID uuid.UUID) ([]byte, err
 	}
 
 	keccak256Hash := crypto.Keccak256Hash([]byte(dataResult.Raw))
-	// temporary
-	ds.logger.Debug().Msgf("signPayload data length: %d", len(dataResult.Raw))
 
 	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign the status update")
 	}
 	signature := "0x" + hex.EncodeToString(sig)
-	// temporary:
-	ds.logger.Debug().Msgf("signPayload signature: %s", signature)
 	// note the path should match the CloudEventHeaders signature name
 	payload, err = sjson.SetBytes(payload, "signature", signature)
 	if err != nil {
