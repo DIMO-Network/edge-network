@@ -2,11 +2,12 @@ package internal
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/rs/zerolog"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"

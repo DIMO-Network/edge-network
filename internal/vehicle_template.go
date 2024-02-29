@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/models"

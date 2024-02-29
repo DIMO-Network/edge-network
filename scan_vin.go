@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -46,7 +47,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	p.logger.Info().Msgf("VIN: %s\n", vinResp.VIN)
 	p.logger.Info().Msgf("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
-		data := network.FingerprintData{
+		data := models.FingerprintData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}

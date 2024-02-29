@@ -2,6 +2,8 @@ package internal
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -11,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"sync"
-	"time"
 )
 
 type WorkerRunner interface {
@@ -155,29 +155,29 @@ func (wr *workerRunner) Run() {
 		time.Sleep(20 * time.Second)
 	}
 
-	var tasks []WorkerTask
-
-	pidTasks := wr.registerPIDsTasks(*wr.pids)
-	for _, task := range pidTasks {
-		tasks = append(tasks, task)
-	}
-
-	senderTasks := wr.registerSenderTasks()
-	for _, task := range senderTasks {
-		tasks = append(tasks, task)
-	}
-
-	var wg sync.WaitGroup
-	for i, task := range tasks {
-		wg.Add(1)
-		go func(idx int, t WorkerTask) {
-			defer wg.Done()
-			t.Execute(idx, wr.logger)
-		}(i, task)
-	}
-
-	wg.Wait()
-	wr.logger.Debug().Msg("worker Run completed")
+	//var tasks []WorkerTask
+	//
+	//pidTasks := wr.registerPIDsTasks(*wr.pids)
+	//for _, task := range pidTasks {
+	//	tasks = append(tasks, task)
+	//}
+	//
+	//senderTasks := wr.registerSenderTasks()
+	//for _, task := range senderTasks {
+	//	tasks = append(tasks, task)
+	//}
+	//
+	//var wg sync.WaitGroup
+	//for i, task := range tasks {
+	//	wg.Add(1)
+	//	go func(idx int, t WorkerTask) {
+	//		defer wg.Done()
+	//		t.Execute(idx, wr.logger)
+	//	}(i, task)
+	//}
+	//
+	//wg.Wait()
+	//wr.logger.Debug().Msg("worker Run completed")
 }
 
 func (wr *workerRunner) registerSenderTasks() []WorkerTask {
@@ -197,7 +197,6 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 				if len(messages) == 0 {
 					break
 				}
-				// todo: does this result in the right cloudevent formatted message? or do we need to use sjson.Set
 				signals := make([]models.SignalData, len(messages))
 				for i, message := range messages {
 					signals[i] = models.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}

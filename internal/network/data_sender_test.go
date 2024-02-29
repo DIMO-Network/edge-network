@@ -2,6 +2,11 @@ package network
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -10,10 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"go.uber.org/mock/gomock"
-	"net/http"
-	"os"
-	"testing"
-	"time"
 )
 
 //go:generate mockgen -destination=mocks/mqtt_mock.go -package=mock_network github.com/eclipse/paho.mqtt.golang Client

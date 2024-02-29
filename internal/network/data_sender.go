@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/rs/zerolog"
 

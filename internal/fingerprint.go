@@ -2,8 +2,9 @@ package internal
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/rs/zerolog"
 
@@ -81,7 +82,7 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 		}
 	}
 
-	data := network.FingerprintData{
+	data := models.FingerprintData{
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
@@ -167,7 +168,7 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		}
 	}
 
-	data := network.FingerprintData{
+	data := models.FingerprintData{
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
