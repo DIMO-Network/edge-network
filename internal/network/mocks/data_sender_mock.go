@@ -12,7 +12,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/DIMO-Network/edge-network/internal/api"
-	network "github.com/DIMO-Network/edge-network/internal/network"
+	models "github.com/DIMO-Network/edge-network/internal/models"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,7 +40,7 @@ func (m *MockDataSender) EXPECT() *MockDataSenderMockRecorder {
 }
 
 // SendCanDumpData mocks base method.
-func (m *MockDataSender) SendCanDumpData(data network.CanDumpData) error {
+func (m *MockDataSender) SendCanDumpData(data models.CanDumpData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendCanDumpData", data)
 	ret0, _ := ret[0].(error)
@@ -54,7 +54,7 @@ func (mr *MockDataSenderMockRecorder) SendCanDumpData(data any) *gomock.Call {
 }
 
 // SendDeviceStatusData mocks base method.
-func (m *MockDataSender) SendDeviceStatusData(data network.DeviceStatusData) error {
+func (m *MockDataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendDeviceStatusData", data)
 	ret0, _ := ret[0].(error)
@@ -82,7 +82,7 @@ func (mr *MockDataSenderMockRecorder) SendErrorPayload(err, powerStatus any) *go
 }
 
 // SendErrorsData mocks base method.
-func (m *MockDataSender) SendErrorsData(data network.ErrorsData) error {
+func (m *MockDataSender) SendErrorsData(data models.ErrorsData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendErrorsData", data)
 	ret0, _ := ret[0].(error)
@@ -96,7 +96,7 @@ func (mr *MockDataSenderMockRecorder) SendErrorsData(data any) *gomock.Call {
 }
 
 // SendFingerprintData mocks base method.
-func (m *MockDataSender) SendFingerprintData(data network.FingerprintData) error {
+func (m *MockDataSender) SendFingerprintData(data models.FingerprintData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendFingerprintData", data)
 	ret0, _ := ret[0].(error)

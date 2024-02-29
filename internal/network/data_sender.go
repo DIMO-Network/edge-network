@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -32,12 +33,12 @@ const broker = "tcp://localhost:1883" // local mqtt broker address
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
-	SendErrorsData(data ErrorsData) error
+	SendErrorsData(data models.ErrorsData) error
 	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
-	SendFingerprintData(data FingerprintData) error
-	SendCanDumpData(data CanDumpData) error
+	SendFingerprintData(data models.FingerprintData) error
+	SendCanDumpData(data models.CanDumpData) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api
-	SendDeviceStatusData(data DeviceStatusData) error
+	SendDeviceStatusData(data models.DeviceStatusData) error
 }
 
 type dataSender struct {
@@ -61,12 +62,12 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger)
 	}
 }
 
-func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
+func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
-	ce := DeviceFingerprintCloudEvent{
+	ce := models.DeviceFingerprintCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -85,13 +86,13 @@ func (ds *dataSender) SendFingerprintData(data FingerprintData) error {
 	return nil
 }
 
-func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
+func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 	// todo validate what source should be here
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "1.0", "com.dimo.device.status")
-	ce := DeviceDataStatusCloudEvent{
+	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -108,12 +109,12 @@ func (ds *dataSender) SendDeviceStatusData(data DeviceStatusData) error {
 	return nil
 }
 
-func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
+func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
-	ce := CanDumpCloudEvent{
+	ce := models.CanDumpCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -131,12 +132,12 @@ func (ds *dataSender) SendCanDumpData(data CanDumpData) error {
 	return nil
 }
 
-func (ds *dataSender) SendErrorsData(data ErrorsData) error {
+func (ds *dataSender) SendErrorsData(data models.ErrorsData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
-	ce := DeviceErrorsCloudEvent{
+	ce := models.DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
@@ -215,7 +216,7 @@ func (ds *dataSender) signPayload(payload []byte, unitID uuid.UUID) ([]byte, err
 }
 
 func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
-	data := ErrorsData{}
+	data := models.ErrorsData{}
 	if powerStatus != nil {
 		data.BatteryVoltage = powerStatus.Spm.Battery.Voltage
 		data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
@@ -225,8 +226,8 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendErrorsData(data)
 }
 
-func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) CloudEventHeaders {
-	ce := CloudEventHeaders{
+func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) models.CloudEventHeaders {
+	ce := models.CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      source,
 		SpecVersion: specVersion,
@@ -235,74 +236,4 @@ func newCloudEventHeaders(ethAddress common.Address, source string, specVersion 
 		Type:        eventType,
 	}
 	return ce
-}
-
-// CloudEventHeaders contains the fields common to all CloudEvent messages. https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md
-type CloudEventHeaders struct {
-	ID          string    `json:"id"`
-	Source      string    `json:"source"`
-	SpecVersion string    `json:"specversion"`
-	Subject     string    `json:"subject"`
-	Time        time.Time `json:"time"`
-	Type        string    `json:"type"`
-	// Signature is an extension https://github.com/cloudevents/spec/blob/main/cloudevents/documented-extensions.md
-	Signature string `json:"signature"`
-}
-
-type CanDumpCloudEvent struct {
-	CloudEventHeaders
-	Data CanDumpData `json:"data"`
-}
-
-type DeviceFingerprintCloudEvent struct {
-	CloudEventHeaders
-	Data FingerprintData `json:"data"`
-}
-
-type DeviceDataStatusCloudEvent struct {
-	CloudEventHeaders
-	Data DeviceStatusData `json:"data"`
-}
-
-type FingerprintData struct {
-	CommonData
-	Vin             string  `json:"vin"`
-	Protocol        string  `json:"protocol"`
-	Odometer        float64 `json:"odometer,omitempty"`
-	SoftwareVersion string  `json:"softwareVersion"`
-}
-
-type CanDumpData struct {
-	CommonData
-	Payload string `json:"payloadBase64,omitempty"`
-}
-
-type DeviceStatusData struct {
-	CommonData
-	Signals []SignalData `json:"signals,omitempty"`
-}
-
-type SignalData struct {
-	// Timestamp is in unix millis, when signal was queried
-	Timestamp int64  `json:"timestamp"`
-	Name      string `json:"name"`
-	Value     any    `json:"value"`
-}
-
-type DeviceErrorsCloudEvent struct {
-	CloudEventHeaders
-	Data ErrorsData `json:"data"`
-}
-
-type ErrorsData struct {
-	CommonData
-	Errors []string `json:"errors"`
-}
-
-// CommonData common properties we want to send with every data payload
-type CommonData struct {
-	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
-	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
-	// Timestamp is in unix millis, when payload was sent
-	Timestamp int64 `json:"timestamp"`
 }

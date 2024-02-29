@@ -8,6 +8,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 	"go.uber.org/mock/gomock"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ func Test_dataSender_sendPayload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -37,16 +39,19 @@ func Test_dataSender_sendPayload(t *testing.T) {
 	payload = fmt.Sprintf(payload, ds.ethAddr.Hex())
 
 	// expectations
-	mockClient.EXPECT().Connect().Times(1).Return(mockedToken{})
+	mockClient.EXPECT().Connect().Times(1).Return(&mockedToken{})
 	mockClient.EXPECT().IsConnected().Times(1).Return(true)
 	mockClient.EXPECT().Disconnect(gomock.Any())
-	mockClient.EXPECT().Publish("topic", 0, false, payload).Times(1).Return(mockedToken{})
-	// todo register correct thing for signing
-	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
-	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
-		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
+	// here we see signature is getting set as expected, otherwise would be empty
+	payload, err := sjson.Set(payload, "signature", "0xb794f5ea0ba39494ce")
+	require.NoError(t, err)
+	mockClient.EXPECT().Publish("topic", uint8(0), false, payload).Times(1).Return(&mockedToken{})
 
-	err := ds.sendPayload("topic", []byte(payload))
+	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
+		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce"}`))
+
+	err = ds.sendPayload("topic", []byte(payload))
 	require.NoError(t, err)
 
 }
