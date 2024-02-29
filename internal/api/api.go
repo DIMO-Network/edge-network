@@ -30,6 +30,7 @@ const (
 	GetQMICellInfoCommand      = `qmi.cell_info`
 	WifiScanNetworksCommand    = `wifi.scan`
 	CellNetworkIPAddrCommand   = `network.ip_addrs wwan0`
+	ObdPIDQueryCommand         = `obd.query`
 )
 
 const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -50,6 +51,8 @@ type ExecuteRawRequest struct {
 type ExecuteRawResponse struct {
 	Value string `json:"value"`
 	Data  string `json:"data"`
+	// "_stamp": "2024-02-29T17:17:30.534861" in UTC
+	Timestamp string `json:"_stamp"`
 }
 
 type GenericSignalStrengthResponse struct {
