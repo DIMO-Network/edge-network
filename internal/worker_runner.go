@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -22,7 +23,6 @@ type WorkerRunner interface {
 type workerRunner struct {
 	unitID            uuid.UUID
 	loggerSettingsSvc loggers.TemplateStore
-	pidLog            loggers.PIDLogger
 	queueSvc          queue.StorageQueue
 	dataSender        network.DataSender
 	logger            zerolog.Logger
@@ -32,9 +32,9 @@ type workerRunner struct {
 	deviceSettings    *models.TemplateDeviceSettings
 }
 
-func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore, pidLog loggers.PIDLogger,
+func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner, pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
-	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc, pidLog: pidLog,
+	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings}
 }
 
@@ -137,6 +137,26 @@ func (wr *workerRunner) Run() {
 				}
 			}
 			// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
+			for _, request := range wr.pids.Requests {
+				// todo: need a cache of when each pid was last called, to check for interval and see if ok to call again.
+				protocol, err := strconv.Atoi(request.Protocol)
+				if err != nil {
+					protocol = 6
+				}
+				wr.logger.Debug().Msgf("requesting pid: %+v", request)
+				hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), fmt.Sprintf("%X", request.Mode),
+					fmt.Sprintf("%X", request.Pid), protocol)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to query obd pid")
+					continue
+				}
+				// todo apply formula request.Formula
+				signals = append(signals, models.SignalData{
+					Timestamp: ts.UnixMilli(),
+					Name:      request.Name,
+					Value:     hexResp[0],
+				})
+			}
 		}
 
 		// send the cloud event
@@ -226,15 +246,15 @@ func (wr *workerRunner) registerPIDsTasks(pidsConfig models.TemplatePIDs) []Work
 				Once:     task.IntervalSeconds == 0,
 				Params:   task,
 				Func: func(wCtx WorkerTaskContext) {
-					err := wr.pidLog.ExecutePID(wCtx.Params.Header,
-						wCtx.Params.Mode,
-						wCtx.Params.Pid,
-						wCtx.Params.Formula,
-						wCtx.Params.Protocol,
-						wCtx.Params.Name)
-					if err != nil {
-						wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
-					}
+					//err := wr.pidLog.ExecutePID(wCtx.Params.Header,
+					//	wCtx.Params.Mode,
+					//	wCtx.Params.Pid,
+					//	wCtx.Params.Formula,
+					//	wCtx.Params.Protocol,
+					//	wCtx.Params.Name)
+					//if err != nil {
+					//	wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
+					//}
 				},
 			}
 		}

@@ -194,7 +194,6 @@ func main() {
 	}
 
 	vinLogger := loggers.NewVINLogger(logger)
-	pidLogger := loggers.NewPIDLogger(unitID, qs, logger)
 	vehicleSignalDecodingApi := gateways.NewVehicleSignalDecodingAPIService()
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingApi, lss)
 
@@ -229,19 +228,14 @@ func main() {
 		}
 	}
 
-	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
-	// todo v1 pass in the min voltage for ok to scan from device settings to fingerprint, and max tries
-
 	// todo v2: way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
-
-	// todo v1: what about non-obd loggers (eg. location) - these could start with the runner or even earlier on. for v1 just have start as part of runner
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
-	logger.Debug().Msg("debug message before starting worker run")
+	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, pidLogger, qs, ds, logger, fingerprintRunner, pids, deviceSettings)
+	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, qs, ds, logger, fingerprintRunner, pids, deviceSettings)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

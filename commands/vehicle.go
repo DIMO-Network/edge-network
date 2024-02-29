@@ -62,6 +62,7 @@ func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, 
 	return
 }
 
+// RequestPIDRaw requests a pid via obd. Whatever calls this should be using a mutex to avoid calling while another in process, avoid overloading canbus
 func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, protocol int) (hexResp []string, ts time.Time, err error) {
 	if !isValidHex(headerHex) {
 		err = fmt.Errorf("header invalid %s", headerHex)
@@ -88,10 +89,13 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 	}
 	hexResp = strings.Split(resp.Value, "\n")
 	for i := range hexResp {
-		if !isValidHex(hexResp[i]) {
+		if len(hexResp[i]) > 0 && !isValidHex(hexResp[i]) {
 			err = fmt.Errorf("invalid return value: %s", hexResp[i])
 			return
 		}
+	}
+	if len(hexResp) == 0 {
+		err = fmt.Errorf("no response received")
 	}
 	ts, err = time.Parse("2006-01-02T15:04:05.000000", resp.Timestamp)
 	ts = ts.UTC() // just in case
