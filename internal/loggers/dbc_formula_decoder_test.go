@@ -35,7 +35,7 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		decoded, unit, err := ExtractAndDecodeWithFormula(test.hexData, test.pid, test.formula)
+		decoded, unit, err := ExtractAndDecodeWithDBCFormula(test.hexData, test.pid, test.formula)
 
 		if err != nil {
 			if err.Error() != test.err {
@@ -44,7 +44,7 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		} else if test.err != "" {
 			t.Errorf("Expected error \"%v\" but got nil", test.err)
 		} else if !almostEqual(decoded, test.expected, tolerance) || unit != test.unit {
-			t.Errorf("ExtractAndDecodeWithFormula(%q, %q, %q): expected %v %v, actual %v %v",
+			t.Errorf("ExtractAndDecodeWithDBCFormula(%q, %q, %q): expected %v %v, actual %v %v",
 				test.hexData, test.pid, test.formula, test.expected, test.unit, decoded, unit)
 		}
 	}

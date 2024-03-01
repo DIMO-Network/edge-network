@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 // TemplateURLs holds the urls that point to different settings, version is in url
 type TemplateURLs struct {
 	DbcURL           string `json:"dbcUrl"`
@@ -22,6 +24,20 @@ type PIDRequest struct {
 	Name            string `json:"name"`
 	Pid             uint32 `json:"pid"`
 	Protocol        string `json:"protocol"`
+}
+
+// FormulaType gets the first 3 chars of the formula which are expected to be the type, currently only know of dbc
+func (p *PIDRequest) FormulaType() string {
+	// asumming no multibyte characters
+	if len(p.Formula) >= 3 {
+		return p.Formula[:3]
+	}
+	return ""
+}
+
+// FormulaValue gets the formula without the 4 type characters at the beginning, eg. "dbc:"
+func (p *PIDRequest) FormulaValue() string {
+	return strings.TrimSpace(p.Formula[4:])
 }
 
 // TemplateDeviceSettings contains configurations options around power and other device settings. share from: vehicle-signal-decoding.grpc.DeviceSetting

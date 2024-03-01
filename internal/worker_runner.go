@@ -143,19 +143,28 @@ func (wr *workerRunner) Run() {
 				if err != nil {
 					protocol = 6
 				}
-				wr.logger.Debug().Msgf("requesting pid: %+v", request)
+				pidStr := fmt.Sprintf("%X", request.Pid)
 				hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), fmt.Sprintf("%X", request.Mode),
-					fmt.Sprintf("%X", request.Pid), protocol)
+					pidStr, protocol)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to query obd pid")
 					continue
 				}
-				// todo apply formula request.Formula
-				signals = append(signals, models.SignalData{
-					Timestamp: ts.UnixMilli(),
-					Name:      request.Name,
-					Value:     hexResp[0],
-				})
+				if request.FormulaType() == "dbc" {
+					value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
+					if err != nil {
+						wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
+						continue
+					}
+					signals = append(signals, models.SignalData{
+						Timestamp: ts.UnixMilli(),
+						Name:      request.Name,
+						Value:     value,
+					})
+				} else {
+					wr.logger.Info().Msgf("no recognized formula type found: %s", request.Formula)
+				}
+
 			}
 		}
 

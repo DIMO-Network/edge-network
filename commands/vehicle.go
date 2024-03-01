@@ -76,12 +76,13 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 	if err != nil {
 		return
 	}
-	cmd := fmt.Sprintf(api.ObdPIDQueryCommand+" %s header='%s' mode='x%s' pid='x%s' protocol=%d force=true",
-		name, headerHex, modeHex, pidHex, protocol)
+	cmd := fmt.Sprintf("%s %s header='%s' mode='x%s' pid='x%s' protocol=%d force=true",
+		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 	req := api.ExecuteRawRequest{Command: cmd}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp api.ExecuteRawResponse
+	fmt.Printf("DBG requesting PID: %s", cmd)
 
 	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
