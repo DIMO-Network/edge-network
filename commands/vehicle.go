@@ -76,6 +76,7 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 	if err != nil {
 		return
 	}
+
 	cmd := fmt.Sprintf("%s %s header='%s' mode='x%s' pid='x%s' protocol=%d force=true",
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 	req := api.ExecuteRawRequest{Command: cmd}

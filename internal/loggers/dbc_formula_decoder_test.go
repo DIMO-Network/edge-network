@@ -32,6 +32,7 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		//coolant temp
 		{"7e803410581cccccccc", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 89, "degC", ""},
 		{"7e803410585aaaaaaaa", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""},
+		{"7e803410585aaaaaaaa", "05", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""}, // 0 padded pid
 	}
 
 	for _, test := range tests {

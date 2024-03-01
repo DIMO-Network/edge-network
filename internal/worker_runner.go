@@ -143,13 +143,14 @@ func (wr *workerRunner) Run() {
 				if err != nil {
 					protocol = 6
 				}
-				pidStr := fmt.Sprintf("%X", request.Pid)
-				hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), fmt.Sprintf("%X", request.Mode),
+				pidStr := uintToHexStr(request.Pid)
+				hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
 					pidStr, protocol)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to query obd pid")
 					continue
 				}
+				// todo new formula type that could work for proprietary PIDs and could support text, int or float
 				if request.FormulaType() == "dbc" {
 					value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
 					if err != nil {
@@ -162,9 +163,8 @@ func (wr *workerRunner) Run() {
 						Value:     value,
 					})
 				} else {
-					wr.logger.Info().Msgf("no recognized formula type found: %s", request.Formula)
+					wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
 				}
-
 			}
 		}
 
@@ -207,6 +207,15 @@ func (wr *workerRunner) Run() {
 	//
 	//wg.Wait()
 	//wr.logger.Debug().Msg("worker Run completed")
+}
+
+// uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
+func uintToHexStr(val uint32) string {
+	hexStr := fmt.Sprintf("%X", val)
+	if len(hexStr)%2 != 0 {
+		return "0" + hexStr // Prepend a "0" if the length is odd
+	}
+	return hexStr
 }
 
 func (wr *workerRunner) registerSenderTasks() []WorkerTask {
