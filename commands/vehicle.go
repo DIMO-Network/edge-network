@@ -77,7 +77,7 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 		return
 	}
 
-	cmd := fmt.Sprintf("%s %s header='%s' mode='x%s' pid='x%s' protocol=%d force=true",
+	cmd := fmt.Sprintf(`%s %s header="'%s'" mode='x%s' pid='x%s' protocol=%d force=true`,
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 	req := api.ExecuteRawRequest{Command: cmd}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
