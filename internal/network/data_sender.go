@@ -215,8 +215,8 @@ func (ds *dataSender) signPayload(payload []byte, unitID uuid.UUID) ([]byte, err
 func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
 	data := models.ErrorsData{}
 	if powerStatus != nil {
-		data.BatteryVoltage = powerStatus.Spm.Battery.Voltage
-		data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+		data.Device.BatteryVoltage = powerStatus.Spm.Battery.Voltage
+		data.Device.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
 	}
 	data.Errors = append(data.Errors, err.Error())
 

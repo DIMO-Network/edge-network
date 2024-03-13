@@ -86,8 +86,8 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
-	data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
-	data.BatteryVoltage = powerStatus.VoltageFound
+	data.Device.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	data.Device.BatteryVoltage = powerStatus.VoltageFound
 	version, err := commands.GetSoftwareVersion(ls.unitID)
 	if err == nil {
 		data.SoftwareVersion = version
@@ -172,8 +172,8 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
-	data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
-	data.BatteryVoltage = status.Stn.Battery.Voltage
+	data.Device.RpiUptimeSecs = status.Rpi.Uptime.Seconds
+	data.Device.BatteryVoltage = status.Stn.Battery.Voltage
 
 	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {
