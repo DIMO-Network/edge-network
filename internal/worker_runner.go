@@ -117,7 +117,7 @@ func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData 
 	signals = wr.queryOBD(queryOBD, false, powerStatus, signals)
 
 	// send the cloud event
-	s := models.DeviceStatusData{
+	statusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
 			Timestamp: time.Now().UTC().UnixMilli(),
 		},
@@ -131,21 +131,21 @@ func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData 
 	}
 	// only update location if no error
 	if locationErr == nil {
-		s.Location = location
+		statusData.Location = location
 	}
 	n := &models.Network{}
 
 	// only update wifi if no error
 	if wifiErr == nil {
 		n.WiFi = *wifi
-		s.Network = n
+		statusData.Network = n
 	}
 	// only update cell info if no error
 	if cellErr == nil {
 		n.QMICellInfoResponse = cellInfo
-		s.Network = n
+		statusData.Network = n
 	}
-	return s
+	return statusData
 }
 
 func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {

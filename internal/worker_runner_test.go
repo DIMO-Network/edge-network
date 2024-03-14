@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"net/http"
 	"os"
@@ -17,7 +17,7 @@ import (
 	_ "time"
 )
 
-func TestWorkerRunner_Run(t *testing.T) {
+func Test_workerRunner_createDeviceEvent(t *testing.T) {
 	// mock data-sender and others deps
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -43,11 +43,7 @@ func TestWorkerRunner_Run(t *testing.T) {
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
-	// mock eth addr
-	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
-		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce839613fffba74279579268"}`))
-
+	// todo mock location, network, wifi and others
 	// Initialize workerRunner here with mocked dependencies
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
@@ -66,17 +62,11 @@ func TestWorkerRunner_Run(t *testing.T) {
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 
 	// Run the method
-	s := wr.createDeviceEvent("") // Since it's a loop, consider running it in a goroutine
-
-	// pretty printing
-	prettyJSON, err := json.MarshalIndent(s, "", "    ") // Prefix "", Indent "    "
-	if err != nil {
-		//log.Fatal("Error marshalling JSON:", err)
-	}
-	// Print the pretty JSON
-	fmt.Println(string(prettyJSON))
-	// Simulate a condition to stop the loop if necessary, for example by setting a condition or sending a signal
+	s := wr.createDeviceEvent("ec2x") // Since it's a loop, consider running it in a goroutine
 
 	// Assertions
-
+	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
+	assert.NotNil(t, s.Network)
+	assert.NotNil(t, s.Network.WiFi)
+	assert.NotNil(t, s.Network.QMICellInfoResponse)
 }
