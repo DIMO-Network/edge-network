@@ -180,7 +180,6 @@ func (wr *workerRunner) queryOBD(queryOBD bool, fingerprintDone bool, powerStatu
 	if queryOBD {
 		// do fingerprint but only once
 		if !fingerprintDone {
-			// todo we need to find a way how to mock it, currently I have issues to mock templateStore.ReadVINConfig()
 			err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
