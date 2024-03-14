@@ -18,10 +18,10 @@ type CommonData struct {
 
 type DeviceStatusData struct {
 	CommonData
-	Device   Device   `json:"device,omitempty"`
-	Vehicle  Vehicle  `json:"vehicle,omitempty"`
-	Location Location `json:"location,omitempty"`
-	Network  Network  `json:"network,omitempty"`
+	Device   Device    `json:"device,omitempty"`
+	Vehicle  Vehicle   `json:"vehicle,omitempty"`
+	Location *Location `json:"location,omitempty"`
+	Network  *Network  `json:"network,omitempty"`
 }
 
 type Device struct {
@@ -40,15 +40,15 @@ type Vehicle struct {
 }
 
 type WiFi struct {
-	WPAState string `json:"wpa_state"`
-	SSID     string `json:"ssid"`
+	WPAState string `json:"wpa_state,omitempty"`
+	SSID     string `json:"ssid,omitempty"`
 }
 
 type Location struct {
-	Hdop      float64 `json:"hdop"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Nsat      int64   `json:"nsat"`
+	Hdop      float64 `json:"hdop,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
+	Nsat      int64   `json:"nsat,omitempty"`
 }
 
 type SignalData struct {

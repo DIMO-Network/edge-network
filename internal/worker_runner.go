@@ -71,11 +71,11 @@ func (wr *workerRunner) Run() {
 		// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
 		signals := make([]models.SignalData, 1)
 		// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
-		wifi := wr.queryWiFi()
-		location := wr.queryLocation(modem)
-		cellInfo, err := commands.GetQMICellInfo(wr.unitID)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to get qmi cell info")
+		wifi, wifiErr := wr.queryWiFi()
+		location, locationErr := wr.queryLocation(modem)
+		cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
+		if cellErr != nil {
+			wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
 		}
 
 		// query OBD signals
@@ -86,7 +86,6 @@ func (wr *workerRunner) Run() {
 			CommonData: models.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),
 			},
-			Location: location,
 			Device: models.Device{
 				RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
 				BatteryVoltage: powerStatus.VoltageFound,
@@ -94,10 +93,22 @@ func (wr *workerRunner) Run() {
 			Vehicle: models.Vehicle{
 				Signals: signals,
 			},
-			Network: models.Network{
-				WiFi:                wifi,
-				QMICellInfoResponse: cellInfo,
-			},
+		}
+		// only update location if no error
+		if locationErr == nil {
+			s.Location = location
+		}
+		n := &models.Network{}
+
+		// only update wifi if no error
+		if wifiErr == nil {
+			n.WiFi = *wifi
+			s.Network = n
+		}
+		// only update cell info if no error
+		if cellErr == nil {
+			n.QMICellInfoResponse = cellInfo
+			s.Network = n
 		}
 
 		err = wr.dataSender.SendDeviceStatusData(s)
@@ -132,25 +143,27 @@ func (wr *workerRunner) Run() {
 	//wr.logger.Debug().Msg("worker Run completed")
 }
 
-func (wr *workerRunner) queryWiFi() models.WiFi {
+func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.unitID)
 	wifi := models.WiFi{}
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get signal strength")
+		return nil, err
 	} else {
 		wifi = models.WiFi{
 			WPAState: wifiStatus.WPAState,
 			SSID:     wifiStatus.SSID,
 		}
 	}
-	return wifi
+	return &wifi, nil
 }
 
-func (wr *workerRunner) queryLocation(modem string) models.Location {
+func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.unitID, modem)
 	location := models.Location{}
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get gps location")
+		return nil, err
 	} else {
 		// location fields mapped to separate struct
 		location = models.Location{
@@ -160,7 +173,7 @@ func (wr *workerRunner) queryLocation(modem string) models.Location {
 			Longitude: gspLocation.Lon,
 		}
 	}
-	return location
+	return &location, nil
 }
 
 func (wr *workerRunner) queryOBD(queryOBD bool, fingerprintDone bool, powerStatus api.PowerStatusResponse, signals []models.SignalData) []models.SignalData {
