@@ -65,51 +65,7 @@ func (wr *workerRunner) Run() {
 	// which clock checks batteryvoltage? we want to send it with every status payload
 	// register tasks that can be iterated over
 	for {
-		// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
-		queryOBD, powerStatus := wr.isOkToQueryOBD()
-		// maybe start a timer here to know how long this cycle takes?
-		// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
-		signals := make([]models.SignalData, 1)
-		// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
-		wifi, wifiErr := wr.queryWiFi()
-		location, locationErr := wr.queryLocation(modem)
-		cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
-		if cellErr != nil {
-			wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
-		}
-
-		// query OBD signals
-		signals = wr.queryOBD(queryOBD, false, powerStatus, signals)
-
-		// send the cloud event
-		s := models.DeviceStatusData{
-			CommonData: models.CommonData{
-				Timestamp: time.Now().UTC().UnixMilli(),
-			},
-			Device: models.Device{
-				RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
-				BatteryVoltage: powerStatus.VoltageFound,
-			},
-			Vehicle: models.Vehicle{
-				Signals: signals,
-			},
-		}
-		// only update location if no error
-		if locationErr == nil {
-			s.Location = location
-		}
-		n := &models.Network{}
-
-		// only update wifi if no error
-		if wifiErr == nil {
-			n.WiFi = *wifi
-			s.Network = n
-		}
-		// only update cell info if no error
-		if cellErr == nil {
-			n.QMICellInfoResponse = cellInfo
-			s.Network = n
-		}
+		s := wr.createDeviceEvent(modem)
 
 		err = wr.dataSender.SendDeviceStatusData(s)
 		if err != nil {
@@ -141,6 +97,55 @@ func (wr *workerRunner) Run() {
 	//
 	//wg.Wait()
 	//wr.logger.Debug().Msg("worker Run completed")
+}
+
+func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData {
+	// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
+	queryOBD, powerStatus := wr.isOkToQueryOBD()
+	// maybe start a timer here to know how long this cycle takes?
+	// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
+	signals := make([]models.SignalData, 1)
+	// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
+	wifi, wifiErr := wr.queryWiFi()
+	location, locationErr := wr.queryLocation(modem)
+	cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
+	if cellErr != nil {
+		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
+	}
+
+	// query OBD signals
+	signals = wr.queryOBD(queryOBD, false, powerStatus, signals)
+
+	// send the cloud event
+	s := models.DeviceStatusData{
+		CommonData: models.CommonData{
+			Timestamp: time.Now().UTC().UnixMilli(),
+		},
+		Device: models.Device{
+			RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
+			BatteryVoltage: powerStatus.VoltageFound,
+		},
+		Vehicle: models.Vehicle{
+			Signals: signals,
+		},
+	}
+	// only update location if no error
+	if locationErr == nil {
+		s.Location = location
+	}
+	n := &models.Network{}
+
+	// only update wifi if no error
+	if wifiErr == nil {
+		n.WiFi = *wifi
+		s.Network = n
+	}
+	// only update cell info if no error
+	if cellErr == nil {
+		n.QMICellInfoResponse = cellInfo
+		s.Network = n
+	}
+	return s
 }
 
 func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
