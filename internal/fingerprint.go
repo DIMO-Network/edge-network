@@ -155,11 +155,11 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		if writeErr != nil {
 			ls.logger.Err(writeErr).Send()
 		}
-
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &status)
-	}
-	// save vin query name in settings if not set
-	if config == nil || config.VINQueryName == "" {
+
+		return err
+	} else if config == nil {
+		// save vin query name in settings if not set
 		config = &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
 		err := ls.templateStore.WriteVINConfig(*config)
 		if err != nil {

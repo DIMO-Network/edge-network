@@ -73,30 +73,6 @@ func (wr *workerRunner) Run() {
 		}
 		time.Sleep(20 * time.Second)
 	}
-
-	//var tasks []WorkerTask
-	//
-	//pidTasks := wr.registerPIDsTasks(*wr.pids)
-	//for _, task := range pidTasks {
-	//	tasks = append(tasks, task)
-	//}
-	//
-	//senderTasks := wr.registerSenderTasks()
-	//for _, task := range senderTasks {
-	//	tasks = append(tasks, task)
-	//}
-	//
-	//var wg sync.WaitGroup
-	//for i, task := range tasks {
-	//	wg.Add(1)
-	//	go func(idx int, t WorkerTask) {
-	//		defer wg.Done()
-	//		t.Execute(idx, wr.logger)
-	//	}(i, task)
-	//}
-	//
-	//wg.Wait()
-	//wr.logger.Debug().Msg("worker Run completed")
 }
 
 func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData {

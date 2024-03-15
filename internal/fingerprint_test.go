@@ -143,7 +143,7 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 
 	err := ls.Fingerprint()
 
-	assert.NoError(t, err)
+	assert.Error(t, err, "response contained an invalid vin")
 }
 
 func Test_fingerprintRunner_VINLoggers_noVINResponseAndAttemptsExceeded(t *testing.T) {
