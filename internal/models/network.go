@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"github.com/DIMO-Network/edge-network/internal/api"
+	"time"
+)
 
 type CanDumpData struct {
 	CommonData
@@ -9,15 +12,43 @@ type CanDumpData struct {
 
 // CommonData common properties we want to send with every data payload
 type CommonData struct {
-	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
-	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
 	// Timestamp is in unix millis, when payload was sent
 	Timestamp int64 `json:"timestamp"`
 }
 
 type DeviceStatusData struct {
 	CommonData
+	Device   Device    `json:"device,omitempty"`
+	Vehicle  Vehicle   `json:"vehicle,omitempty"`
+	Location *Location `json:"location,omitempty"`
+	Network  *Network  `json:"network,omitempty"`
+}
+
+type Device struct {
+	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
+	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
+}
+
+type Network struct {
+	WiFi WiFi `json:"wifi,omitempty"`
+	// consider to not import api here
+	QMICellInfoResponse api.QMICellInfoResponse `json:"cell,omitempty"`
+}
+
+type Vehicle struct {
 	Signals []SignalData `json:"signals,omitempty"`
+}
+
+type WiFi struct {
+	WPAState string `json:"wpa_state,omitempty"`
+	SSID     string `json:"ssid,omitempty"`
+}
+
+type Location struct {
+	Hdop      float64 `json:"hdop,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
+	Nsat      int64   `json:"nsat,omitempty"`
 }
 
 type SignalData struct {
@@ -29,6 +60,7 @@ type SignalData struct {
 
 type ErrorsData struct {
 	CommonData
+	Device Device   `json:"device,omitempty"`
 	Errors []string `json:"errors"`
 }
 
@@ -39,6 +71,7 @@ type DeviceErrorsCloudEvent struct {
 
 type FingerprintData struct {
 	CommonData
+	Device          Device  `json:"device,omitempty"`
 	Vin             string  `json:"vin"`
 	Protocol        string  `json:"protocol"`
 	Odometer        float64 `json:"odometer,omitempty"`

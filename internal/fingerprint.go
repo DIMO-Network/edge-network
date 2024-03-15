@@ -86,8 +86,8 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
-	data.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
-	data.BatteryVoltage = powerStatus.VoltageFound
+	data.Device.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	data.Device.BatteryVoltage = powerStatus.VoltageFound
 	version, err := commands.GetSoftwareVersion(ls.unitID)
 	if err == nil {
 		data.SoftwareVersion = version
@@ -155,11 +155,11 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		if writeErr != nil {
 			ls.logger.Err(writeErr).Send()
 		}
-
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &status)
-	}
-	// save vin query name in settings if not set
-	if config == nil || config.VINQueryName == "" {
+
+		return err
+	} else if config == nil {
+		// save vin query name in settings if not set
 		config = &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
 		err := ls.templateStore.WriteVINConfig(*config)
 		if err != nil {
@@ -172,8 +172,8 @@ func (ls *fingerprintRunner) Fingerprint() error {
 		Vin:      vinResp.VIN,
 		Protocol: vinResp.Protocol,
 	}
-	data.RpiUptimeSecs = status.Rpi.Uptime.Seconds
-	data.BatteryVoltage = status.Stn.Battery.Voltage
+	data.Device.RpiUptimeSecs = status.Rpi.Uptime.Seconds
+	data.Device.BatteryVoltage = status.Stn.Battery.Voltage
 
 	err = ls.dataSender.SendFingerprintData(data)
 	if err != nil {

@@ -64,149 +64,142 @@ func (wr *workerRunner) Run() {
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// which clock checks batteryvoltage? we want to send it with every status payload
 	// register tasks that can be iterated over
-	fingerprintDone := false
 	for {
-		// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
-		queryOBD, powerStatus := wr.isOkToQueryOBD()
-		// maybe start a timer here to know how long this cycle takes?
-		// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
-		signals := make([]models.SignalData, 1)
-		signals[0] = models.SignalData{
-			Timestamp: time.Now().UTC().UnixMilli(),
-			Name:      "batteryVoltage",
-			Value:     fmt.Sprintf("%f", powerStatus.VoltageFound),
-		}
-		// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
-		// should probably have function that just returns list of signals to refactor this
-		wifiStatus, err := commands.GetWifiStatus(wr.unitID)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to get signal strength")
-		} else {
-			signals = append(signals, models.SignalData{
-				Timestamp: time.Now().UTC().UnixMilli(),
-				Name:      "wifi",
-				Value:     wifiStatus,
-			})
-		}
-		location, err := commands.GetGPSLocation(wr.unitID, modem)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to get gps location")
-		} else {
-			ts := time.Now().UTC().UnixMilli()
-			signals = append(signals, models.SignalData{
-				Timestamp: ts,
-				Name:      "hdop",
-				Value:     location.Hdop,
-			})
-			signals = append(signals, models.SignalData{
-				Timestamp: ts,
-				Name:      "nsat",
-				Value:     location.NsatGPS,
-			})
-			signals = append(signals, models.SignalData{
-				Timestamp: ts,
-				Name:      "latitude",
-				Value:     location.Lat,
-			})
-			signals = append(signals, models.SignalData{
-				Timestamp: ts,
-				Name:      "longitude",
-				Value:     location.Lon,
-			})
-		}
-		cellInfo, err := commands.GetQMICellInfo(wr.unitID)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to get qmi cell info")
-		} else {
-			// todo massage format to match what we put in elastic
-			signals = append(signals, models.SignalData{
-				Timestamp: time.Now().UTC().UnixMilli(),
-				Name:      "cell",
-				Value:     cellInfo,
-			})
-		}
+		s := wr.createDeviceEvent(modem)
 
-		if queryOBD {
-			// do fingerprint but only once
-			if !fingerprintDone {
-				err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-				if err != nil {
-					wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
-				} else {
-					fingerprintDone = true
-				}
-			}
-			// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
-			for _, request := range wr.pids.Requests {
-				// todo: need a cache of when each pid was last called, to check for interval and see if ok to call again.
-				protocol, err := strconv.Atoi(request.Protocol)
-				if err != nil {
-					protocol = 6
-				}
-				pidStr := uintToHexStr(request.Pid)
-				hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-					pidStr, protocol)
-				if err != nil {
-					wr.logger.Err(err).Msg("failed to query obd pid")
-					continue
-				}
-				// todo new formula type that could work for proprietary PIDs and could support text, int or float
-				if request.FormulaType() == "dbc" {
-					value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
-					if err != nil {
-						wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
-						continue
-					}
-					signals = append(signals, models.SignalData{
-						Timestamp: ts.UnixMilli(),
-						Name:      request.Name,
-						Value:     value,
-					})
-				} else {
-					wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
-				}
-			}
-		}
-
-		// send the cloud event
-		s := models.DeviceStatusData{
-			CommonData: models.CommonData{
-				RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
-				BatteryVoltage: powerStatus.VoltageFound,
-				Timestamp:      time.Now().UTC().UnixMilli(),
-			},
-			Signals: signals,
-		}
 		err = wr.dataSender.SendDeviceStatusData(s)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to send device status in loop")
 		}
 		time.Sleep(20 * time.Second)
 	}
+}
 
-	//var tasks []WorkerTask
-	//
-	//pidTasks := wr.registerPIDsTasks(*wr.pids)
-	//for _, task := range pidTasks {
-	//	tasks = append(tasks, task)
-	//}
-	//
-	//senderTasks := wr.registerSenderTasks()
-	//for _, task := range senderTasks {
-	//	tasks = append(tasks, task)
-	//}
-	//
-	//var wg sync.WaitGroup
-	//for i, task := range tasks {
-	//	wg.Add(1)
-	//	go func(idx int, t WorkerTask) {
-	//		defer wg.Done()
-	//		t.Execute(idx, wr.logger)
-	//	}(i, task)
-	//}
-	//
-	//wg.Wait()
-	//wr.logger.Debug().Msg("worker Run completed")
+func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData {
+	// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
+	queryOBD, powerStatus := wr.isOkToQueryOBD()
+	// maybe start a timer here to know how long this cycle takes?
+	// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
+	signals := make([]models.SignalData, 1)
+	// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
+	wifi, wifiErr := wr.queryWiFi()
+	location, locationErr := wr.queryLocation(modem)
+	cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
+	if cellErr != nil {
+		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
+	}
+
+	// query OBD signals
+	signals = wr.queryOBD(queryOBD, false, powerStatus, signals)
+
+	// send the cloud event
+	statusData := models.DeviceStatusData{
+		CommonData: models.CommonData{
+			Timestamp: time.Now().UTC().UnixMilli(),
+		},
+		Device: models.Device{
+			RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
+			BatteryVoltage: powerStatus.VoltageFound,
+		},
+		Vehicle: models.Vehicle{
+			Signals: signals,
+		},
+	}
+	// only update location if no error
+	if locationErr == nil {
+		statusData.Location = location
+	}
+	n := &models.Network{}
+
+	// only update wifi if no error
+	if wifiErr == nil {
+		n.WiFi = *wifi
+		statusData.Network = n
+	}
+	// only update cell info if no error
+	if cellErr == nil {
+		n.QMICellInfoResponse = cellInfo
+		statusData.Network = n
+	}
+	return statusData
+}
+
+func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
+	wifiStatus, err := commands.GetWifiStatus(wr.unitID)
+	wifi := models.WiFi{}
+	if err != nil {
+		wr.logger.Err(err).Msg("failed to get signal strength")
+		return nil, err
+	} else {
+		wifi = models.WiFi{
+			WPAState: wifiStatus.WPAState,
+			SSID:     wifiStatus.SSID,
+		}
+	}
+	return &wifi, nil
+}
+
+func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
+	gspLocation, err := commands.GetGPSLocation(wr.unitID, modem)
+	location := models.Location{}
+	if err != nil {
+		wr.logger.Err(err).Msg("failed to get gps location")
+		return nil, err
+	} else {
+		// location fields mapped to separate struct
+		location = models.Location{
+			Hdop:      gspLocation.Hdop,
+			Nsat:      gspLocation.NsatGPS,
+			Latitude:  gspLocation.Lat,
+			Longitude: gspLocation.Lon,
+		}
+	}
+	return &location, nil
+}
+
+func (wr *workerRunner) queryOBD(queryOBD bool, fingerprintDone bool, powerStatus api.PowerStatusResponse, signals []models.SignalData) []models.SignalData {
+	if queryOBD {
+		// do fingerprint but only once
+		if !fingerprintDone {
+			err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+			if err != nil {
+				wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
+			} else {
+				fingerprintDone = true
+			}
+		}
+		// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
+		for _, request := range wr.pids.Requests {
+			// todo: need a cache of when each pid was last called, to check for interval and see if ok to call again.
+			protocol, err := strconv.Atoi(request.Protocol)
+			if err != nil {
+				protocol = 6
+			}
+			pidStr := uintToHexStr(request.Pid)
+			hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
+				pidStr, protocol)
+			if err != nil {
+				wr.logger.Err(err).Msg("failed to query obd pid")
+				continue
+			}
+			// todo new formula type that could work for proprietary PIDs and could support text, int or float
+			if request.FormulaType() == "dbc" {
+				value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
+				if err != nil {
+					wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
+					continue
+				}
+				signals = append(signals, models.SignalData{
+					Timestamp: ts.UnixMilli(),
+					Name:      request.Name,
+					Value:     value,
+				})
+			} else {
+				wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
+			}
+		}
+	}
+	return signals
 }
 
 // uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
@@ -240,7 +233,9 @@ func (wr *workerRunner) registerSenderTasks() []WorkerTask {
 					signals[i] = models.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}
 				}
 				err = wr.dataSender.SendDeviceStatusData(models.DeviceStatusData{
-					Signals: signals,
+					Vehicle: models.Vehicle{
+						Signals: signals,
+					},
 				})
 				if err != nil {
 					wr.logger.Err(err).Msg("Unable to send device status data")
