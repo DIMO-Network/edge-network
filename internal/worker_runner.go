@@ -70,7 +70,7 @@ func (wr *workerRunner) Run() {
 	queryOBD, powerStatus := wr.isOkToQueryOBD()
 
 	if queryOBD {
-		// query OBD signls in goroutine
+		// query OBD signals in goroutine
 		go func() {
 			for {
 				wr.queryOBD(false, powerStatus)
@@ -329,9 +329,8 @@ type SignalsQueue struct {
 }
 
 func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
-	// consider to remove this method and just use the map directly
-	//sq.Lock()
-	//defer sq.Unlock()
+	sq.Lock()
+	defer sq.Unlock()
 	t, ok := sq.lastTimeSent[key]
 	return t, ok
 
