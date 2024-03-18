@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -30,12 +31,14 @@ type workerRunner struct {
 	fingerprintRunner FingerprintRunner
 	pids              *models.TemplatePIDs
 	deviceSettings    *models.TemplateDeviceSettings
+	signalsQueue      *SignalsQueue
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner, pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
+	signalsQueue := &SignalsQueue{lastTimeSent: make(map[string]time.Time)}
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings}
+		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -64,35 +67,37 @@ func (wr *workerRunner) Run() {
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// which clock checks batteryvoltage? we want to send it with every status payload
 	// register tasks that can be iterated over
-	for {
-		s := wr.createDeviceEvent(modem)
+	queryOBD, powerStatus := wr.isOkToQueryOBD()
 
+	if queryOBD {
+		// query OBD signls in goroutine
+		go func() {
+			for {
+				wr.queryOBD(false, powerStatus)
+				time.Sleep(1 * time.Second)
+			}
+		}()
+	}
+
+	for {
+		// query non-obd signals
+		wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
+		// compose the device event
+		s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+
+		// send the cloud event
 		err = wr.dataSender.SendDeviceStatusData(s)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to send device status in loop")
 		}
+
+		// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
 		time.Sleep(20 * time.Second)
+		// todo: for tests purposes, possible to send cancellation event so we can return from Run
 	}
 }
 
-func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData {
-	// naive implementation, just get messages sending - important to map out all actions. Later figure out right task engine
-	queryOBD, powerStatus := wr.isOkToQueryOBD()
-	// maybe start a timer here to know how long this cycle takes?
-	// start a cloudevent. current loop without OBD takes about 2.2 seconds. We could parallelize these.
-	signals := make([]models.SignalData, 1)
-	// run through non obd ones: altitude, latitude, longitude, wifi connection, nsat (number gps satellites), cell signal info
-	wifi, wifiErr := wr.queryWiFi()
-	location, locationErr := wr.queryLocation(modem)
-	cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
-	if cellErr != nil {
-		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
-	}
-
-	// query OBD signals
-	signals = wr.queryOBD(queryOBD, false, powerStatus, signals)
-
-	// send the cloud event
+func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, locationErr error, location *models.Location, wifiErr error, wifi *models.WiFi, cellErr error, cellInfo api.QMICellInfoResponse) models.DeviceStatusData {
 	statusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
 			Timestamp: time.Now().UTC().UnixMilli(),
@@ -102,7 +107,7 @@ func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData 
 			BatteryVoltage: powerStatus.VoltageFound,
 		},
 		Vehicle: models.Vehicle{
-			Signals: signals,
+			Signals: wr.signalsQueue.Dequeue(),
 		},
 	}
 	// only update location if no error
@@ -111,7 +116,7 @@ func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData 
 	}
 	n := &models.Network{}
 
-	// only update wifi if no error
+	// only update Wi-Fi if no error
 	if wifiErr == nil {
 		n.WiFi = *wifi
 		statusData.Network = n
@@ -121,7 +126,18 @@ func (wr *workerRunner) createDeviceEvent(modem string) models.DeviceStatusData 
 		n.QMICellInfoResponse = cellInfo
 		statusData.Network = n
 	}
+
 	return statusData
+}
+
+func (wr *workerRunner) queryNonObd(modem string) (*models.WiFi, error, *models.Location, error, api.QMICellInfoResponse, error) {
+	wifi, wifiErr := wr.queryWiFi()
+	location, locationErr := wr.queryLocation(modem)
+	cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
+	if cellErr != nil {
+		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
+	}
+	return wifi, wifiErr, location, locationErr, cellInfo, cellErr
 }
 
 func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
@@ -157,49 +173,55 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	return &location, nil
 }
 
-func (wr *workerRunner) queryOBD(queryOBD bool, fingerprintDone bool, powerStatus api.PowerStatusResponse, signals []models.SignalData) []models.SignalData {
-	if queryOBD {
-		// do fingerprint but only once
-		if !fingerprintDone {
-			err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-			if err != nil {
-				wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
-			} else {
-				fingerprintDone = true
-			}
-		}
-		// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
-		for _, request := range wr.pids.Requests {
-			// todo: need a cache of when each pid was last called, to check for interval and see if ok to call again.
-			protocol, err := strconv.Atoi(request.Protocol)
-			if err != nil {
-				protocol = 6
-			}
-			pidStr := uintToHexStr(request.Pid)
-			hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-				pidStr, protocol)
-			if err != nil {
-				wr.logger.Err(err).Msg("failed to query obd pid")
-				continue
-			}
-			// todo new formula type that could work for proprietary PIDs and could support text, int or float
-			if request.FormulaType() == "dbc" {
-				value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
-				if err != nil {
-					wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
-					continue
-				}
-				signals = append(signals, models.SignalData{
-					Timestamp: ts.UnixMilli(),
-					Name:      request.Name,
-					Value:     value,
-				})
-			} else {
-				wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
-			}
+func (wr *workerRunner) queryOBD(fingerprintDone bool, powerStatus api.PowerStatusResponse) {
+	// do fingerprint but only once
+	if !fingerprintDone {
+		err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+		if err != nil {
+			wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
+		} else {
+			fingerprintDone = true
 		}
 	}
-	return signals
+	// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
+	for _, request := range wr.pids.Requests {
+		// check if ok to query this pid
+		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
+			if request.IntervalSeconds < int(time.Since(lastEnqueuedTime).Seconds()) {
+				continue
+			}
+		} else {
+			wr.logger.Info().Msgf("no last time sent yet for pid: %s", request.Name)
+		}
+
+		protocol, err := strconv.Atoi(request.Protocol)
+		if err != nil {
+			protocol = 6
+		}
+		pidStr := uintToHexStr(request.Pid)
+		hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
+			pidStr, protocol)
+		if err != nil {
+			wr.logger.Err(err).Msg("failed to query obd pid")
+			continue
+		}
+		// todo new formula type that could work for proprietary PIDs and could support text, int or float
+		if request.FormulaType() == "dbc" {
+			value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
+			if err != nil {
+				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
+				continue
+			}
+			wr.signalsQueue.Enqueue(models.SignalData{
+				Timestamp: ts.UnixMilli(),
+				Name:      request.Name,
+				Value:     value,
+			})
+		} else {
+			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
+		}
+	}
+
 }
 
 // uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
@@ -298,4 +320,35 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 		return true, status
 	}
 	return false, status
+}
+
+type SignalsQueue struct {
+	signals      []models.SignalData
+	lastTimeSent map[string]time.Time
+	sync.RWMutex
+}
+
+func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
+	// consider to remove this method and just use the map directly
+	//sq.Lock()
+	//defer sq.Unlock()
+	t, ok := sq.lastTimeSent[key]
+	return t, ok
+
+}
+
+func (sq *SignalsQueue) Enqueue(signal models.SignalData) {
+	sq.Lock()
+	defer sq.Unlock()
+	sq.lastTimeSent[signal.Name] = time.Now()
+	sq.signals = append(sq.signals, signal)
+}
+
+func (sq *SignalsQueue) Dequeue() []models.SignalData {
+	sq.Lock()
+	defer sq.Unlock()
+	signals := sq.signals
+	// empty the data after dequeue
+	sq.signals = []models.SignalData{}
+	return signals
 }
