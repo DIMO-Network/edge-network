@@ -79,7 +79,8 @@ func (wr *workerRunner) Run() {
 			}
 		}()
 	}
-
+	// Note: this delay required for the tests only, to make sure that queryOBD is executed before nonObd signals
+	time.Sleep(1 * time.Second)
 	fingerprintDone := false
 	for {
 		select {
