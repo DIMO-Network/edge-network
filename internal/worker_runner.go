@@ -33,19 +33,21 @@ type workerRunner struct {
 	deviceSettings    *models.TemplateDeviceSettings
 	signalsQueue      *SignalsQueue
 	stop              chan bool
+	obdInterval       time.Duration
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner, pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeSent: make(map[string]time.Time)}
+	interval := 20 * time.Second
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue}
+		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, obdInterval: interval}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
 // It also has a continuous loop that checks voltage compared to template settings to make sure ok to query OBD.
 // It will query the VIN once on startup and send a fingerprint payload (only once per Run).
-// If ok to query OBD, queries each signal per it's designated interval.
+// If ok to query OBD, queries each signal per it's designated obdInterval.
 func (wr *workerRunner) Run() {
 	// todo v1: if no template settings obtained, we just want to send the status payload without obd stuff.
 
@@ -65,7 +67,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
+	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal obdInterval)
 	// which clock checks batteryvoltage? we want to send it with every status payload
 	// register tasks that can be iterated over
 	queryOBD, powerStatus := wr.isOkToQueryOBD()
@@ -112,8 +114,7 @@ func (wr *workerRunner) Run() {
 			}
 
 			// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
-			time.Sleep(20 * time.Second)
-			// todo: for tests purposes, possible to send cancellation event so we can return from Run
+			time.Sleep(wr.obdInterval)
 		}
 	}
 }
@@ -199,7 +200,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 }
 
 func (wr *workerRunner) queryOBD() {
-	// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
+	// run through all the obd pids (ignoring the obdInterval? for now), maybe have a function that executes them from previously registered
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {

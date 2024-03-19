@@ -265,7 +265,7 @@ func Test_workerRunner_Run(t *testing.T) {
 	requests := []models.PIDRequest{
 		{
 			Name:            "fuellevel",
-			IntervalSeconds: 25,
+			IntervalSeconds: 6,
 			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
 		},
 	}
@@ -279,9 +279,10 @@ func Test_workerRunner_Run(t *testing.T) {
 		pids:              &models.TemplatePIDs{Requests: requests, TemplateName: "test", Version: "1.0"},
 		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
 		stop:              make(chan bool),
+		obdInterval:       5 * time.Second,
 	}
 
 	go wr.Run()
-	time.Sleep(40 * time.Second)
+	time.Sleep(10 * time.Second)
 	wr.Stop()
 }
