@@ -47,7 +47,7 @@ func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc l
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
 // It also has a continuous loop that checks voltage compared to template settings to make sure ok to query OBD.
 // It will query the VIN once on startup and send a fingerprint payload (only once per Run).
-// If ok to query OBD, queries each signal per it's designated obdInterval.
+// If ok to query OBD, queries each signal per it's designated interval.
 func (wr *workerRunner) Run() {
 	// todo v1: if no template settings obtained, we just want to send the status payload without obd stuff.
 
@@ -67,7 +67,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal obdInterval)
+	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// which clock checks batteryvoltage? we want to send it with every status payload
 	// register tasks that can be iterated over
 	queryOBD, powerStatus := wr.isOkToQueryOBD()
@@ -200,7 +200,6 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 }
 
 func (wr *workerRunner) queryOBD() {
-	// run through all the obd pids (ignoring the obdInterval? for now), maybe have a function that executes them from previously registered
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
