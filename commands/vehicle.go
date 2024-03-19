@@ -83,7 +83,7 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp api.ExecuteRawResponse
-	fmt.Printf("DBG requesting PID: %s", cmd)
+	fmt.Printf("DBG requesting PID: %s \n", cmd)
 
 	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {

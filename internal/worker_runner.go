@@ -32,6 +32,7 @@ type workerRunner struct {
 	pids              *models.TemplatePIDs
 	deviceSettings    *models.TemplateDeviceSettings
 	signalsQueue      *SignalsQueue
+	stop              chan bool
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
@@ -73,28 +74,51 @@ func (wr *workerRunner) Run() {
 		// query OBD signals in goroutine
 		go func() {
 			for {
-				wr.queryOBD(false, powerStatus)
+				wr.queryOBD()
 				time.Sleep(1 * time.Second)
 			}
 		}()
 	}
 
+	fingerprintDone := false
 	for {
-		// query non-obd signals
-		wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
-		// compose the device event
-		s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+		select {
+		case <-wr.stop:
+			// If stop signal is received, stop the loop
+			// Note: this is used only for unit/functional tests
+			fmt.Println("Stopping worker runner")
+			return
+		default:
+			// do fingerprint but only once
+			if !fingerprintDone {
+				err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
+				} else {
+					fingerprintDone = true
+				}
+			}
 
-		// send the cloud event
-		err = wr.dataSender.SendDeviceStatusData(s)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to send device status in loop")
+			// query non-obd signals
+			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
+			// compose the device event
+			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+
+			// send the cloud event
+			err = wr.dataSender.SendDeviceStatusData(s)
+			if err != nil {
+				wr.logger.Err(err).Msg("failed to send device status in loop")
+			}
+
+			// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
+			time.Sleep(20 * time.Second)
+			// todo: for tests purposes, possible to send cancellation event so we can return from Run
 		}
-
-		// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
-		time.Sleep(20 * time.Second)
-		// todo: for tests purposes, possible to send cancellation event so we can return from Run
 	}
+}
+
+func (wr *workerRunner) Stop() {
+	wr.stop <- true
 }
 
 func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, locationErr error, location *models.Location, wifiErr error, wifi *models.WiFi, cellErr error, cellInfo api.QMICellInfoResponse) models.DeviceStatusData {
@@ -173,21 +197,12 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	return &location, nil
 }
 
-func (wr *workerRunner) queryOBD(fingerprintDone bool, powerStatus api.PowerStatusResponse) {
-	// do fingerprint but only once
-	if !fingerprintDone {
-		err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-		if err != nil {
-			wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
-		} else {
-			fingerprintDone = true
-		}
-	}
+func (wr *workerRunner) queryOBD() {
 	// run through all the obd pids (ignoring the interval? for now), maybe have a function that executes them from previously registered
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
-			if request.IntervalSeconds < int(time.Since(lastEnqueuedTime).Seconds()) {
+			if int(time.Since(lastEnqueuedTime).Seconds()) < request.IntervalSeconds {
 				continue
 			}
 		} else {

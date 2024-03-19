@@ -130,8 +130,8 @@ func Test_workerRunner_Obd(t *testing.T) {
 	}
 
 	// then
-	_, powerStatus := wr.isOkToQueryOBD()
-	wr.queryOBD(true, powerStatus)
+	_, _ = wr.isOkToQueryOBD()
+	wr.queryOBD()
 
 	// verify
 	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
@@ -139,7 +139,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeSent))
 }
 
-// test for both obd and non-obd which executes synchronously and not concurrently
+// test for both obd and non-obd signals which executes synchronously and not concurrently
 func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	// when
 	httpmock.Activate()
@@ -199,7 +199,8 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 
 	// then
 	_, powerStatus := wr.isOkToQueryOBD()
-	wr.queryOBD(false, powerStatus)
+	wr.queryOBD()
+	wr.fingerprintRunner.FingerprintSimple(powerStatus)
 	wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd("ec2x")
 	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
 
@@ -215,13 +216,72 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 
 // test for both obd and non-obd which executes concurrently as is in code
 func Test_workerRunner_Run(t *testing.T) {
-	// call it in different goroutine | or without go keyword
-	// wr.queryOBD(queryOBD, false, powerStatus)
-	// time.Sleep(1 * time.Second)
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
 
-	// s := wr.createDeviceEvent(modem)
-	// and assert that signals are not empty
-	// length map should be 2
-	// length of signals should be 0
-	// todo create a test for this to emulate real world multiple goroutines
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl := mock_loggers.NewMockVINLogger(mockCtrl)
+	ds := mock_network.NewMockDataSender(mockCtrl)
+	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+
+	// mock powerstatus resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 0, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 25,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := &workerRunner{
+		loggerSettingsSvc: ts,
+		dataSender:        ds,
+		deviceSettings:    &models.TemplateDeviceSettings{},
+		fingerprintRunner: ls,
+		unitID:            unitID,
+		pids:              &models.TemplatePIDs{Requests: requests, TemplateName: "test", Version: "1.0"},
+		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
+		stop:              make(chan bool),
+	}
+
+	go wr.Run()
+	time.Sleep(40 * time.Second)
+	wr.Stop()
 }
