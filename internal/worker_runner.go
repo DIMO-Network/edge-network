@@ -119,6 +119,7 @@ func (wr *workerRunner) Run() {
 	}
 }
 
+// Note: this is used only for functional tests
 func (wr *workerRunner) Stop() {
 	wr.stop <- true
 }

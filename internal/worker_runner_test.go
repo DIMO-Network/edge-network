@@ -28,15 +28,7 @@ func Test_workerRunner_NonObd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl := mock_loggers.NewMockVINLogger(mockCtrl)
-	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
-
-	logger := zerolog.New(os.Stdout).With().
-		Timestamp().
-		Str("app", "edge-network").
-		Logger()
-	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+	_, ds, ts, ls := mockComponents(mockCtrl, unitID)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	wfPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -49,15 +41,7 @@ func Test_workerRunner_NonObd(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"lat": 37.7749, "lon": -122.4194, "_stamp": "2024-02-29T17:17:30.534861"}`))
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := &workerRunner{
-		loggerSettingsSvc: ts,
-		dataSender:        ds,
-		deviceSettings:    &models.TemplateDeviceSettings{},
-		fingerprintRunner: ls,
-		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
-	}
+	wr := createWorkerRunner(ts, ds, ls, unitID)
 
 	// then
 	wifi, _, location, _, cellInfo, _ := wr.queryNonObd("ec2x")
@@ -80,15 +64,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl := mock_loggers.NewMockVINLogger(mockCtrl)
-	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
-
-	logger := zerolog.New(os.Stdout).With().
-		Timestamp().
-		Str("app", "edge-network").
-		Logger()
-	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+	_, ds, ts, ls := mockComponents(mockCtrl, unitID)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	// mock powerstatus resp
@@ -119,15 +95,8 @@ func Test_workerRunner_Obd(t *testing.T) {
 	}
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := &workerRunner{
-		loggerSettingsSvc: ts,
-		dataSender:        ds,
-		deviceSettings:    &models.TemplateDeviceSettings{},
-		fingerprintRunner: ls,
-		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: requests, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
-	}
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
 
 	// then
 	_, _ = wr.isOkToQueryOBD()
@@ -151,15 +120,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl := mock_loggers.NewMockVINLogger(mockCtrl)
-	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
-
-	logger := zerolog.New(os.Stdout).With().
-		Timestamp().
-		Str("app", "edge-network").
-		Logger()
-	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -187,15 +148,8 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 		},
 	}
 
-	wr := &workerRunner{
-		loggerSettingsSvc: ts,
-		dataSender:        ds,
-		deviceSettings:    &models.TemplateDeviceSettings{},
-		fingerprintRunner: ls,
-		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: requests, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
-	}
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
 
 	// then
 	_, powerStatus := wr.isOkToQueryOBD()
@@ -226,17 +180,9 @@ func Test_workerRunner_Run(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl := mock_loggers.NewMockVINLogger(mockCtrl)
-	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
 
-	logger := zerolog.New(os.Stdout).With().
-		Timestamp().
-		Str("app", "edge-network").
-		Logger()
-	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
-
-	// mock powerstatus resp
+	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
@@ -270,19 +216,167 @@ func Test_workerRunner_Run(t *testing.T) {
 		},
 	}
 
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.obdInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+}
+
+func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called once with multiple fuel level signals
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 1, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 3, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 3,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.obdInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(15 * time.Second)
+	wr.Stop()
+}
+
+func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called once with multiple fuel level signals
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 3, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 5, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 3,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "rpm",
+			IntervalSeconds: 5,
+			Formula:         "dbc: 31|16@0+ (0.25,0) [0|16383.75] \"%\"",
+		},
+		{
+			Name:            "foo",
+			IntervalSeconds: 30,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	// Initialize workerRunner here with mocked dependencies
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.obdInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(15 * time.Second)
+	wr.Stop()
+}
+
+func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, FingerprintRunner) {
+	vl := mock_loggers.NewMockVINLogger(mockCtrl)
+	ds := mock_network.NewMockDataSender(mockCtrl)
+	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+	return vl, ds, ts, ls
+}
+
+func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
 		dataSender:        ds,
 		deviceSettings:    &models.TemplateDeviceSettings{},
 		fingerprintRunner: ls,
 		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: requests, TemplateName: "test", Version: "1.0"},
+		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
 		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
-		stop:              make(chan bool),
-		obdInterval:       5 * time.Second,
 	}
-
-	go wr.Run()
-	time.Sleep(10 * time.Second)
-	wr.Stop()
+	return wr
 }
