@@ -105,7 +105,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	// verify
 	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
 	assert.Equal(t, 2, len(wr.signalsQueue.signals))
-	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeSent))
+	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
 
 // test for both obd and non-obd signals which executes synchronously and not concurrently
@@ -165,7 +165,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
 	assert.Equal(t, "fuellevel", s.Vehicle.Signals[0].Name)
 	assert.Equal(t, 0, len(wr.signalsQueue.signals), "signals slice should be empty after composing device event")
-	assert.Equal(t, 1, len(wr.signalsQueue.lastTimeSent), "signals cache should have 1 entry after composing device event")
+	assert.Equal(t, 1, len(wr.signalsQueue.lastTimeChecked), "signals cache should have 1 entry after composing device event")
 }
 
 // test for both obd and non-obd which executes concurrently as is in code
@@ -218,7 +218,7 @@ func Test_workerRunner_Run(t *testing.T) {
 
 	wr := createWorkerRunner(ts, ds, ls, unitID)
 	wr.pids.Requests = requests
-	wr.obdInterval = 5 * time.Second
+	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
 
 	// then
@@ -264,7 +264,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
-		assert.Equal(t, 3, len(data.Vehicle.Signals))
+		assert.Equal(t, 2, len(data.Vehicle.Signals))
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -278,10 +278,10 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 
 	wr := createWorkerRunner(ts, ds, ls, unitID)
 	wr.pids.Requests = requests
-	wr.obdInterval = 10 * time.Second
+	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
 
-	// then
+	// then the data sender should be called twice
 	go wr.Run()
 	time.Sleep(15 * time.Second)
 	wr.Stop()
@@ -322,7 +322,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 		assert.Equal(t, 3, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 5, len(data.Vehicle.Signals))
+		assert.Equal(t, 3, len(data.Vehicle.Signals))
 	}).Return(nil)
 
 	requests := []models.PIDRequest{
@@ -346,10 +346,10 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	// Initialize workerRunner here with mocked dependencies
 	wr := createWorkerRunner(ts, ds, ls, unitID)
 	wr.pids.Requests = requests
-	wr.obdInterval = 10 * time.Second
+	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
 
-	// then
+	// then the data sender should be called twice
 	go wr.Run()
 	time.Sleep(15 * time.Second)
 	wr.Stop()
@@ -376,7 +376,7 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 		fingerprintRunner: ls,
 		unitID:            unitID,
 		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeSent: make(map[string]time.Time)},
+		signalsQueue:      &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
 	}
 	return wr
 }

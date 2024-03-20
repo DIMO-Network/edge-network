@@ -22,26 +22,27 @@ type WorkerRunner interface {
 }
 
 type workerRunner struct {
-	unitID            uuid.UUID
-	loggerSettingsSvc loggers.TemplateStore
-	queueSvc          queue.StorageQueue
-	dataSender        network.DataSender
-	logger            zerolog.Logger
-	ethAddr           *common.Address
-	fingerprintRunner FingerprintRunner
-	pids              *models.TemplatePIDs
-	deviceSettings    *models.TemplateDeviceSettings
-	signalsQueue      *SignalsQueue
-	stop              chan bool
-	obdInterval       time.Duration
+	unitID              uuid.UUID
+	loggerSettingsSvc   loggers.TemplateStore
+	queueSvc            queue.StorageQueue
+	dataSender          network.DataSender
+	logger              zerolog.Logger
+	ethAddr             *common.Address
+	fingerprintRunner   FingerprintRunner
+	pids                *models.TemplatePIDs
+	deviceSettings      *models.TemplateDeviceSettings
+	signalsQueue        *SignalsQueue
+	stop                chan bool
+	sendPayloadInterval time.Duration
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner, pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
-	signalsQueue := &SignalsQueue{lastTimeSent: make(map[string]time.Time)}
+	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
+	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, obdInterval: interval}
+		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -68,22 +69,36 @@ func (wr *workerRunner) Run() {
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
-	// which clock checks batteryvoltage? we want to send it with every status payload
-	// register tasks that can be iterated over
-	queryOBD, powerStatus := wr.isOkToQueryOBD()
-
-	if queryOBD {
-		// query OBD signals in goroutine
-		go func() {
-			for {
+	// battery-voltage will be checked in obd related clock to determine if it is ok to query obd
+	// battery-voltage also will be checked in non-obd clock because we want to send it with every status payload
+	go func() {
+		fingerprintDone := false
+		for {
+			// we will need to check the voltage before we query obd, and then we can query obd if voltage is ok
+			queryOBD, powerStatus := wr.isOkToQueryOBD()
+			if queryOBD {
+				fmt.Printf("voltage is enough to query obd : %f\n", powerStatus.VoltageFound)
+				// do fingerprint but only once
+				if !fingerprintDone {
+					err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+					if err != nil {
+						wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
+					} else {
+						fingerprintDone = true
+					}
+				}
+				// query OBD signals
 				wr.queryOBD()
-				time.Sleep(1 * time.Second)
+			} else {
+				wr.logger.Info().Msg("voltage not enough to query obd")
 			}
-		}()
-	}
+
+			time.Sleep(2 * time.Second)
+		}
+	}()
+
 	// Note: this delay required for the tests only, to make sure that queryOBD is executed before nonObd signals
 	time.Sleep(1 * time.Second)
-	fingerprintDone := false
 	for {
 		select {
 		case <-wr.stop:
@@ -92,17 +107,8 @@ func (wr *workerRunner) Run() {
 			fmt.Println("Stopping worker runner")
 			return
 		default:
-			// do fingerprint but only once
-			if !fingerprintDone {
-				err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-				if err != nil {
-					wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
-				} else {
-					fingerprintDone = true
-				}
-			}
-
-			// query non-obd signals
+			_, powerStatus := wr.isOkToQueryOBD()
+			// query non-obd signals even if voltage is not enough
 			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
@@ -114,12 +120,12 @@ func (wr *workerRunner) Run() {
 			}
 
 			// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
-			time.Sleep(wr.obdInterval)
+			time.Sleep(wr.sendPayloadInterval)
 		}
 	}
 }
 
-// Note: this is used only for functional tests
+// Stop is used only for functional tests
 func (wr *workerRunner) Stop() {
 	wr.stop <- true
 }
@@ -340,15 +346,15 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 }
 
 type SignalsQueue struct {
-	signals      []models.SignalData
-	lastTimeSent map[string]time.Time
+	signals         []models.SignalData
+	lastTimeChecked map[string]time.Time
 	sync.RWMutex
 }
 
 func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
 	sq.Lock()
 	defer sq.Unlock()
-	t, ok := sq.lastTimeSent[key]
+	t, ok := sq.lastTimeChecked[key]
 	return t, ok
 
 }
@@ -356,7 +362,7 @@ func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
 func (sq *SignalsQueue) Enqueue(signal models.SignalData) {
 	sq.Lock()
 	defer sq.Unlock()
-	sq.lastTimeSent[signal.Name] = time.Now()
+	sq.lastTimeChecked[signal.Name] = time.Now()
 	sq.signals = append(sq.signals, signal)
 }
 
