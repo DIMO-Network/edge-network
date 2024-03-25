@@ -210,6 +210,10 @@ func (wr *workerRunner) queryOBD() {
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
+			// if interval is 0, then we only query once at the device startup
+			if request.IntervalSeconds == 0 {
+				continue
+			}
 			if int(time.Since(lastEnqueuedTime).Seconds()) < request.IntervalSeconds {
 				continue
 			}

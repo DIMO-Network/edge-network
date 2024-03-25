@@ -72,6 +72,11 @@ func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSet
 		return nil, fmt.Errorf("failed to unmarshall loggersettings: %s", err)
 	}
 
+	// set's the default value for min voltage
+	if ls.MinVoltageOBDLoggers == 0 {
+		ls.MinVoltageOBDLoggers = 13.3
+	}
+
 	return ls, nil
 }
 

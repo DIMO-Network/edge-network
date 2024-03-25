@@ -319,7 +319,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 3, len(data.Vehicle.Signals))
+		assert.Equal(t, 4, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 3, len(data.Vehicle.Signals))
@@ -339,6 +339,11 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 		{
 			Name:            "foo",
 			IntervalSeconds: 30,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "baz",
+			IntervalSeconds: 0,
 			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
 		},
 	}
