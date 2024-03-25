@@ -77,7 +77,7 @@ func (wr *workerRunner) Run() {
 			// we will need to check the voltage before we query obd, and then we can query obd if voltage is ok
 			queryOBD, powerStatus := wr.isOkToQueryOBD()
 			if queryOBD {
-				fmt.Printf("voltage is enough to query obd : %f\n", powerStatus.VoltageFound)
+				wr.logger.Debug().Msgf("voltage is enough to query obd : %f\n", powerStatus.VoltageFound)
 				// do fingerprint but only once
 				if !fingerprintDone {
 					err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
@@ -213,8 +213,6 @@ func (wr *workerRunner) queryOBD() {
 			if int(time.Since(lastEnqueuedTime).Seconds()) < request.IntervalSeconds {
 				continue
 			}
-		} else {
-			wr.logger.Info().Msgf("no last time sent yet for pid: %s", request.Name)
 		}
 
 		protocol, err := strconv.Atoi(request.Protocol)
