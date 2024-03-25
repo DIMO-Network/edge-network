@@ -119,7 +119,7 @@ func (wr *workerRunner) Run() {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
 
-			// todo: maybe we should send the wifi signal strength more frequently, maybe every 10 seconds
+			// todo: maybe we should send the location more frequently, maybe every 10 seconds
 			time.Sleep(wr.sendPayloadInterval)
 		}
 	}
