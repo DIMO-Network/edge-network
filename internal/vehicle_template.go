@@ -36,13 +36,16 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers
 	}
 
 	// if we can't find VIN from template file, then we need to query it from OBD
-	vinResp, err := vl.GetVIN(unitID, nil)
-	if err != nil {
-		vt.logger.Err(err).Msg("Unable to get VIN from vinLogger, continuing")
-	}
-	if vinResp != nil {
-		vinConfig = &models.VINLoggerSettings{}
-		vinConfig.VIN = vinResp.VIN
+	if vinConfig == nil {
+		vt.logger.Debug().Msg("VIN not found in local settings, querying VIN from vinLogger")
+		vinResp, err := vl.GetVIN(unitID, nil)
+		if err != nil {
+			vt.logger.Err(err).Msg("Unable to get VIN from vinLogger, continuing")
+		}
+		if vinResp != nil {
+			vinConfig = &models.VINLoggerSettings{}
+			vinConfig.VIN = vinResp.VIN
+		}
 	}
 
 	templateURLsLocal, err := vt.lss.ReadTemplateURLs()
