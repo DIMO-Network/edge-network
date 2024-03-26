@@ -209,7 +209,7 @@ func main() {
 		defer obCancel()
 	}
 	// todo v2: what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend... check every 60s on timer for pairing
-	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
+	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr, vinLogger, unitID)
 	if err != nil {
 		logger.Err(err).Msg("unable to get loggers configuration settings")
 		// todo send mqtt error payload reporting this, should have own topic for errors
