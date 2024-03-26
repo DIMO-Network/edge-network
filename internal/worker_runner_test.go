@@ -14,11 +14,103 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 	_ "time"
 )
 
-func Test_workerRunner_createDeviceEvent(t *testing.T) {
-	// mock data-sender and others deps
+func Test_workerRunner_NonObd(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	_, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+	wfPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+wfPath,
+		httpmock.NewStringResponder(200, `{"wpa_state": "COMPLETED", "ssid": "test", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// mock obd resp
+	locPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+locPath,
+		httpmock.NewStringResponder(200, `{"lat": 37.7749, "lon": -122.4194, "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// Initialize workerRunner here with mocked dependencies
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+
+	// then
+	wifi, _, location, _, cellInfo, _ := wr.queryNonObd("ec2x")
+
+	// verify
+	assert.NotNil(t, cellInfo)
+	assert.Equal(t, -122.4194, location.Longitude)
+	assert.Equal(t, 37.7749, location.Latitude)
+	assert.Equal(t, "test", wifi.SSID)
+	assert.Equal(t, "COMPLETED", wifi.WPAState)
+}
+
+func Test_workerRunner_Obd(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	_, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+	// mock powerstatus resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	obdPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+obdPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+	obdPath1 := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+obdPath1,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 10,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "rpm",
+			IntervalSeconds: 5,
+			Formula:         "dbc: 31|16@0+ (0.25,0) [0|16383.75] \"%\"",
+		},
+	}
+
+	// Initialize workerRunner here with mocked dependencies
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+
+	// then
+	_, _ = wr.isOkToQueryOBD()
+	wr.queryOBD()
+
+	// verify
+	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, 2, len(wr.signalsQueue.signals))
+	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
+}
+
+// test for both obd and non-obd signals which executes synchronously and not concurrently
+func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
+	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -28,6 +120,247 @@ func Test_workerRunner_createDeviceEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock powerstatus resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 60,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+
+	// then
+	_, powerStatus := wr.isOkToQueryOBD()
+	wr.queryOBD()
+	wr.fingerprintRunner.FingerprintSimple(powerStatus)
+	wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd("ec2x")
+	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+
+	// verify
+	assert.NotNil(t, s.Network)
+	assert.NotNil(t, s.Network.WiFi)
+	assert.NotNil(t, s.Network.QMICellInfoResponse)
+	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
+	assert.Equal(t, "fuellevel", s.Vehicle.Signals[0].Name)
+	assert.Equal(t, 0, len(wr.signalsQueue.signals), "signals slice should be empty after composing device event")
+	assert.Equal(t, 1, len(wr.signalsQueue.lastTimeChecked), "signals cache should have 1 entry after composing device event")
+}
+
+// test for both obd and non-obd which executes concurrently as is in code
+func Test_workerRunner_Run(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 0, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+}
+
+func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called once with multiple fuel level signals
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 1, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 2, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 3,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+
+	// then the data sender should be called twice
+	go wr.Run()
+	time.Sleep(15 * time.Second)
+	wr.Stop()
+}
+
+func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// todo mock location, network, wifi and others
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called once with multiple fuel level signals
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 4, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 3, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 3,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "rpm",
+			IntervalSeconds: 5,
+			Formula:         "dbc: 31|16@0+ (0.25,0) [0|16383.75] \"%\"",
+		},
+		{
+			Name:            "foo",
+			IntervalSeconds: 30,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "baz",
+			IntervalSeconds: 0,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	// Initialize workerRunner here with mocked dependencies
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+
+	// then the data sender should be called twice
+	go wr.Run()
+	time.Sleep(15 * time.Second)
+	wr.Stop()
+}
+
+func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, FingerprintRunner) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
@@ -36,37 +369,19 @@ func Test_workerRunner_createDeviceEvent(t *testing.T) {
 		Timestamp().
 		Str("app", "edge-network").
 		Logger()
-
 	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
+	return vl, ds, ts, ls
+}
 
-	// mock powerstatus resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
-	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
-		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
-	// todo mock location, network, wifi and others
-	// Initialize workerRunner here with mocked dependencies
+func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
 		dataSender:        ds,
 		deviceSettings:    &models.TemplateDeviceSettings{},
 		fingerprintRunner: ls,
 		unitID:            unitID,
-		pids:              &models.TemplatePIDs{},
+		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
+		signalsQueue:      &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
 	}
-
-	// expect
-	vinQueryName := "vin_7DF_09_02"
-	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
-	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
-	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
-
-	// Run the method
-	s := wr.createDeviceEvent("ec2x") // Since it's a loop, consider running it in a goroutine
-
-	// Assertions
-	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
-	assert.NotNil(t, s.Network)
-	assert.NotNil(t, s.Network.WiFi)
-	assert.NotNil(t, s.Network.QMICellInfoResponse)
+	return wr
 }
