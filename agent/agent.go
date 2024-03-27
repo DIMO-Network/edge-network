@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rs/zerolog"
+
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/adapter"
-	log "github.com/sirupsen/logrus"
 )
 
 // All agent capabilities
@@ -35,9 +36,9 @@ type Agent1Client interface {
 }
 
 // SetTrusted lookup for a device by object path and set it to trusted
-func SetTrusted(adapterID string, devicePath dbus.ObjectPath) error {
+func SetTrusted(adapterID string, devicePath dbus.ObjectPath, logger zerolog.Logger) error {
 
-	log.Tracef("Trust device %s on %s", devicePath, adapterID)
+	logger.Trace().Msgf("Trust device %s on %s", devicePath, adapterID)
 
 	a, err := adapter.GetAdapter(adapterID)
 	if err != nil {
@@ -52,11 +53,11 @@ func SetTrusted(adapterID string, devicePath dbus.ObjectPath) error {
 	path := string(devicePath)
 	for _, dev := range devices {
 		if strings.Contains(string(dev.Path()), path) {
-			log.Tracef("SetTrusted: Trust device at %s", path)
+			logger.Trace().Msgf("SetTrusted: Trust device at %s", path)
 			if err != nil {
 				return fmt.Errorf("SetTrusted error: %s", err)
 			}
-			log.Tracef("SetTrusted: OK")
+			logger.Trace().Msgf("SetTrusted: OK")
 			return nil
 		}
 	}
@@ -82,7 +83,7 @@ func RemoveAgent(ag Agent1Client) error {
 }
 
 // ExposeAgent expose an Agent1 implementation to DBus and set as default agent
-func ExposeAgent(conn *dbus.Conn, ag Agent1Client, caps string, setAsDefaultAgent bool) error {
+func ExposeAgent(conn *dbus.Conn, ag Agent1Client, caps string, setAsDefaultAgent bool, logger zerolog.Logger) error {
 
 	// Register agent
 	am, err := NewAgentManager1()
@@ -91,7 +92,7 @@ func ExposeAgent(conn *dbus.Conn, ag Agent1Client, caps string, setAsDefaultAgen
 	}
 
 	// Export the Go interface to DBus
-	err = exportAgent(conn, ag)
+	err = exportAgent(conn, ag, logger)
 	if err != nil {
 		return err
 	}
@@ -114,9 +115,9 @@ func ExposeAgent(conn *dbus.Conn, ag Agent1Client, caps string, setAsDefaultAgen
 }
 
 // ExportAgent exports the xml of a go agent to dbus
-func exportAgent(conn *dbus.Conn, ag Agent1Client) error {
+func exportAgent(conn *dbus.Conn, ag Agent1Client, logger zerolog.Logger) error {
 
-	log.Tracef("Exposing Agent1 at %s", ag.Path())
+	logger.Trace().Msgf("Exposing Agent1 at %s", ag.Path())
 
 	//Export the given agent to the given path as interface "org.bluez.Agent1"
 	err := conn.Export(ag, ag.Path(), ag.Interface())

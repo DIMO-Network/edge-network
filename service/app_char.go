@@ -7,7 +7,7 @@ import (
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type CharReadCallback func(c *Char, options map[string]interface{}) ([]byte, error)
@@ -26,6 +26,7 @@ type Char struct {
 
 	readCallback  CharReadCallback
 	writeCallback CharWriteCallback
+	logger        zerolog.Logger
 }
 
 func (c *Char) Path() dbus.ObjectPath {
@@ -143,7 +144,7 @@ func (c *Char) AddDescr(descr *Descr) error {
 		return err
 	}
 
-	log.Tracef("Added GATT Descriptor UUID=%s %s", descr.UUID, descr.Path())
+	c.logger.Trace().Msgf("Added GATT Descriptor UUID=%s %s", descr.UUID, descr.Path())
 
 	err = c.App().ExportTree()
 	return err

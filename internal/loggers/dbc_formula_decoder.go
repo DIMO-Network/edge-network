@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// ExtractAndDecodeWithFormula extracts the data following the PID and applies the formula for decoding
-func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string, error) {
+// ExtractAndDecodeWithDBCFormula extracts the data following the PID and applies the formula for decoding
+func ExtractAndDecodeWithDBCFormula(hexData, pid, formula string) (float64, string, error) {
 	// Parse formula
 	re := regexp.MustCompile(`(\d+)\|(\d+)@(\d+)\+ \(([^,]+),([^)]+)\) \[([^|]+)\|([^]]+)] "([^"]+)"`)
 	matches := re.FindStringSubmatch(formula)
@@ -78,4 +78,3 @@ func ExtractAndDecodeWithFormula(hexData, pid, formula string) (float64, string,
 
 	return decodedValue, unit, nil
 }
-

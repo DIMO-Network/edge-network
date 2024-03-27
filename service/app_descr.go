@@ -5,6 +5,7 @@ import (
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez"
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
+	"github.com/rs/zerolog"
 )
 
 type DescrReadCallback func(c *Descr, options map[string]interface{}) ([]byte, error)
@@ -22,6 +23,7 @@ type Descr struct {
 
 	readCallback  DescrReadCallback
 	writeCallback DescrWriteCallback
+	logger        zerolog.Logger
 }
 
 func (s *Descr) DBusProperties() *api.DBusProperties {
