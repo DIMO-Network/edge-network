@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -13,7 +14,7 @@ import (
 // VehicleTemplates idea is to be a layer on top of calling the gateway for VehicleSignalDecoding, that handles
 // caching of configs - checking if there is an updated version of the templates available
 type VehicleTemplates interface {
-	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
+	GetTemplateSettings(addr *common.Address, vl loggers.VINLogger, unitID uuid.UUID) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
 }
 
 type vehicleTemplates struct {
@@ -28,11 +29,25 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
-func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers.VINLogger, unitID uuid.UUID) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
 	vinConfig, err := vt.lss.ReadVINConfig() // should this be more of VIN info? stored VIN info
 	if err != nil {
 		vt.logger.Err(err).Msg("could not read local settings for stored VIN, continuing")
 	}
+
+	// if we can't find VIN from template file, then we need to query it from OBD
+	if vinConfig == nil {
+		vt.logger.Debug().Msg("VIN not found in local settings, querying VIN from vinLogger")
+		vinResp, err := vl.GetVIN(unitID, nil)
+		if err != nil {
+			vt.logger.Err(err).Msg("Unable to get VIN from vinLogger, continuing")
+		}
+		if vinResp != nil {
+			vinConfig = &models.VINLoggerSettings{}
+			vinConfig.VIN = vinResp.VIN
+		}
+	}
+
 	templateURLsLocal, err := vt.lss.ReadTemplateURLs()
 	if err != nil {
 		vt.logger.Err(err).Msg("could not read local settings for template URLs, continuing")
@@ -50,7 +65,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	var templateURLsRemote *models.TemplateURLs
 	templateURLsRemote, err = vt.vsd.GetUrlsByEthAddr(addr)
 	if err != nil {
-		vt.logger.Err(err).Msg("unable to get template urls by eth addr, trying by VIN next")
+		vt.logger.Err(err).Msgf("unable to get template urls by eth addr:%s, trying by VIN next", addr.String())
 		if vinConfig != nil && len(vinConfig.VIN) == 17 {
 			templateURLsRemote, err = vt.vsd.GetUrlsByVin(vinConfig.VIN)
 			if err != nil {

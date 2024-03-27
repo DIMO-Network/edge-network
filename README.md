@@ -47,7 +47,7 @@ Note that IP is the default IP address of the AutoPi when you connect to it's wi
 to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
 This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running by:
 
-- `which edge-control`
+- `which edge-network`
 - `sudo systemctl stop edge-network`
 - replace the binary (you'll need to decompres `tar -xzvf` the binary if needed)
 - `sudo systemctl start edge-network`
