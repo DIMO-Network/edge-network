@@ -17,13 +17,15 @@ type TemplatePIDs struct {
 }
 
 type PIDRequest struct {
-	Formula         string `json:"formula"`
-	Header          uint32 `json:"header"`
-	IntervalSeconds int    `json:"interval_seconds"`
-	Mode            uint32 `json:"mode"`
-	Name            string `json:"name"`
-	Pid             uint32 `json:"pid"`
-	Protocol        string `json:"protocol"`
+	Formula              string `json:"formula"`
+	Header               uint32 `json:"header"`
+	IntervalSeconds      int    `json:"interval_seconds"`
+	Mode                 uint32 `json:"mode"`
+	Name                 string `json:"name"`
+	Pid                  uint32 `json:"pid"`
+	Protocol             string `json:"protocol"`
+	CanflowControlClear  bool   `json:"can_flow_control_clear"`
+	CanFlowControlIDPair string `json:"can_flow_control_id_pair"`
 }
 
 // FormulaType gets the first 3 chars of the formula which are expected to be the type, currently only know of dbc

@@ -43,33 +43,43 @@ func NewVehicleSignalDecodingAPIService() VehicleSignalDecoding {
 }
 
 func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplatePIDs, error) {
-	// todo: add retry
-	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
-	if err != nil {
-		if _, ok := err.(shared.HTTPResponseError); !ok {
-			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations from url %s", url)
+	maxAttempts := 3
+	waitDuration := time.Second * 2
+
+	for i := 0; i < maxAttempts; i++ {
+		res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
+		if err != nil {
+			if _, ok := err.(shared.HTTPResponseError); !ok {
+				if i == maxAttempts-1 {
+					return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations from url %s", url)
+				}
+				time.Sleep(waitDuration)
+				continue
+			}
 		}
-	}
-	defer res.Body.Close() // nolint
-	if res.StatusCode == 404 {
-		return nil, ErrNotFound
+		defer res.Body.Close() // nolint
+		if res.StatusCode == 404 {
+			return nil, ErrNotFound
+		}
+
+		if res.StatusCode == 400 {
+			return nil, ErrBadRequest
+		}
+
+		bodyBytes, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error get PID configurations from url %s", url)
+		}
+
+		response := new(models.TemplatePIDs)
+		if err := json.Unmarshal(bodyBytes, response); err != nil {
+			return nil, errors.Wrapf(err, "error deserializing PID configurations from url %s", url)
+		}
+
+		return response, nil
 	}
 
-	if res.StatusCode == 400 {
-		return nil, ErrBadRequest
-	}
-
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error get PID configurations from url %s", url)
-	}
-
-	response := new(models.TemplatePIDs)
-	if err := json.Unmarshal(bodyBytes, response); err != nil {
-		return nil, errors.Wrapf(err, "error deserializing PID configurations from url %s", url)
-	}
-
-	return response, nil
+	return nil, errors.New("max retry attempts reached")
 }
 
 // todo add method to get DBC's and device settings

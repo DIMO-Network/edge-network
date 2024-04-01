@@ -225,7 +225,7 @@ func (wr *workerRunner) queryOBD() {
 		}
 		pidStr := uintToHexStr(request.Pid)
 		hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-			pidStr, protocol)
+			pidStr, protocol, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue

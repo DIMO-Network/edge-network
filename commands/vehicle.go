@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, 
 }
 
 // RequestPIDRaw requests a pid via obd. Whatever calls this should be using a mutex to avoid calling while another in process, avoid overloading canbus
-func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, protocol int) (hexResp []string, ts time.Time, err error) {
+func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, protocol int, request models.PIDRequest) (hexResp []string, ts time.Time, err error) {
 	if !isValidHex(headerHex) {
 		err = fmt.Errorf("header invalid %s", headerHex)
 	}
@@ -77,8 +78,18 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 		return
 	}
 
+	// todo build the command taking in to the account python type.
 	cmd := fmt.Sprintf(`%s %s header="'%s'" mode='x%s' pid='x%s' protocol=%d force=true`,
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
+
+	if request.CanflowControlClear {
+		cmd = fmt.Sprintf(`%s flow_control_clear=true`, cmd)
+	}
+
+	if request.CanFlowControlIDPair != "" {
+		cmd = fmt.Sprintf(`%s flow_control_id_pair='%s'`, cmd, request.CanFlowControlIDPair)
+	}
+
 	req := api.ExecuteRawRequest{Command: cmd}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
