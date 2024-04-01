@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -224,24 +225,26 @@ func (wr *workerRunner) queryOBD() {
 			continue
 		}
 		// todo new formula type that could work for proprietary PIDs and could support text, int or float
+		var value interface{}
 		if request.FormulaType() == "dbc" {
-			value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
+			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
 				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
 				continue
 			}
-			wr.signalsQueue.Enqueue(models.SignalData{
-				Timestamp: ts.UnixMilli(),
-				Name:      request.Name,
-				Value:     value,
-			})
-		} else if request.FormulaType() == "python" {
-			// todo: implement python formula decoding?
+		} else if strings.Contains(request.Formula, "python") {
+			value = hexResp
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
+			continue
 		}
-	}
 
+		wr.signalsQueue.Enqueue(models.SignalData{
+			Timestamp: ts.UnixMilli(),
+			Name:      request.Name,
+			Value:     value,
+		})
+	}
 }
 
 // uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
