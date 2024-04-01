@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,7 +65,16 @@ func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, 
 }
 
 // RequestPIDRaw requests a pid via obd. Whatever calls this should be using a mutex to avoid calling while another in process, avoid overloading canbus
-func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, protocol int, request models.PIDRequest) (hexResp []string, ts time.Time, err error) {
+func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (hexResp []string, ts time.Time, err error) {
+	name := request.Name
+	protocol, errProtocol := strconv.Atoi(request.Protocol)
+	if errProtocol != nil {
+		protocol = 6
+	}
+	pidHex := uintToHexStr(request.Pid)
+	headerHex := fmt.Sprintf("%X", request.Header)
+	modeHex := uintToHexStr(request.Mode)
+
 	if !isValidHex(headerHex) {
 		err = fmt.Errorf("header invalid %s", headerHex)
 	}
@@ -125,6 +135,15 @@ func isValidHex(s string) bool {
 	// It starts with an optional "0x" or "0X", followed by one or more hexadecimal characters (0-9, a-f, A-F).
 	re := regexp.MustCompile(`^(0x|0X)?[0-9a-fA-F]+$`)
 	return re.MatchString(s)
+}
+
+// uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
+func uintToHexStr(val uint32) string {
+	hexStr := fmt.Sprintf("%X", val)
+	if len(hexStr)%2 != 0 {
+		return "0" + hexStr // Prepend a "0" if the length is odd
+	}
+	return hexStr
 }
 
 /*

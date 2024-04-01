@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"testing"
 )
 
@@ -72,12 +71,7 @@ func TestRequestPID(t *testing.T) {
 	}
 
 	// then
-	protocol, err := strconv.Atoi(request.Protocol)
-	if err != nil {
-		protocol = 6
-	}
-	hexResp, _, _ := RequestPIDRaw(unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-		uintToHexStr(request.Pid), protocol, request)
+	hexResp, _, _ := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.NotNil(t, hexResp)
@@ -107,12 +101,7 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	}
 
 	// then
-	protocol, err := strconv.Atoi(request.Protocol)
-	if err != nil {
-		protocol = 6
-	}
-	hexResp, _, _ := RequestPIDRaw(unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-		uintToHexStr(request.Pid), protocol, request)
+	hexResp, _, _ := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.NotNil(t, hexResp)
@@ -140,12 +129,7 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	}
 
 	// then
-	protocol, err := strconv.Atoi(request.Protocol)
-	if err != nil {
-		protocol = 6
-	}
-	hexResp, _, _ := RequestPIDRaw(unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-		uintToHexStr(request.Pid), protocol, request)
+	hexResp, _, _ := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.NotNil(t, hexResp)
@@ -171,13 +155,4 @@ func registerResponderAndAssert(t *testing.T, psPath string, cmd string) {
 
 			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 		})
-}
-
-// uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
-func uintToHexStr(val uint32) string {
-	hexStr := fmt.Sprintf("%X", val)
-	if len(hexStr)%2 != 0 {
-		return "0" + hexStr // Prepend a "0" if the length is odd
-	}
-	return hexStr
 }

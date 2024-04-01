@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -218,21 +217,15 @@ func (wr *workerRunner) queryOBD() {
 				continue
 			}
 		}
-
-		protocol, err := strconv.Atoi(request.Protocol)
-		if err != nil {
-			protocol = 6
-		}
-		pidStr := uintToHexStr(request.Pid)
-		hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
-			pidStr, protocol, request)
+		// execute the pid
+		hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue
 		}
 		// todo new formula type that could work for proprietary PIDs and could support text, int or float
 		if request.FormulaType() == "dbc" {
-			value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], pidStr, request.FormulaValue())
+			value, _, err := loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
 				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
 				continue
