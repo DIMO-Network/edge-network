@@ -78,9 +78,12 @@ func RequestPIDRaw(unitID uuid.UUID, name, headerHex, modeHex, pidHex string, pr
 		return
 	}
 
-	// todo build the command taking in to the account python type.
 	cmd := fmt.Sprintf(`%s %s header="'%s'" mode='x%s' pid='x%s' protocol=%d force=true`,
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
+
+	if strings.Contains(request.Formula, "python") {
+		cmd = fmt.Sprintf(`%s formula='%s'`, cmd, request.Formula)
+	}
 
 	if request.CanflowControlClear {
 		cmd = fmt.Sprintf(`%s flow_control_clear=true`, cmd)

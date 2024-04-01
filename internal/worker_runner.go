@@ -242,6 +242,8 @@ func (wr *workerRunner) queryOBD() {
 				Name:      request.Name,
 				Value:     value,
 			})
+		} else if request.FormulaType() == "python" {
+			// todo: implement python formula decoding?
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
 		}

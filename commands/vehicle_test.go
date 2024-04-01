@@ -119,6 +119,39 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	assert.Equal(t, 1, len(hexResp))
 }
 
+func TestRequestPIDFormulaTypePython(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// mock pid resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='python:bytes_to_int(messages[0].data[-2:])*0.1'")
+
+	request := models.PIDRequest{
+		Name:            "fuellevel",
+		IntervalSeconds: 60,
+		Formula:         "python:bytes_to_int(messages[0].data[-2:])*0.1",
+	}
+
+	// then
+	protocol, err := strconv.Atoi(request.Protocol)
+	if err != nil {
+		protocol = 6
+	}
+	hexResp, _, _ := RequestPIDRaw(unitID, request.Name, fmt.Sprintf("%X", request.Header), uintToHexStr(request.Mode),
+		uintToHexStr(request.Pid), protocol, request)
+
+	// verify
+	assert.NotNil(t, hexResp)
+	assert.Equal(t, 1, len(hexResp))
+}
+
 func registerResponderAndAssert(t *testing.T, psPath string, cmd string) {
 	httpmock.RegisterResponderWithQuery(http.MethodPost, psPath, nil,
 		func(req *http.Request) (*http.Response, error) {
