@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -232,7 +231,7 @@ func (wr *workerRunner) queryOBD() {
 				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
 				continue
 			}
-		} else if strings.Contains(request.Formula, "python") {
+		} else if request.FormulaType() == models.Python {
 			value = hexResp[0] // todo: we need to experiment with real use case
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
