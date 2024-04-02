@@ -63,19 +63,24 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers
 		vt.logger.Err(err).Msg("could not read local settings for device settings, continuing")
 	}
 
+	var templateURLsRemote *models.TemplateURLs
 	tempURLsRemote, err := gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetUrlsByEthAddr(addr)
 	})
-	templateURLsRemote := tempURLsRemote.(*models.TemplateURLs)
+	if templateURLsRemote != nil {
+		templateURLsRemote = tempURLsRemote.(*models.TemplateURLs)
+	}
 	if err != nil {
 		vt.logger.Err(err).Msgf("unable to get template urls by eth addr:%s, trying by VIN next", addr.String())
 		if vinConfig != nil && len(vinConfig.VIN) == 17 {
 			tempURLsRemote, err = gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
 				return vt.vsd.GetUrlsByVin(vinConfig.VIN)
 			})
-			templateURLsRemote = tempURLsRemote.(*models.TemplateURLs)
+
 			if err != nil {
 				vt.logger.Err(err).Msg("unable to get template urls by vin")
+			} else {
+				templateURLsRemote = tempURLsRemote.(*models.TemplateURLs)
 			}
 		}
 	}
