@@ -113,12 +113,22 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (hexResp []strin
 	if err != nil {
 		return
 	}
-	hexResp = strings.Split(resp.Value, "\n")
-	for i := range hexResp {
-		if len(hexResp[i]) > 0 && !isValidHex(hexResp[i]) {
-			err = fmt.Errorf("invalid return value: %s", hexResp[i])
-			return
+	switch v := resp.Value.(type) {
+	case string:
+		hexResp = strings.Split(v, "\n")
+		for i := range hexResp {
+			// add validation here for float values
+			if len(hexResp[i]) > 0 && !isValidHex(hexResp[i]) {
+				err = fmt.Errorf("invalid return value: %s", hexResp[i])
+				return
+			}
 		}
+	case float64:
+		// the int value always unmarshal to float, that's why we
+		// only handle float64
+		hexResp = []string{fmt.Sprintf("%.2f", v)}
+	default:
+		err = fmt.Errorf("invalid response type: %T", v)
 	}
 	if len(hexResp) == 0 {
 		err = fmt.Errorf("no response received")

@@ -1,6 +1,7 @@
 package loggers
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -48,7 +49,12 @@ func (vl *pidLogger) ExecutePID(header, mode, pid uint32, formula, protocol, nam
 	vl.logger.Debug().Msgf("formula is: %s", formula)
 	// todo: apply formula
 
-	_ = vl.storageQueue.Enqueue(resp.Value)
+	value, ok := resp.Value.(string)
+	if !ok {
+		return errors.New("value is not a string")
+	}
+
+	_ = vl.storageQueue.Enqueue(value)
 
 	return
 }

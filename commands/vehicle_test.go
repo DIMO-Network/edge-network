@@ -62,7 +62,8 @@ func TestRequestPID(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true")
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true",
+		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
 		Name:            "fuellevel",
@@ -71,9 +72,10 @@ func TestRequestPID(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, _ := RequestPIDRaw(unitID, request)
+	hexResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
+	assert.Nil(t, err)
 	assert.NotNil(t, hexResp)
 	assert.Equal(t, 1, len(hexResp))
 }
@@ -90,7 +92,8 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true flow_control_clear=true flow_control_id_pair='744,7AE'")
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true flow_control_clear=true flow_control_id_pair='744,7AE'",
+		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
 		Name:                 "fuellevel",
@@ -101,9 +104,10 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, _ := RequestPIDRaw(unitID, request)
+	hexResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
+	assert.Nil(t, err)
 	assert.NotNil(t, hexResp)
 	assert.Equal(t, 1, len(hexResp))
 }
@@ -120,7 +124,8 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:])*0.1'")
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:])*0.1'",
+		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
 		Name:            "fuellevel",
@@ -129,14 +134,46 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, _ := RequestPIDRaw(unitID, request)
+	hexResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
+	assert.Nil(t, err)
 	assert.NotNil(t, hexResp)
 	assert.Equal(t, 1, len(hexResp))
 }
 
-func registerResponderAndAssert(t *testing.T, psPath string, cmd string) {
+func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// mock pid resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	registerResponderAndAssert(t, psPath, "obd.query airtemp header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
+		`{"value": 17.92, "_stamp": "2024-02-29T17:17:30.534861"}`)
+
+	request := models.PIDRequest{
+		Name:            "airtemp",
+		IntervalSeconds: 60,
+		Formula:         "python:bytes_to_int(messages[0].data[-2:]) * 0.001",
+	}
+
+	// then
+	hexResp, _, err := RequestPIDRaw(unitID, request)
+
+	// verify
+	assert.Nil(t, err)
+	assert.NotNil(t, hexResp)
+	assert.Equal(t, 1, len(hexResp))
+	assert.Equal(t, "17.92", hexResp[0])
+}
+
+func registerResponderAndAssert(t *testing.T, psPath string, cmd string, body string) {
 	httpmock.RegisterResponderWithQuery(http.MethodPost, psPath, nil,
 		func(req *http.Request) (*http.Response, error) {
 			bodyBytes, err := ioutil.ReadAll(req.Body)
@@ -153,6 +190,6 @@ func registerResponderAndAssert(t *testing.T, psPath string, cmd string) {
 			// check if the request body contains the expected bytes
 			assert.Equal(t, cmd, request.Command)
 
-			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+			return httpmock.NewStringResponse(200, body), nil
 		})
 }

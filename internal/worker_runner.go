@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -232,7 +233,12 @@ func (wr *workerRunner) queryOBD() {
 				continue
 			}
 		} else if request.FormulaType() == models.Python {
-			value = hexResp[0] // todo: we need to experiment with real use case
+			// Convert to float
+			value, err = strconv.ParseFloat(hexResp[0], 64)
+			if err != nil {
+				wr.logger.Err(err).Msgf("failed to convert string response to float : %s", hexResp[0])
+			}
+			// todo, check what other types conversion we should handle
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
 			continue
