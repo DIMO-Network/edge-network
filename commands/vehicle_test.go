@@ -120,7 +120,7 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='python:bytes_to_int(messages[0].data[-2:])*0.1'")
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:])*0.1'")
 
 	request := models.PIDRequest{
 		Name:            "fuellevel",

@@ -92,7 +92,7 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (hexResp []strin
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 
 	if strings.Contains(request.Formula, "python") {
-		cmd = fmt.Sprintf(`%s formula='%s'`, cmd, request.Formula)
+		cmd = fmt.Sprintf(`%s formula='%s'`, cmd, strings.TrimPrefix(request.Formula, "python:"))
 	}
 
 	if request.CanflowControlClear {
