@@ -224,7 +224,7 @@ func (wr *workerRunner) queryOBD() {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue
 		}
-		// todo new formula type that could work for proprietary PIDs and could support text, int or float
+		// future: new formula type that could work for proprietary PIDs and could support text, int or float
 		var value interface{}
 		if request.FormulaType() == "dbc" {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
@@ -233,7 +233,7 @@ func (wr *workerRunner) queryOBD() {
 				continue
 			}
 		} else if strings.Contains(request.Formula, "python") {
-			value = hexResp
+			value = hexResp[0] // todo: we need to experiment with real use case
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
 			continue

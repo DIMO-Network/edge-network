@@ -30,12 +30,15 @@ type PIDRequest struct {
 
 // FormulaType gets the first 3 chars of the formula which are expected to be the type, currently only know of dbc
 func (p *PIDRequest) FormulaType() string {
+	// todo: support python and dbc formula types. go enum?
 	// asumming no multibyte characters
 	if len(p.Formula) >= 3 {
 		return p.Formula[:3]
 	}
 	return ""
 }
+
+// todo: FormulaValue() string
 
 // FormulaValue gets the formula without the 4 type characters at the beginning, eg. "dbc:"
 func (p *PIDRequest) FormulaValue() string {
