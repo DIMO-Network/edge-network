@@ -226,7 +226,7 @@ func (wr *workerRunner) queryOBD() {
 		}
 		// future: new formula type that could work for proprietary PIDs and could support text, int or float
 		var value interface{}
-		if request.FormulaType() == "dbc" {
+		if request.FormulaType() == models.Dbc {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
 				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
