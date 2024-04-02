@@ -232,7 +232,7 @@ func (wr *workerRunner) queryOBD() {
 				continue
 			}
 		} else if request.FormulaType() == models.Python {
-			value = hexResp[0] // todo: we need to experiment with real use case
+			value = hexResp[0] // todo: this could be numeric eg 17.78 but will be returned as a string type
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
 			continue

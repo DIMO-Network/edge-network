@@ -208,7 +208,7 @@ Note that the `Version` is set via a build flag in the `/.github/workflows/relea
 
 # Research
 
-Other CAN libraries: https://github.com/go-daq/canbus 
+Other CAN libraries: https://github.com/go-daq/canbus
 supports sending data on the bus
 eg PID fuel tank level: `can-send vcan0 7DF#02012F5555555555`
 
