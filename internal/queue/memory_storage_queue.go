@@ -38,7 +38,7 @@ func (s *memoryStorageQueue) Dequeue() ([]Message, error) {
 	return messages, nil
 }
 
-func (s *memoryStorageQueue) Enqueue(message string) error {
+func (s *memoryStorageQueue) Enqueue(message any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
