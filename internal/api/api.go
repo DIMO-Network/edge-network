@@ -46,11 +46,13 @@ type ExecuteRawRequest struct {
 	Kwarg   KwargType     `json:"kwarg"`
 }
 
-// For some reason, this only gets returned for some calls.
+// ExecuteRawResponse For some reason, this only gets returned for some calls.
 // Sometimes it's "value", sometimes "data".
 type ExecuteRawResponse struct {
-	Value string `json:"value"`
-	Data  string `json:"data"`
+	// for obd command can be hex, but if formula passed in will be eg. a number 17.78
+	Value any    `json:"value"`
+	// used for non obd commands often
+	Data string `json:"data"`
 	// "_stamp": "2024-02-29T17:17:30.534861" in UTC
 	Timestamp string `json:"_stamp"`
 }

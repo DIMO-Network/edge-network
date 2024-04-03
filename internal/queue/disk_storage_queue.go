@@ -71,7 +71,7 @@ func (s *diskStorageQueue) Dequeue() ([]Message, error) {
 	return messages, nil
 }
 
-func (s *diskStorageQueue) Enqueue(message string) error {
+func (s *diskStorageQueue) Enqueue(message any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

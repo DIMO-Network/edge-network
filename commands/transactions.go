@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -23,7 +24,12 @@ func SignHash(unitID uuid.UUID, hash []byte) (sig []byte, err error) {
 		return
 	}
 
-	sig = common.FromHex(resp.Value)
+	value, ok := resp.Value.(string)
+	if !ok {
+		return nil, errors.New("SignHash: value is not a string")
+	}
+
+	sig = common.FromHex(value)
 	return
 }
 
@@ -38,7 +44,12 @@ func GetEthereumAddress(unitID uuid.UUID) (addr *common.Address, err error) {
 		return
 	}
 
-	ha := common.HexToAddress(resp.Value)
+	value, ok := resp.Value.(string)
+	if !ok {
+		return nil, errors.New("GetEthereumAddress: value is not a string")
+	}
+
+	ha := common.HexToAddress(value)
 	addr = &ha
 	return
 }

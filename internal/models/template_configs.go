@@ -17,27 +17,49 @@ type TemplatePIDs struct {
 }
 
 type PIDRequest struct {
-	Formula         string `json:"formula"`
-	Header          uint32 `json:"header"`
-	IntervalSeconds int    `json:"interval_seconds"`
-	Mode            uint32 `json:"mode"`
-	Name            string `json:"name"`
-	Pid             uint32 `json:"pid"`
-	Protocol        string `json:"protocol"`
+	Formula              string `json:"formula"`
+	Header               uint32 `json:"header"`
+	IntervalSeconds      int    `json:"interval_seconds"`
+	Mode                 uint32 `json:"mode"`
+	Name                 string `json:"name"`
+	Pid                  uint32 `json:"pid"`
+	Protocol             string `json:"protocol"`
+	CanflowControlClear  bool   `json:"can_flow_control_clear"`
+	CanFlowControlIDPair string `json:"can_flow_control_id_pair"`
 }
 
-// FormulaType gets the first 3 chars of the formula which are expected to be the type, currently only know of dbc
-func (p *PIDRequest) FormulaType() string {
-	// asumming no multibyte characters
-	if len(p.Formula) >= 3 {
-		return p.Formula[:3]
+type FormulaType int
+
+const (
+	Unknown FormulaType = iota
+	Dbc
+	Python
+)
+
+func (ft FormulaType) String() string {
+	return [...]string{"unknown", "dbc", "python"}[ft]
+}
+
+// FormulaType gets the type of formula, currently only know of dbc and python
+func (p *PIDRequest) FormulaType() FormulaType {
+	if strings.HasPrefix(p.Formula, "dbc:") {
+		return Dbc
 	}
-	return ""
+	if strings.HasPrefix(p.Formula, "python:") {
+		return Python
+	}
+	return Unknown
 }
 
-// FormulaValue gets the formula without the 4 type characters at the beginning, eg. "dbc:"
+// FormulaValue gets the formula without the type characters at the beginning, eg. "dbc:" or "python:"
 func (p *PIDRequest) FormulaValue() string {
-	return strings.TrimSpace(p.Formula[4:])
+	if strings.HasPrefix(p.Formula, "dbc:") {
+		return strings.TrimPrefix(p.Formula, "dbc:")
+	}
+	if strings.HasPrefix(p.Formula, "python:") {
+		return strings.TrimPrefix(p.Formula, "python:")
+	}
+	return p.Formula
 }
 
 // TemplateDeviceSettings contains configurations options around power and other device settings. share from: vehicle-signal-decoding.grpc.DeviceSetting

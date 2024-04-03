@@ -9,5 +9,5 @@ const (
 type Message struct {
 	Name    string    `json:"name"`
 	Time    time.Time `json:"time"`
-	Content string    `json:"content"`
+	Content any       `json:"content"`
 }

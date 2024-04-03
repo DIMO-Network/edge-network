@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -63,13 +64,23 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers
 	}
 
 	var templateURLsRemote *models.TemplateURLs
-	templateURLsRemote, err = vt.vsd.GetUrlsByEthAddr(addr)
+	tempURLsRemote, err := gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
+		return vt.vsd.GetUrlsByEthAddr(addr)
+	})
+	if templateURLsRemote != nil {
+		templateURLsRemote = tempURLsRemote.(*models.TemplateURLs)
+	}
 	if err != nil {
 		vt.logger.Err(err).Msgf("unable to get template urls by eth addr:%s, trying by VIN next", addr.String())
 		if vinConfig != nil && len(vinConfig.VIN) == 17 {
-			templateURLsRemote, err = vt.vsd.GetUrlsByVin(vinConfig.VIN)
+			tempURLsRemote, err = gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
+				return vt.vsd.GetUrlsByVin(vinConfig.VIN)
+			})
+
 			if err != nil {
 				vt.logger.Err(err).Msg("unable to get template urls by vin")
+			} else {
+				templateURLsRemote = tempURLsRemote.(*models.TemplateURLs)
 			}
 		}
 	}
@@ -90,22 +101,26 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers
 	}
 	// if we get here, means version are different and we must retrieve and update
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
-	remotePids, err := vt.vsd.GetPIDs(templateURLsRemote.PidURL)
+	remotePids, err := gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
+		return vt.vsd.GetPIDs(templateURLsRemote.PidURL)
+	})
 	if err != nil {
 		vt.logger.Err(err).Msgf("could not get pids from api url: %s", templateURLsRemote.PidURL)
 	} else {
-		pidsConfig = remotePids
+		pidsConfig = remotePids.(*models.TemplatePIDs)
 		err = vt.lss.WritePIDsConfig(*pidsConfig)
 		if err != nil {
 			vt.logger.Err(err).Msgf("failed to write pids config locally %+v", *pidsConfig)
 		}
 	}
 	// get device settings
-	settings, err := vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingURL)
+	settings, err := gateways.Retry(3, 1*time.Second, vt.logger, func() (interface{}, error) {
+		return vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingURL)
+	})
 	if err != nil {
 		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingURL)
 	} else {
-		deviceSettings = settings
+		deviceSettings = settings.(*models.TemplateDeviceSettings)
 	}
 
 	return pidsConfig, deviceSettings, nil

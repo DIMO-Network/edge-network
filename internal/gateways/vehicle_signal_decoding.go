@@ -3,6 +3,7 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog"
 	"io"
 	"time"
 
@@ -43,7 +44,6 @@ func NewVehicleSignalDecodingAPIService() VehicleSignalDecoding {
 }
 
 func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplatePIDs, error) {
-	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -75,7 +75,6 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplateP
 // todo add method to get DBC's and device settings
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.TemplateURLs, error) {
-	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingAPIURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -105,7 +104,6 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.Temp
 }
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error) {
-	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", VehicleSignalDecodingAPIURL, ethAddr), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -135,7 +133,6 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Addre
 }
 
 func (v *vehicleSignalDecodingAPIService) GetDeviceSettings(url string) (*models.TemplateDeviceSettings, error) {
-	// todo: add retry
 	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -187,4 +184,32 @@ func (v *vehicleSignalDecodingAPIService) GetDBC(url string) (*string, error) {
 	resp := string(bodyBytes)
 
 	return &resp, nil
+}
+
+// This is the function type that we will retry
+type RetryableFunc func() (interface{}, error)
+
+func Retry(attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (interface{}, error) {
+	var err error
+	var result interface{}
+	for i := 0; i < attempts; i++ {
+		if result, err = fn(); err != nil {
+			if _, ok := err.(stop); ok {
+				// Return the original error for later checking
+				return nil, err
+			}
+			// Add some sleep here
+			time.Sleep(sleep)
+			sleep *= 2
+		} else {
+			return result, nil
+		}
+	}
+	logger.Err(err).Msgf("Max retries reached for function")
+	return nil, err
+}
+
+// Stop is an error that wraps an error and is used to indicate that we should not retry
+type stop struct {
+	error
 }
