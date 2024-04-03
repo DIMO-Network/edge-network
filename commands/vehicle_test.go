@@ -72,12 +72,13 @@ func TestRequestPID(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.Nil(t, err)
-	assert.NotNil(t, hexResp)
-	assert.Equal(t, 1, len(hexResp))
+	assert.True(t, obdResp.IsHex)
+	assert.NotNil(t, obdResp.ValueHex)
+	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
 func TestRequestPIDWithCanFlowControl(t *testing.T) {
@@ -104,12 +105,13 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.Nil(t, err)
-	assert.NotNil(t, hexResp)
-	assert.Equal(t, 1, len(hexResp))
+	assert.True(t, obdResp.IsHex)
+	assert.NotNil(t, obdResp.ValueHex)
+	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
 func TestRequestPIDFormulaTypePython(t *testing.T) {
@@ -134,12 +136,13 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.Nil(t, err)
-	assert.NotNil(t, hexResp)
-	assert.Equal(t, 1, len(hexResp))
+	assert.True(t, obdResp.IsHex)
+	assert.NotNil(t, obdResp.ValueHex)
+	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
 func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
@@ -164,13 +167,13 @@ func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
 	}
 
 	// then
-	hexResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(unitID, request)
 
 	// verify
 	assert.Nil(t, err)
-	assert.NotNil(t, hexResp)
-	assert.Equal(t, 1, len(hexResp))
-	assert.Equal(t, "17.92", hexResp[0])
+	assert.NotNil(t, obdResp)
+	assert.True(t, !obdResp.IsHex)
+	assert.Equal(t, 17.92, obdResp.ValueFloat)
 }
 
 func registerResponderAndAssert(t *testing.T, psPath string, cmd string, body string) {

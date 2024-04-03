@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -219,7 +218,7 @@ func (wr *workerRunner) queryOBD() {
 			}
 		}
 		// execute the pid
-		hexResp, ts, err := commands.RequestPIDRaw(wr.unitID, request)
+		obdResp, ts, err := commands.RequestPIDRaw(wr.unitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue
@@ -227,17 +226,13 @@ func (wr *workerRunner) queryOBD() {
 		// future: new formula type that could work for proprietary PIDs and could support text, int or float
 		var value interface{}
 		if request.FormulaType() == models.Dbc {
-			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hexResp[0], uintToHexStr(request.Pid), request.FormulaValue())
+			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", hexResp[0])
+				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
 				continue
 			}
 		} else if request.FormulaType() == models.Python {
-			// Convert to float
-			value, err = strconv.ParseFloat(hexResp[0], 64)
-			if err != nil {
-				wr.logger.Err(err).Msgf("failed to convert string response to float : %s", hexResp[0])
-			}
+			value = obdResp.ValueFloat
 			// todo, check what other types conversion we should handle
 		} else {
 			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)

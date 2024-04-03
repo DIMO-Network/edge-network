@@ -14,6 +14,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ObdResponse struct {
+	IsHex bool
+	// ValueHex is a slice of hex strings, each string is a response from the OBD device.
+	ValueHex []string
+	// ValueFloat is the float value of the response from the OBD device.
+	ValueFloat float64
+}
+
 func DetectCanbus(unitID uuid.UUID) (canbusInfo api.CanbusInfo, err error) {
 	req := api.ExecuteRawRequest{Command: api.DetectCanbusCommand}
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -65,7 +73,7 @@ func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, 
 }
 
 // RequestPIDRaw requests a pid via obd. Whatever calls this should be using a mutex to avoid calling while another in process, avoid overloading canbus
-func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (hexResp []string, ts time.Time, err error) {
+func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResponse, ts time.Time, err error) {
 	name := request.Name
 	protocol, errProtocol := strconv.Atoi(request.Protocol)
 	if errProtocol != nil {
@@ -115,22 +123,24 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (hexResp []strin
 	}
 	switch v := resp.Value.(type) {
 	case string:
-		hexResp = strings.Split(v, "\n")
-		for i := range hexResp {
+		obdResp.IsHex = true
+		obdResp.ValueHex = strings.Split(v, "\n")
+		for i := range obdResp.ValueHex {
 			// add validation here for float values
-			if len(hexResp[i]) > 0 && !isValidHex(hexResp[i]) {
-				err = fmt.Errorf("invalid return value: %s", hexResp[i])
+			if len(obdResp.ValueHex[i]) > 0 && !isValidHex(obdResp.ValueHex[i]) {
+				err = fmt.Errorf("invalid return value: %s", obdResp.ValueHex[i])
 				return
 			}
 		}
 	case float64:
 		// the int value always unmarshal to float, that's why we
 		// only handle float64
-		hexResp = []string{fmt.Sprintf("%.2f", v)}
+		obdResp.IsHex = false
+		obdResp.ValueFloat = v
 	default:
 		err = fmt.Errorf("invalid response type: %T", v)
 	}
-	if len(hexResp) == 0 {
+	if obdResp.IsHex && len(obdResp.ValueHex) == 0 {
 		err = fmt.Errorf("no response received")
 	}
 	ts, err = time.Parse("2006-01-02T15:04:05.000000", resp.Timestamp)
