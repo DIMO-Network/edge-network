@@ -59,6 +59,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 		if len(part.Formula) > 0 {
 			formula = fmt.Sprintf(`formula='%s.decode("ascii")'`, part.Formula)
 		}
+		// todo: replace this whole thing with vehicle.GetRawPIDRequest etc
 		cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
 			hdr, part.Mode, part.PID, formula, part.Protocol)
 
