@@ -108,6 +108,62 @@ func Test_workerRunner_Obd(t *testing.T) {
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
 
+func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	_, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+	// mock obd resp
+	obdPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+obdPath,
+		httpmock.NewStringResponder(200, `{"value": 17.92, "_stamp": "2024-02-29T17:17:30.534861"}`))
+	obdPath1 := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+obdPath1,
+		httpmock.NewStringResponder(200, `{"value": 18.95, "_stamp": "2024-02-29T17:17:30.534861"}`))
+	obdPath2 := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+obdPath2,
+		httpmock.NewStringResponder(200, `{"value": "17.00", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "foo",
+			IntervalSeconds: 10,
+			Formula:         "python:bytes_to_int(messages[0].data[-2:]) * 0.001",
+		},
+		{
+			Name:            "boo",
+			IntervalSeconds: 5,
+			Formula:         "python:bytes_to_int(messages[0].data[-2:]) * 0.001",
+		},
+		{
+			Name:            "baz",
+			IntervalSeconds: 5,
+			Formula:         "python:bytes_to_int(messages[0].data[-2:]) * 0.001",
+		},
+	}
+
+	// Initialize workerRunner here with mocked dependencies
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+
+	// then
+	wr.queryOBD()
+
+	// verify
+	assert.Equal(t, "foo", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, 3, len(wr.signalsQueue.signals))
+	assert.Equal(t, 3, len(wr.signalsQueue.lastTimeChecked))
+}
+
 // test for both obd and non-obd signals which executes synchronously and not concurrently
 func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	// when

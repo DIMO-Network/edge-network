@@ -18,8 +18,8 @@ type ObdResponse struct {
 	IsHex bool
 	// ValueHex is a slice of hex strings, each string is a response from the OBD device.
 	ValueHex []string
-	// ValueFloat is the float value of the response from the OBD device.
-	ValueFloat float64
+	// Value is the response from the OBD device in string or float format.
+	Value any
 }
 
 func DetectCanbus(unitID uuid.UUID) (canbusInfo api.CanbusInfo, err error) {
@@ -123,20 +123,26 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResp
 	}
 	switch v := resp.Value.(type) {
 	case string:
-		obdResp.IsHex = true
-		obdResp.ValueHex = strings.Split(v, "\n")
-		for i := range obdResp.ValueHex {
-			// add validation here for float values
-			if len(obdResp.ValueHex[i]) > 0 && !isValidHex(obdResp.ValueHex[i]) {
-				err = fmt.Errorf("invalid return value: %s", obdResp.ValueHex[i])
-				return
+		if isValidHexes(v) {
+			obdResp.IsHex = true
+			obdResp.ValueHex = strings.Split(v, "\n")
+
+			for i := range obdResp.ValueHex {
+				// add validation here for float values
+				if len(obdResp.ValueHex[i]) > 0 && !isValidHex(obdResp.ValueHex[i]) {
+					err = fmt.Errorf("invalid return value: %s", obdResp.ValueHex[i])
+					return
+				}
 			}
+		} else {
+			obdResp.IsHex = false
+			obdResp.Value = v
 		}
 	case float64:
 		// the int value always unmarshal to float, that's why we
 		// only handle float64
 		obdResp.IsHex = false
-		obdResp.ValueFloat = v
+		obdResp.Value = v
 	default:
 		err = fmt.Errorf("invalid response type: %T", v)
 	}
@@ -154,6 +160,13 @@ func isValidHex(s string) bool {
 	// Regex to match a valid hexadecimal string.
 	// It starts with an optional "0x" or "0X", followed by one or more hexadecimal characters (0-9, a-f, A-F).
 	re := regexp.MustCompile(`^(0x|0X)?[0-9a-fA-F]+$`)
+	return re.MatchString(s)
+}
+
+func isValidHexes(s string) bool {
+	// Regex to match one or multiple valid hexadecimal strings separated by a newline character.
+	// Each hexadecimal string starts with an optional "0x" or "0X", followed by one or more hexadecimal characters (0-9, a-f, A-F).
+	re := regexp.MustCompile(`^(0x|0X)?[0-9a-fA-F]+(\n(0x|0X)?[0-9a-fA-F]+)*$`)
 	return re.MatchString(s)
 }
 
