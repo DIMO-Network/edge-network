@@ -215,8 +215,18 @@ eg PID fuel tank level: `can-send vcan0 7DF#02012F5555555555`
 https://github.com/brutella/can
 Seems more raw access, not sure if gives us any advantage vs. above.
 
-# DBC and PID Tools
+## DBC and PID Tools
 
 - [DBC Editor](https://www.csselectronics.com/pages/dbc-editor-can-bus-database)
 
 - [Standard PIDs and PID Editor](https://www.csselectronics.com/pages/obd2-pid-table-on-board-diagnostics-j1979)
+
+## Better cross compilation
+
+Using zig for more seamless cross compilation.
+
+High level:
+https://dev.to/kristoff/zig-makes-go-cross-compilation-just-work-29ho
+
+Some nuissance:
+https://blog.afoolishmanifesto.com/posts/golang-zig-cross-compilation/
