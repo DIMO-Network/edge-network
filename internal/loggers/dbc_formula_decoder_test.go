@@ -32,10 +32,11 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		//coolant temp
 		{"7e803410581cccccccc", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 89, "degC", ""},
 		{"7e803410585aaaaaaaa", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""},
+		{"7e803410585aaaaaaaa", "05", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""}, // 0 padded pid
 	}
 
 	for _, test := range tests {
-		decoded, unit, err := ExtractAndDecodeWithFormula(test.hexData, test.pid, test.formula)
+		decoded, unit, err := ExtractAndDecodeWithDBCFormula(test.hexData, test.pid, test.formula)
 
 		if err != nil {
 			if err.Error() != test.err {
@@ -44,7 +45,7 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		} else if test.err != "" {
 			t.Errorf("Expected error \"%v\" but got nil", test.err)
 		} else if !almostEqual(decoded, test.expected, tolerance) || unit != test.unit {
-			t.Errorf("ExtractAndDecodeWithFormula(%q, %q, %q): expected %v %v, actual %v %v",
+			t.Errorf("ExtractAndDecodeWithDBCFormula(%q, %q, %q): expected %v %v, actual %v %v",
 				test.hexData, test.pid, test.formula, test.expected, test.unit, decoded, unit)
 		}
 	}

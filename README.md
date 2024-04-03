@@ -8,7 +8,6 @@ Compile for the AutoPi with
 ```
 brew install --build-from-source upx
 GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network
-
 ```
 Binaries will build [for releases](https://github.com/DIMO-Network/edge-network/releases) from the [workflow](.github/workflows/release.yaml).
 
@@ -24,7 +23,8 @@ ssh pi@local.autopi.io
 ```
 
 For newer devices [7.0 and newer] password should be the first 13 digits INCLUDING dashes of your device id. Note that this is different that the unit id, although they are the same length. 
-To get a CAN dump after getting into the autipi network, run the following command to get a CAN dump from your car:
+
+To get a CAN dump after getting into the autopi network, run the following command to get a CAN dump from your car:
 
 ```
 ./edge-network - candump [-cycles <qty>] [-send <chunk_size>]
@@ -47,7 +47,7 @@ Note that IP is the default IP address of the AutoPi when you connect to it's wi
 to be able to run the above command successfully. `scp` will also prompt for a password, ask internal dev for it. 
 This should place the executable in the home directory. Then you can replace the existing systemctl edge-network that is running by:
 
-- `which edge-control`
+- `which edge-network`
 - `sudo systemctl stop edge-network`
 - replace the binary (you'll need to decompres `tar -xzvf` the binary if needed)
 - `sudo systemctl start edge-network`
@@ -71,6 +71,35 @@ if you connec the AP to wifi, but it can't get an internet connection, this stuf
 
 To view logs, from the AP cloud terminal, run the following: `journalctl -u edge-network`
 
+## Loggers / DIMO Client
+
+Change the template on the device to "no loggers" id 117.
+
+### Development Cycle Setup
+
+- set no loggers on device from ap cloud
+- have it connect to local wifi.
+- enable allow ssh connections on local wifi: https://docs.autopi.io/guides/how-to-ssh-to-your-device/
+- turn on with simulator. 
+- send command so AP doesn't turn off (can also use AP cloud to do this): `power.hibernate delay 3600`
+- find IP address of AP with your wifi router.
+- ssh pi@192.168.181.129
+- see above for ssh password, default pwd is autopi2018 on pre 7.0 hw.
+- Voltage from simulator is 11.6, change critical voltage for hibernation to 11.5, same for Safety Cutout, or use PowerSupply with 14v
+- If you have pending changes/ updates, connect to car to get higher voltage so it stays on & applies them.
+- Status LEDs meaning: https://docs.autopi.io/hardware/autopi_tmu_cm4/led-and-button/#status-leds
+
+### Deploying binary to device
+
+- build binary use command at beginning - targeting linux: `GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network`
+- scp edge-network pi@192.168.181.129:~
+- ssh pi@192.168.181.129
+- sudo systemctl stop edge-network
+- which edge-network (to find where it is)
+- sudo cp edge-network /usr/local/bin/edge-network
+- sudo systemctl start edge-network
+- sudo journalctl -u edge-network -f
+
 ## Can Dump Commands from terminal
 
         edge-network candump -cycles <cycle_count> -send <chunk_size> -save
@@ -90,10 +119,7 @@ To view logs, from the AP cloud terminal, run the following: `journalctl -u edge
        
           example: ./edge-network candump -cycles 100 -send 50 -save
 
-
-
-
-## Commands
+## BLE Commands
 
 For the management calls, the process needs to have the `CAP_NET_BIND_SERVICE` capability.
 
@@ -152,7 +178,7 @@ github because we were getting rate limited. The proxy code [is here](https://gi
 4. Configuration tab
 5. Edit the `Dimo > Edge-network > Url` property updating the version portion of it.
 
-## Re-installing edge-network on an autopi
+## Re-installing edge-network on an autopi from the cloud
 
 Remove the current install:
 `cmd.run 'rm /opt/autopi/edge-network_release.tar.gz'` 
@@ -182,6 +208,25 @@ Note that the `Version` is set via a build flag in the `/.github/workflows/relea
 
 # Research
 
-Other CAN libraries: https://github.com/go-daq/canbus 
+Other CAN libraries: https://github.com/go-daq/canbus
 supports sending data on the bus
 eg PID fuel tank level: `can-send vcan0 7DF#02012F5555555555`
+
+https://github.com/brutella/can
+Seems more raw access, not sure if gives us any advantage vs. above.
+
+## DBC and PID Tools
+
+- [DBC Editor](https://www.csselectronics.com/pages/dbc-editor-can-bus-database)
+
+- [Standard PIDs and PID Editor](https://www.csselectronics.com/pages/obd2-pid-table-on-board-diagnostics-j1979)
+
+## Better cross compilation
+
+Using zig for more seamless cross compilation.
+
+High level:
+https://dev.to/kristoff/zig-makes-go-cross-compilation-just-work-29ho
+
+Some nuissance:
+https://blog.afoolishmanifesto.com/posts/golang-zig-cross-compilation/

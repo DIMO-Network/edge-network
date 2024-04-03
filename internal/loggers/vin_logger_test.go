@@ -3,7 +3,10 @@ package loggers
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
@@ -19,6 +22,16 @@ func Test_extractVIN(t *testing.T) {
 		wantVinStartPos int
 		wantErr         bool
 	}{
+		{
+			name: "simulator",
+			hexValue: `|-
+  7E8101462F190574155
+  7E8215247423852324C
+  7E8224E303036323232`,
+			wantVin:         "WAURGB8R2LN006222",
+			wantVinStartPos: 3,
+			wantErr:         false,
+		},
 		{
 			name: "2022_Ford_F150_7DF_22_F190_P6 UDS",
 			hexValue: `|-
@@ -144,7 +157,12 @@ func TestGetVIN(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vl := NewVINLogger()
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	vl := NewVINLogger(logger)
 
 	vinResp, err := vl.GetVIN(unitID, nil)
 	require.NoError(t, err)
@@ -164,7 +182,12 @@ func TestGetVIN_withQueryName(t *testing.T) {
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
-	vl := NewVINLogger()
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Logger()
+
+	vl := NewVINLogger(logger)
 	qn := "vin_18DB33F1_09_02"
 	vinResp, err := vl.GetVIN(unitID, &qn)
 	require.NoError(t, err)
