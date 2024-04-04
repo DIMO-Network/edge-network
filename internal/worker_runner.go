@@ -118,18 +118,18 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
 
-			var dataToSent any
-			dataToSent = s
+			var dataToSend any
+			dataToSend = s
 			if wr.archive {
 				// compress the device status data
 				compressedData, err := compressDeviceStatusData(s)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to compress device status in loop")
 				}
-				dataToSent = compressedData
+				dataToSend = compressedData
 			}
 			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(dataToSent)
+			err = wr.dataSender.SendDeviceStatusData(dataToSend)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
