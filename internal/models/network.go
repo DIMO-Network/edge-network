@@ -24,6 +24,11 @@ type DeviceStatusData struct {
 	Network  *Network  `json:"network,omitempty"`
 }
 
+type DeviceStatusCompressedData struct {
+	CommonData
+	Payload string `json:"payloadBase64,omitempty"`
+}
+
 type Device struct {
 	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
 	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
@@ -102,5 +107,5 @@ type DeviceFingerprintCloudEvent struct {
 
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
-	Data DeviceStatusData `json:"data"`
+	Data any `json:"data"`
 }
