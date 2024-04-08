@@ -116,7 +116,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "1.0", "com.dimo.device.status")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "1.0", "com.dimo.device.network")
 	ce := models.DeviceDataNetworkCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
