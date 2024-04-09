@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"math"
 	"os"
@@ -176,8 +177,12 @@ func main() {
 		}
 		logger.Fatal().Msgf("could not get ethereum address")
 	}
+
+	// get vehicle definitions from Identity API service
+	vehicleDefinition := getVehicleDefinition(err, logger, ethAddr)
+
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
 	if ethErr != nil {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
@@ -240,6 +245,27 @@ func main() {
 
 	sig := <-sigChan
 	logger.Info().Msgf("Terminating from signal: %s", sig)
+}
+
+func getVehicleDefinition(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleDefinition {
+	identityAPIService := gateways.NewIdentityAPIService()
+	var vehicleDefinitions *[]models.VehicleDefinition
+	vehicleDef, err := gateways.Retry(3, 1*time.Second, logger, func() (interface{}, error) {
+		return identityAPIService.QueryIdentityAPIForVehicles(ethAddr.Hex())
+	})
+
+	if vehicleDef != nil {
+		definitions := vehicleDef.([]models.VehicleDefinition)
+		vehicleDefinitions = &definitions
+	} else {
+		logger.Err(err).Msg("failed to get vehicle definitions")
+	}
+
+	var firstVehicleDefinition *models.VehicleDefinition
+	if vehicleDefinitions != nil && len(*vehicleDefinitions) > 0 {
+		firstVehicleDefinition = &(*vehicleDefinitions)[0]
+	}
+	return firstVehicleDefinition
 }
 
 func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.TemplateStore) (*service.App, context.CancelFunc, context.CancelFunc) {
