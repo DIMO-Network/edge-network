@@ -263,6 +263,7 @@ func Test_workerRunner_Run(t *testing.T) {
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.QMICellInfoResponse)
+		assert.NotNil(t, data.WiFi)
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies

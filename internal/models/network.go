@@ -25,6 +25,7 @@ type DeviceStatusData struct {
 type DeviceNetworkData struct {
 	CommonData
 	QMICellInfoResponse api.QMICellInfoResponse `json:"cell,omitempty"`
+	WiFi                WiFi                    `json:"wifi,omitempty"`
 }
 
 type Device struct {

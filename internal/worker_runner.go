@@ -118,9 +118,22 @@ func (wr *workerRunner) Run() {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
 
-			if cellErr == nil {
+			if cellErr == nil || wifiErr == nil {
 				// compose the device network event
-				networkData := wr.composeNetworkEvent(cellInfo)
+				networkData := models.DeviceNetworkData{
+					CommonData: models.CommonData{
+						Timestamp: time.Now().UTC().UnixMilli(),
+					},
+				}
+
+				if cellErr == nil {
+					networkData.QMICellInfoResponse = cellInfo
+				}
+
+				if wifiErr == nil {
+					networkData.WiFi = *wifi
+				}
+
 				err = wr.dataSender.SendDeviceNetworkData(networkData)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to send device network data")
@@ -166,17 +179,6 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	}
 
 	return statusData
-}
-
-func (wr *workerRunner) composeNetworkEvent(cellInfo api.QMICellInfoResponse) models.DeviceNetworkData {
-	networkData := models.DeviceNetworkData{
-		CommonData: models.CommonData{
-			Timestamp: time.Now().UTC().UnixMilli(),
-		},
-		QMICellInfoResponse: cellInfo,
-	}
-
-	return networkData
 }
 
 func appendSignalData(signals []models.SignalData, name string, value interface{}) []models.SignalData {
