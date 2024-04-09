@@ -211,13 +211,10 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	_, powerStatus := wr.isOkToQueryOBD()
 	wr.queryOBD()
 	wr.fingerprintRunner.FingerprintSimple(powerStatus)
-	wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd("ec2x")
-	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+	wifi, wifiErr, location, locationErr, _, _ := wr.queryNonObd("ec2x")
+	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
 	// verify
-	assert.NotNil(t, s.Network)
-	assert.NotNil(t, s.Network.WiFi)
-	assert.NotNil(t, s.Network.QMICellInfoResponse)
 	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
 	assert.Equal(t, "fuellevel", s.Vehicle.Signals[0].Name)
 	assert.Equal(t, 0, len(wr.signalsQueue.signals), "signals slice should be empty after composing device event")
@@ -258,9 +255,15 @@ func Test_workerRunner_Run(t *testing.T) {
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 0, len(data.Vehicle.Signals))
+		assert.Equal(t, 6, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.QMICellInfoResponse)
+		assert.NotNil(t, data.WiFi)
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -316,11 +319,15 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
-		assert.Equal(t, 1, len(data.Vehicle.Signals))
+		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
-		assert.Equal(t, 2, len(data.Vehicle.Signals))
+		assert.Equal(t, 8, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.QMICellInfoResponse)
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -375,10 +382,14 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 4, len(data.Vehicle.Signals))
+		assert.Equal(t, 10, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 3, len(data.Vehicle.Signals))
+		assert.Equal(t, 9, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.QMICellInfoResponse)
 	}).Return(nil)
 
 	requests := []models.PIDRequest{

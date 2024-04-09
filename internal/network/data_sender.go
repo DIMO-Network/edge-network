@@ -29,6 +29,7 @@ import (
 const fingerprintTopic = "fingerprint"
 const canDumpTopic = "protocol/canbus/dump"
 const deviceStatusTopic = "status"
+const deviceNetworkTopic = "network"
 const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
@@ -40,6 +41,8 @@ type DataSender interface {
 	SendCanDumpData(data models.CanDumpData) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api
 	SendDeviceStatusData(data models.DeviceStatusData) error
+	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
+	SendDeviceNetworkData(data models.DeviceNetworkData) error
 }
 
 type dataSender struct {
@@ -102,6 +105,28 @@ func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 	}
 
 	err = ds.sendPayload(deviceStatusTopic, payload)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error {
+	if data.Timestamp == 0 {
+		data.Timestamp = time.Now().UTC().UnixMilli()
+	}
+
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "1.0", "com.dimo.device.network")
+	ce := models.DeviceDataNetworkCloudEvent{
+		CloudEventHeaders: ceh,
+		Data:              data,
+	}
+	payload, err := json.Marshal(ce)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshall cloudevent")
+	}
+
+	err = ds.sendPayload(deviceNetworkTopic, payload)
 	if err != nil {
 		return err
 	}
