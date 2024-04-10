@@ -103,7 +103,7 @@ func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 	}
 
 	if ds.vehicleInfo != nil {
-		ce.TokenId = ds.vehicleInfo.TokenID
+		ce.TokenID = ds.vehicleInfo.TokenID
 		ce.Make = ds.vehicleInfo.VehicleDefinition.Make
 		ce.Model = ds.vehicleInfo.VehicleDefinition.Model
 		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
