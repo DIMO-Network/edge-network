@@ -35,7 +35,7 @@ func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]m
 	// GraphQL query
 	graphqlQuery := `{
         vehicles(first: 10, filterBy: { owner: "` + ethAddress + `" }) {
-            edges {
+			edges {
 				node {
 					tokenId,
 					definition {
@@ -43,10 +43,10 @@ func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]m
 						model,
 						year
 					}
-            	}
+				}
 			}
         }
-    }`
+	}`
 
 	return i.fetchVehiclesWithQuery(graphqlQuery)
 }
