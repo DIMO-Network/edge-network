@@ -116,7 +116,7 @@ func (wr *workerRunner) Run() {
 			// query non-obd signals even if voltage is not enough
 			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
 			// compose the device event
-			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi, cellErr, cellInfo)
+			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
 			var dataToSend any
 			dataToSend = s
@@ -132,6 +132,28 @@ func (wr *workerRunner) Run() {
 			err = wr.dataSender.SendDeviceStatusData(dataToSend)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
+			}
+
+			if cellErr == nil || wifiErr == nil {
+				// compose the device network event
+				networkData := models.DeviceNetworkData{
+					CommonData: models.CommonData{
+						Timestamp: time.Now().UTC().UnixMilli(),
+					},
+				}
+
+				if cellErr == nil {
+					networkData.QMICellInfoResponse = cellInfo
+				}
+
+				if wifiErr == nil {
+					networkData.WiFi = *wifi
+				}
+
+				err = wr.dataSender.SendDeviceNetworkData(networkData)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to send device network data")
+				}
 			}
 
 			// todo: maybe we should send the location more frequently, maybe every 10 seconds
@@ -171,7 +193,7 @@ func (wr *workerRunner) Stop() {
 	wr.stop <- true
 }
 
-func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, locationErr error, location *models.Location, wifiErr error, wifi *models.WiFi, cellErr error, cellInfo api.QMICellInfoResponse) models.DeviceStatusData {
+func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, locationErr error, location *models.Location, wifiErr error, wifi *models.WiFi) models.DeviceStatusData {
 	statusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
 			Timestamp: time.Now().UTC().UnixMilli(),
@@ -186,22 +208,27 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	}
 	// only update location if no error
 	if locationErr == nil {
-		statusData.Location = location
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "longitude", location.Longitude)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "latitude", location.Latitude)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "hdop", location.Hdop)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "nsat", location.Nsat)
 	}
-	n := &models.Network{}
 
 	// only update Wi-Fi if no error
 	if wifiErr == nil {
-		n.WiFi = *wifi
-		statusData.Network = n
-	}
-	// only update cell info if no error
-	if cellErr == nil {
-		n.QMICellInfoResponse = cellInfo
-		statusData.Network = n
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID)
 	}
 
 	return statusData
+}
+
+func appendSignalData(signals []models.SignalData, name string, value interface{}) []models.SignalData {
+	return append(signals, models.SignalData{
+		Timestamp: time.Now().UTC().UnixMilli(),
+		Name:      name,
+		Value:     value,
+	})
 }
 
 func (wr *workerRunner) queryNonObd(modem string) (*models.WiFi, error, *models.Location, error, api.QMICellInfoResponse, error) {

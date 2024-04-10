@@ -67,6 +67,20 @@ func (mr *MockDataSenderMockRecorder) SendDeviceStatusData(data any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeviceStatusData", reflect.TypeOf((*MockDataSender)(nil).SendDeviceStatusData), data)
 }
 
+// SendDeviceNetworksData mocks base method.
+func (m *MockDataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendDeviceNetworkData", data)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendDeviceStatusData indicates an expected call of SendDeviceStatusData.
+func (mr *MockDataSenderMockRecorder) SendDeviceNetworkData(data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDeviceNetworkData", reflect.TypeOf((*MockDataSender)(nil).SendDeviceNetworkData), data)
+}
+
 // SendErrorPayload mocks base method.
 func (m *MockDataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error {
 	m.ctrl.T.Helper()

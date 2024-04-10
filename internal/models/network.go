@@ -18,10 +18,14 @@ type CommonData struct {
 
 type DeviceStatusData struct {
 	CommonData
-	Device   Device    `json:"device,omitempty"`
-	Vehicle  Vehicle   `json:"vehicle,omitempty"`
-	Location *Location `json:"location,omitempty"`
-	Network  *Network  `json:"network,omitempty"`
+	Device  Device  `json:"device,omitempty"`
+	Vehicle Vehicle `json:"vehicle,omitempty"`
+}
+
+type DeviceNetworkData struct {
+	CommonData
+	QMICellInfoResponse api.QMICellInfoResponse `json:"cell,omitempty"`
+	WiFi                WiFi                    `json:"wifi,omitempty"`
 }
 
 type DeviceStatusCompressedData struct {
@@ -32,12 +36,6 @@ type DeviceStatusCompressedData struct {
 type Device struct {
 	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
 	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
-}
-
-type Network struct {
-	WiFi WiFi `json:"wifi,omitempty"`
-	// consider to not import api here
-	QMICellInfoResponse api.QMICellInfoResponse `json:"cell,omitempty"`
 }
 
 type Vehicle struct {
@@ -108,4 +106,9 @@ type DeviceFingerprintCloudEvent struct {
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
 	Data any `json:"data"`
+}
+
+type DeviceDataNetworkCloudEvent struct {
+	CloudEventHeaders
+	Data DeviceNetworkData `json:"data"`
 }
