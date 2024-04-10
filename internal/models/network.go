@@ -88,12 +88,12 @@ type CloudEventHeaders struct {
 	Signature string `json:"signature"`
 }
 
-type VehicleDefinition struct {
-	TokenID    int64      `json:"tokenId"`
-	Definition Definition `json:"definition"`
+type VehicleInfo struct {
+	TokenID           int64             `json:"tokenId"`
+	VehicleDefinition VehicleDefinition `json:"definition"`
 }
 
-type Definition struct {
+type VehicleDefinition struct {
 	Make  string `json:"make"`
 	Model string `json:"model"`
 	Year  int    `json:"year"`

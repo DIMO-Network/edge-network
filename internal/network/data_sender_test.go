@@ -60,7 +60,7 @@ func Test_dataSender_sendPayload(t *testing.T) {
 
 }
 
-func Test_dataSender_sendPayloadWithTokenId(t *testing.T) {
+func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
@@ -76,9 +76,9 @@ func Test_dataSender_sendPayloadWithTokenId(t *testing.T) {
 		unitID:  uuid.New(),
 		ethAddr: common.HexToAddress("0x694C9A19e3644A9BFe1008857aeEd155F27b078e"),
 		logger:  testLogger,
-		vehicleDefinition: &models.VehicleDefinition{
+		vehicleInfo: &models.VehicleInfo{
 			TokenID: 12345,
-			Definition: models.Definition{
+			VehicleDefinition: models.VehicleDefinition{
 				Make:  "Toyota",
 				Model: "Corolla",
 				Year:  2022,

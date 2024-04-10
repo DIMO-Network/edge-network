@@ -46,25 +46,25 @@ type DataSender interface {
 }
 
 type dataSender struct {
-	client            mqtt.Client
-	unitID            uuid.UUID
-	ethAddr           common.Address
-	logger            zerolog.Logger
-	vehicleDefinition *models.VehicleDefinition
+	client      mqtt.Client
+	unitID      uuid.UUID
+	ethAddr     common.Address
+	logger      zerolog.Logger
+	vehicleInfo *models.VehicleInfo
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, definition *models.VehicleDefinition) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	client := mqtt.NewClient(opts)
 	return &dataSender{
-		client:            client,
-		unitID:            unitID,
-		ethAddr:           addr,
-		logger:            logger,
-		vehicleDefinition: definition,
+		client:      client,
+		unitID:      unitID,
+		ethAddr:     addr,
+		logger:      logger,
+		vehicleInfo: vehicleInfo,
 	}
 }
 
@@ -102,11 +102,11 @@ func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
 		Data:              data,
 	}
 
-	if ds.vehicleDefinition != nil {
-		ce.TokenId = ds.vehicleDefinition.TokenID
-		ce.Make = ds.vehicleDefinition.Definition.Make
-		ce.Model = ds.vehicleDefinition.Definition.Model
-		ce.Year = ds.vehicleDefinition.Definition.Year
+	if ds.vehicleInfo != nil {
+		ce.TokenId = ds.vehicleInfo.TokenID
+		ce.Make = ds.vehicleInfo.VehicleDefinition.Make
+		ce.Model = ds.vehicleInfo.VehicleDefinition.Model
+		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
 	}
 
 	payload, err := json.Marshal(ce)

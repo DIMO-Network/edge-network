@@ -35,10 +35,10 @@ func (m *MockIdentityApi) EXPECT() *MockIdentityApiMockRecorder {
 }
 
 // QueryIdentityAPIForVehicles mocks base method.
-func (m *MockIdentityApi) QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleDefinition, error) {
+func (m *MockIdentityApi) QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryIdentityAPIForVehicles", ethAddress)
-	ret0, _ := ret[0].([]models.VehicleDefinition)
+	ret0, _ := ret[0].([]models.VehicleInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

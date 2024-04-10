@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source identity_api.go -destination mocks/identity_api_mock.go
 type IdentityApi interface {
-	QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleDefinition, error)
+	QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error)
 }
 
 type identityAPIService struct {
@@ -31,7 +31,7 @@ func NewIdentityAPIService() IdentityApi {
 	}
 }
 
-func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleDefinition, error) {
+func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error) {
 	// GraphQL query
 	graphqlQuery := `{
         vehicles(first: 10, filterBy: { owner: "` + ethAddress + `" }) {
@@ -51,7 +51,7 @@ func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]m
 	return i.fetchVehiclesWithQuery(graphqlQuery)
 }
 
-func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.VehicleDefinition, error) {
+func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.VehicleInfo, error) {
 	// GraphQL request
 	requestPayload := models.GraphQLRequest{Query: query}
 	payloadBytes, err := json.Marshal(requestPayload)
@@ -85,7 +85,7 @@ func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.Vehi
 		Data struct {
 			Vehicles struct {
 				Edges []struct {
-					Node models.VehicleDefinition `json:"node"`
+					Node models.VehicleInfo `json:"node"`
 				} `json:"edges"`
 			} `json:"vehicles"`
 		} `json:"data"`
@@ -95,7 +95,7 @@ func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.Vehi
 		return nil, err
 	}
 
-	vehicles := make([]models.VehicleDefinition, 0, len(vehicleResponse.Data.Vehicles.Edges))
+	vehicles := make([]models.VehicleInfo, 0, len(vehicleResponse.Data.Vehicles.Edges))
 	for _, edge := range vehicleResponse.Data.Vehicles.Edges {
 		vehicles = append(vehicles, edge.Node)
 	}

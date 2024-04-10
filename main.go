@@ -179,7 +179,7 @@ func main() {
 	}
 
 	// get vehicle definitions from Identity API service
-	vehicleDefinition := getVehicleDefinition(err, logger, ethAddr)
+	vehicleDefinition := getVehicleInfo(err, logger, ethAddr)
 
 	// OBD / CAN Loggers
 	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
@@ -247,21 +247,21 @@ func main() {
 	logger.Info().Msgf("Terminating from signal: %s", sig)
 }
 
-func getVehicleDefinition(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleDefinition {
+func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
 	identityAPIService := gateways.NewIdentityAPIService()
-	var vehicleDefinitions *[]models.VehicleDefinition
+	var vehicleDefinitions *[]models.VehicleInfo
 	vehicleDef, err := gateways.Retry(3, 1*time.Second, logger, func() (interface{}, error) {
 		return identityAPIService.QueryIdentityAPIForVehicles(ethAddr.Hex())
 	})
 
 	if vehicleDef != nil {
-		definitions := vehicleDef.([]models.VehicleDefinition)
+		definitions := vehicleDef.([]models.VehicleInfo)
 		vehicleDefinitions = &definitions
 	} else {
 		logger.Err(err).Msg("failed to get vehicle definitions")
 	}
 
-	var firstVehicleDefinition *models.VehicleDefinition
+	var firstVehicleDefinition *models.VehicleInfo
 	if vehicleDefinitions != nil && len(*vehicleDefinitions) > 0 {
 		firstVehicleDefinition = &(*vehicleDefinitions)[0]
 	}
