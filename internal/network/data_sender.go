@@ -39,8 +39,9 @@ type DataSender interface {
 	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
 	SendFingerprintData(data models.FingerprintData) error
 	SendCanDumpData(data models.CanDumpData) error
-	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api
-	SendDeviceStatusData(data models.DeviceStatusData) error
+	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api.
+	// The data can be gzip compressed or not
+	SendDeviceStatusData(data any) error
 	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
 	SendDeviceNetworkData(data models.DeviceNetworkData) error
 }
@@ -89,10 +90,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	return nil
 }
 
-func (ds *dataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
-	if data.Timestamp == 0 {
-		data.Timestamp = time.Now().UTC().UnixMilli()
-	}
+func (ds *dataSender) SendDeviceStatusData(data any) error {
 	// todo validate what source should be here
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "1.0", "com.dimo.device.status")
 	ce := models.DeviceDataStatusCloudEvent{

@@ -54,7 +54,7 @@ func (mr *MockDataSenderMockRecorder) SendCanDumpData(data any) *gomock.Call {
 }
 
 // SendDeviceStatusData mocks base method.
-func (m *MockDataSender) SendDeviceStatusData(data models.DeviceStatusData) error {
+func (m *MockDataSender) SendDeviceStatusData(data any) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendDeviceStatusData", data)
 	ret0, _ := ret[0].(error)

@@ -1,6 +1,10 @@
 package internal
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
@@ -11,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -286,6 +291,65 @@ func Test_workerRunner_Run(t *testing.T) {
 	wr.Stop()
 }
 
+func Test_workerRunner_Run_ArchiveData(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Do(func(data *models.DeviceStatusCompressedData) {
+		assert.NotNil(t, data.Payload)
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.QMICellInfoResponse)
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "foo",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+	wr.archive = true
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+}
+
 func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	// when
 	httpmock.Activate()
@@ -440,6 +504,34 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 	return vl, ds, ts, ls
 }
 
+func Test_compressDeviceStatusData(t *testing.T) {
+	// given
+	deviceStatusData := models.DeviceStatusData{
+		CommonData: models.CommonData{
+			Timestamp: 0,
+		},
+		Device: models.Device{
+			BatteryVoltage: 13.3,
+			RpiUptimeSecs:  2,
+		},
+	}
+
+	// when
+	// then
+	compressedData, _ := compressDeviceStatusData(deviceStatusData)
+	decoded, _ := base64.StdEncoding.DecodeString(compressedData.Payload)
+	bytesArr, err := decompressGzip(decoded)
+	if err != nil {
+		t.Errorf("error decompressing gzip: %v", err)
+	}
+
+	// verify
+	var data models.DeviceStatusData
+	json.Unmarshal(bytesArr, &data)
+	assert.Equal(t, 13.3, data.Device.BatteryVoltage)
+	assert.Equal(t, 2, data.Device.RpiUptimeSecs)
+}
+
 func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
@@ -451,4 +543,15 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 		signalsQueue:      &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
 	}
 	return wr
+}
+
+func decompressGzip(data []byte) ([]byte, error) {
+	b := bytes.NewBuffer(data)
+	r, err := gzip.NewReader(b)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	return ioutil.ReadAll(r)
 }
