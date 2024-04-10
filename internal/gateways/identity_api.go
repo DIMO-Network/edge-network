@@ -5,36 +5,40 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/shared"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"io"
 	"time"
 )
 
 //go:generate mockgen -source identity_api.go -destination mocks/identity_api_mock.go
 type IdentityAPI interface {
-	QueryIdentityAPIForVehicle(ethAddress string) (*models.VehicleInfo, error)
+	QueryIdentityAPIForVehicle(ethAddress common.Address) (*models.VehicleInfo, error)
 }
 
 type identityAPIService struct {
 	httpClient shared.HTTPClientWrapper
+	logger     zerolog.Logger
 }
 
 const IdentityAPIURL = "https://identity-api.dimo.zone/query"
 
-func NewIdentityAPIService() IdentityAPI {
+func NewIdentityAPIService(logger zerolog.Logger) IdentityAPI {
 	h := map[string]string{}
 	h["Content-Type"] = "application/json"
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, false) // ok to ignore err since only used for tor check
 
 	return &identityAPIService{
 		httpClient: hcw,
+		logger:     logger,
 	}
 }
 
-func (i *identityAPIService) QueryIdentityAPIForVehicle(ethAddress string) (*models.VehicleInfo, error) {
+func (i *identityAPIService) QueryIdentityAPIForVehicle(ethAddress common.Address) (*models.VehicleInfo, error) {
 	// GraphQL query
 	graphqlQuery := `{
-        aftermarketDevice(by: {address: "` + ethAddress + `"}) {
+        aftermarketDevice(by: {address: "` + ethAddress.Hex() + `"}) {
 			vehicle {
 			  tokenId,
 			  definition {
@@ -60,7 +64,7 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 	// POST request
 	res, err := i.httpClient.ExecuteRequest(IdentityAPIURL, "POST", payloadBytes)
 	if err != nil {
-		fmt.Print(err)
+		i.logger.Err(err).Send()
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling identity api to get vehicles definition from url %s", IdentityAPIURL)
 		}
