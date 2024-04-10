@@ -254,11 +254,13 @@ func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *
 		return identityAPIService.QueryIdentityAPIForVehicles(ethAddr.Hex())
 	})
 
+	if err != nil {
+		logger.Err(err).Msg("failed to get vehicle definitions")
+	}
+
 	if vehicleDef != nil {
 		definitions := vehicleDef.([]models.VehicleInfo)
 		vehicleDefinitions = &definitions
-	} else {
-		logger.Err(err).Msg("failed to get vehicle definitions")
 	}
 
 	var firstVehicleDefinition *models.VehicleInfo

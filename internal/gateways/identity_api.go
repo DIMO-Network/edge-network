@@ -11,7 +11,7 @@ import (
 )
 
 //go:generate mockgen -source identity_api.go -destination mocks/identity_api_mock.go
-type IdentityApi interface {
+type IdentityAPI interface {
 	QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error)
 }
 
@@ -21,7 +21,7 @@ type identityAPIService struct {
 
 const IdentityAPIURL = "https://identity-api.dimo.zone/query"
 
-func NewIdentityAPIService() IdentityApi {
+func NewIdentityAPIService() IdentityAPI {
 	h := map[string]string{}
 	h["Content-Type"] = "application/json"
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, false) // ok to ignore err since only used for tor check

@@ -109,7 +109,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	mockClient.EXPECT().IsConnected().Times(1).Return(true)
 	mockClient.EXPECT().Disconnect(gomock.Any())
 	mockClient.EXPECT().Publish("status", uint8(0), false, gomock.Any()).Times(1).
-		Do(func(topic string, qos uint8, retained bool, payload string) {
+		Do(func(_ string, qos uint8, retained bool, payload string) {
 			assert.True(t, strings.Contains(payload, "tokenId"), "Payload does not contain tokenID")
 		}).Return(&mockedToken{})
 

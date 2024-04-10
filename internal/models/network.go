@@ -116,7 +116,7 @@ type DeviceFingerprintCloudEvent struct {
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
 	Data    DeviceStatusData `json:"data"`
-	TokenId int64            `json:"tokenId"`
+	TokenID int64            `json:"tokenId"`
 	Make    string           `json:"make"`
 	Model   string           `json:"model"`
 	Year    int              `json:"year"`
