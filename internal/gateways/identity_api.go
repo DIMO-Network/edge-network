@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source identity_api.go -destination mocks/identity_api_mock.go
 type IdentityAPI interface {
-	QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error)
+	QueryIdentityAPIForVehicle(ethAddress string) (*models.VehicleInfo, error)
 }
 
 type identityAPIService struct {
@@ -31,27 +31,25 @@ func NewIdentityAPIService() IdentityAPI {
 	}
 }
 
-func (i *identityAPIService) QueryIdentityAPIForVehicles(ethAddress string) ([]models.VehicleInfo, error) {
+func (i *identityAPIService) QueryIdentityAPIForVehicle(ethAddress string) (*models.VehicleInfo, error) {
 	// GraphQL query
 	graphqlQuery := `{
-        vehicles(first: 10, filterBy: { owner: "` + ethAddress + `" }) {
-			edges {
-				node {
-					tokenId,
-					definition {
-						make,
-						model,
-						year
-					}
-				}
+        aftermarketDevice(by: {address: "` + ethAddress + `"}) {
+			vehicle {
+			  tokenId,
+			  definition {
+				make
+				model
+				year
+			  }
 			}
-        }
+  		}
 	}`
 
-	return i.fetchVehiclesWithQuery(graphqlQuery)
+	return i.fetchVehicleWithQuery(graphqlQuery)
 }
 
-func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.VehicleInfo, error) {
+func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.VehicleInfo, error) {
 	// GraphQL request
 	requestPayload := models.GraphQLRequest{Query: query}
 	payloadBytes, err := json.Marshal(requestPayload)
@@ -83,11 +81,9 @@ func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.Vehi
 
 	var vehicleResponse struct {
 		Data struct {
-			Vehicles struct {
-				Edges []struct {
-					Node models.VehicleInfo `json:"node"`
-				} `json:"edges"`
-			} `json:"vehicles"`
+			AfterMarketDevice struct {
+				Vehicle models.VehicleInfo `json:"vehicle"`
+			} `json:"aftermarketDevice"`
 		} `json:"data"`
 	}
 
@@ -95,10 +91,9 @@ func (i *identityAPIService) fetchVehiclesWithQuery(query string) ([]models.Vehi
 		return nil, err
 	}
 
-	vehicles := make([]models.VehicleInfo, 0, len(vehicleResponse.Data.Vehicles.Edges))
-	for _, edge := range vehicleResponse.Data.Vehicles.Edges {
-		vehicles = append(vehicles, edge.Node)
+	if vehicleResponse.Data.AfterMarketDevice.Vehicle.TokenID == 0 {
+		return nil, Stop{fmt.Errorf(ErrNotFound.Error())}
 	}
 
-	return vehicles, nil
+	return &vehicleResponse.Data.AfterMarketDevice.Vehicle, nil
 }

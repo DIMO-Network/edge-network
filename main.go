@@ -249,9 +249,9 @@ func main() {
 
 func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
 	identityAPIService := gateways.NewIdentityAPIService()
-	var vehicleDefinitions *[]models.VehicleInfo
+	var vehicleDefinition *models.VehicleInfo
 	vehicleDef, err := gateways.Retry(3, 1*time.Second, logger, func() (interface{}, error) {
-		return identityAPIService.QueryIdentityAPIForVehicles(ethAddr.Hex())
+		return identityAPIService.QueryIdentityAPIForVehicle(ethAddr.Hex())
 	})
 
 	if err != nil {
@@ -259,15 +259,10 @@ func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *
 	}
 
 	if vehicleDef != nil {
-		definitions := vehicleDef.([]models.VehicleInfo)
-		vehicleDefinitions = &definitions
+		vehicleDefinition = vehicleDef.(*models.VehicleInfo)
 	}
 
-	var firstVehicleDefinition *models.VehicleInfo
-	if vehicleDefinitions != nil && len(*vehicleDefinitions) > 0 {
-		firstVehicleDefinition = &(*vehicleDefinitions)[0]
-	}
-	return firstVehicleDefinition
+	return vehicleDefinition
 }
 
 func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.TemplateStore) (*service.App, context.CancelFunc, context.CancelFunc) {
