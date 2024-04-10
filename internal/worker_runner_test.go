@@ -325,6 +325,10 @@ func Test_workerRunner_Run_ArchiveData(t *testing.T) {
 		assert.NotNil(t, data.Payload)
 	}).Return(nil)
 
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.QMICellInfoResponse)
+	}).Return(nil)
+
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{

@@ -169,7 +169,6 @@ func compressDeviceStatusData(s models.DeviceStatusData) (*models.DeviceStatusCo
 	if err != nil {
 		return nil, err
 	}
-	println(string(payload))
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	_, err = gz.Write(payload)
