@@ -93,6 +93,21 @@ type CloudEventHeaders struct {
 	Signature string `json:"signature"`
 }
 
+type VehicleInfo struct {
+	TokenID           uint64            `json:"tokenId"`
+	VehicleDefinition VehicleDefinition `json:"definition"`
+}
+
+type VehicleDefinition struct {
+	Make  string `json:"make"`
+	Model string `json:"model"`
+	Year  int    `json:"year"`
+}
+
+type GraphQLRequest struct {
+	Query string `json:"query"`
+}
+
 type CanDumpCloudEvent struct {
 	CloudEventHeaders
 	Data CanDumpData `json:"data"`
@@ -105,7 +120,11 @@ type DeviceFingerprintCloudEvent struct {
 
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
-	Data any `json:"data"`
+	Data    any    `json:"data"`
+	TokenID uint64 `json:"tokenId"`
+	Make    string `json:"make"`
+	Model   string `json:"model"`
+	Year    int    `json:"year"`
 }
 
 type DeviceDataNetworkCloudEvent struct {

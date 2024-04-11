@@ -193,12 +193,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	// todo mock location, network, wifi and others
-	vinQueryName := "vin_7DF_09_02"
-	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
-	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
-	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
@@ -250,12 +245,7 @@ func Test_workerRunner_Run(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	// todo mock location, network, wifi and others
-	vinQueryName := "vin_7DF_09_02"
-	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
-	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
-	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+	expectOnMocks(ts, vl, unitID, ds, 2)
 
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -373,12 +363,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	// todo mock location, network, wifi and others
-	vinQueryName := "vin_7DF_09_02"
-	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
-	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
-	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+	expectOnMocks(ts, vl, unitID, ds, 2)
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -437,12 +422,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	// todo mock location, network, wifi and others
-	vinQueryName := "vin_7DF_09_02"
-	ts.EXPECT().ReadVINConfig().Times(2).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
-	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
-	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
-	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
+	expectOnMocks(ts, vl, unitID, ds, 2)
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -502,6 +482,14 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 		Logger()
 	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 	return vl, ds, ts, ls
+}
+
+func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
+	vinQueryName := "vin_7DF_09_02"
+	ts.EXPECT().ReadVINConfig().Times(readVinNum).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
+	ts.EXPECT().WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinQueryName, VIN: "TESTVIN123"}).Times(1).Return(nil)
+	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 }
 
 func Test_compressDeviceStatusData(t *testing.T) {

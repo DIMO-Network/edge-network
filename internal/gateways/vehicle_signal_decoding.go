@@ -194,7 +194,7 @@ func Retry(attempts int, sleep time.Duration, logger zerolog.Logger, fn Retryabl
 	var result interface{}
 	for i := 0; i < attempts; i++ {
 		if result, err = fn(); err != nil {
-			if _, ok := err.(stop); ok {
+			if _, ok := err.(Stop); ok {
 				// Return the original error for later checking
 				return nil, err
 			}
@@ -210,6 +210,6 @@ func Retry(attempts int, sleep time.Duration, logger zerolog.Logger, fn Retryabl
 }
 
 // Stop is an error that wraps an error and is used to indicate that we should not retry
-type stop struct {
+type Stop struct {
 	error
 }

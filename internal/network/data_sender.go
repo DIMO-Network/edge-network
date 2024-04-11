@@ -47,23 +47,25 @@ type DataSender interface {
 }
 
 type dataSender struct {
-	client  mqtt.Client
-	unitID  uuid.UUID
-	ethAddr common.Address
-	logger  zerolog.Logger
+	client      mqtt.Client
+	unitID      uuid.UUID
+	ethAddr     common.Address
+	logger      zerolog.Logger
+	vehicleInfo *models.VehicleInfo
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	client := mqtt.NewClient(opts)
 	return &dataSender{
-		client:  client,
-		unitID:  unitID,
-		ethAddr: addr,
-		logger:  logger,
+		client:      client,
+		unitID:      unitID,
+		ethAddr:     addr,
+		logger:      logger,
+		vehicleInfo: vehicleInfo,
 	}
 }
 
@@ -97,6 +99,14 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
+
+	if ds.vehicleInfo != nil {
+		ce.TokenID = ds.vehicleInfo.TokenID
+		ce.Make = ds.vehicleInfo.VehicleDefinition.Make
+		ce.Model = ds.vehicleInfo.VehicleDefinition.Model
+		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
+	}
+
 	payload, err := json.Marshal(ce)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
