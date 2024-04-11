@@ -98,6 +98,21 @@ func (mr *MockTemplateStoreMockRecorder) ReadVINConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadVINConfig", reflect.TypeOf((*MockTemplateStore)(nil).ReadVINConfig))
 }
 
+// ReadVehicleInfo mocks base method.
+func (m *MockTemplateStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadVehicleInfo")
+	ret0, _ := ret[0].(*models.VehicleInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadVehicleInfo indicates an expected call of ReadVehicleInfo.
+func (mr *MockTemplateStoreMockRecorder) ReadVehicleInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadVehicleInfo", reflect.TypeOf((*MockTemplateStore)(nil).ReadVehicleInfo))
+}
+
 // WritePIDsConfig mocks base method.
 func (m *MockTemplateStore) WritePIDsConfig(settings models.TemplatePIDs) error {
 	m.ctrl.T.Helper()
@@ -152,4 +167,18 @@ func (m *MockTemplateStore) WriteVINConfig(settings models.VINLoggerSettings) er
 func (mr *MockTemplateStoreMockRecorder) WriteVINConfig(settings any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteVINConfig", reflect.TypeOf((*MockTemplateStore)(nil).WriteVINConfig), settings)
+}
+
+// WriteVehicleInfo mocks base method.
+func (m *MockTemplateStore) WriteVehicleInfo(settings models.VehicleInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteVehicleInfo", settings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteVehicleInfo indicates an expected call of WriteVehicleInfo.
+func (mr *MockTemplateStoreMockRecorder) WriteVehicleInfo(settings interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteVehicleInfo", reflect.TypeOf((*MockTemplateStore)(nil).WriteVehicleInfo), settings)
 }
