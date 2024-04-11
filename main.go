@@ -187,15 +187,13 @@ func main() {
 		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleDefinition)
 		vehInfoErr := lss.WriteVehicleInfo(*vehicleDefinition)
 		if vehInfoErr != nil {
-			logger.Err(vehInfoErr).Msg("error writing vehicle info")
-		} else {
-			logger.Info().Msg("vehicle info written to local store")
+			logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
 		}
 	} else {
-		logger.Info().Msg("no vehicle info found")
+		logger.Info().Msg("unable to get vehicle info from identity-api")
 		vehicleDefinition, err = lss.ReadVehicleInfo()
 		if err != nil {
-			logger.Err(err).Msg("error reading vehicle info")
+			logger.Err(err).Msg("no vehicle info found in tmp file cache")
 		}
 	}
 
@@ -205,9 +203,15 @@ func main() {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
-
+	// get the VIN, since dependency for other stuff. we want to use the last known query to reduce unnecessary OBD calls & speed it up
 	vinLogger := loggers.NewVINLogger(logger)
-	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
+	// todo refactor below to own func that returns the vin
+	vinConfig, _ := lss.ReadVINConfig()
+	var queryName *string
+	if vinConfig != nil {
+		queryName = &vinConfig.VINQueryName
+	}
+	vinResp, vinErr := vinLogger.GetVIN(unitID, queryName)
 	if vinErr != nil {
 		logger.Err(vinErr).Msg("error getting VIN")
 		_ = ds.SendErrorPayload(errors.Wrap(vinErr, "could not get VIN"), nil)

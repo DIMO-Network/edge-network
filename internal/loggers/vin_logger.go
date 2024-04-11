@@ -73,7 +73,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			vl.logger.Err(err).Msg("failed to execute POST request to get vin")
 			continue // try again with different command if err
 		}
-		vl.logger.Info().Msgf("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
+		vl.logger.Debug().Msgf("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
 		// if no error, we want to make sure we get a semblance of a vin back
 		value, ok := resp.Value.(string)
 		if !ok {
