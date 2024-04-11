@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
-	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/agent"
@@ -176,10 +175,15 @@ func main() {
 			logger.Err(ethErr).Msg("eth addr error")
 		}
 		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	}
 
 	// get vehicle definitions from Identity API service
 	vehicleDefinition := getVehicleInfo(err, logger, ethAddr)
+	if vehicleDefinition != nil {
+		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleDefinition)
+	}
 
 	// OBD / CAN Loggers
 	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
@@ -188,17 +192,23 @@ func main() {
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 
+	vinLogger := loggers.NewVINLogger(logger)
 	lss := loggers.NewTemplateStore()
-	var qs queue.StorageQueue
-	useMemoryQueue := true
-
-	if useMemoryQueue {
-		qs = queue.NewMemoryStorageQueue(unitID)
+	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
+	if vinErr != nil {
+		logger.Err(vinErr).Msg("error getting VIN")
+		_ = ds.SendErrorPayload(errors.Wrap(vinErr, "could not get VIN"), nil)
 	} else {
-		qs = queue.NewDiskStorageQueue(unitID)
+		writeVinErr := lss.WriteVINConfig(models.VINLoggerSettings{
+			VIN:              vinResp.VIN,
+			VINQueryName:     vinResp.QueryName,
+			VINLoggerVersion: 1,
+		})
+		if writeVinErr != nil {
+			logger.Err(writeVinErr).Msg("error writing VIN config")
+		}
 	}
 
-	vinLogger := loggers.NewVINLogger(logger)
 	vehicleSignalDecodingApi := gateways.NewVehicleSignalDecodingAPIService()
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingApi, lss)
 
@@ -240,7 +250,7 @@ func main() {
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, qs, ds, logger, fingerprintRunner, pids, deviceSettings)
+	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan
@@ -626,6 +636,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
+	// normally gets called during device pairing from mobile App
 	vinChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {

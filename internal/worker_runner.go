@@ -14,7 +14,6 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/DIMO-Network/edge-network/internal/queue"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -27,7 +26,6 @@ type WorkerRunner interface {
 type workerRunner struct {
 	unitID              uuid.UUID
 	loggerSettingsSvc   loggers.TemplateStore
-	queueSvc            queue.StorageQueue
 	dataSender          network.DataSender
 	logger              zerolog.Logger
 	ethAddr             *common.Address
@@ -41,13 +39,14 @@ type workerRunner struct {
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
-	queueSvc queue.StorageQueue, dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner, pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
+	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	archiveData := true
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		queueSvc: queueSvc, dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, archive: archiveData}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, archive: archiveData}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -322,82 +321,6 @@ func uintToHexStr(val uint32) string {
 		return "0" + hexStr // Prepend a "0" if the length is odd
 	}
 	return hexStr
-}
-
-func (wr *workerRunner) registerSenderTasks() []WorkerTask {
-	var tasks []WorkerTask
-	// build up task that sends mqtt payload every 60 seconds
-	tasks = append(tasks, WorkerTask{
-		Name:     "Sender Task",
-		Interval: 60,
-		Func: func(ctx WorkerTaskContext) {
-			for {
-				// are there many data points in one message? or is each message one signal data point
-				messages, err := wr.queueSvc.Dequeue()
-				if err != nil {
-					wr.logger.Err(err).Msg("failed to Dequeue vehicle data signals")
-					break
-				}
-				if len(messages) == 0 {
-					break
-				}
-				signals := make([]models.SignalData, len(messages))
-				for i, message := range messages {
-					signals[i] = models.SignalData{Timestamp: message.Time.UnixMilli(), Name: message.Name, Value: message.Content}
-				}
-				err = wr.dataSender.SendDeviceStatusData(models.DeviceStatusData{
-					Vehicle: models.Vehicle{
-						Signals: signals,
-					},
-				})
-				if err != nil {
-					wr.logger.Err(err).Msg("Unable to send device status data")
-				}
-			}
-		},
-	})
-
-	return tasks
-}
-
-func (wr *workerRunner) registerPIDsTasks(pidsConfig models.TemplatePIDs) []WorkerTask {
-
-	if len(pidsConfig.Requests) > 0 {
-		tasks := make([]WorkerTask, len(pidsConfig.Requests))
-
-		for i, task := range pidsConfig.Requests {
-			tasks[i] = WorkerTask{
-				Name:     task.Name,
-				Interval: task.IntervalSeconds,
-				Once:     task.IntervalSeconds == 0,
-				Params:   task,
-				Func: func(wCtx WorkerTaskContext) {
-					//err := wr.pidLog.ExecutePID(wCtx.Params.Header,
-					//	wCtx.Params.Mode,
-					//	wCtx.Params.Pid,
-					//	wCtx.Params.Formula,
-					//	wCtx.Params.Protocol,
-					//	wCtx.Params.Name)
-					//if err != nil {
-					//	wr.logger.Err(err).Msg("failed execute pid loggers:" + wCtx.Params.Name)
-					//}
-				},
-			}
-		}
-
-		// Execute Message
-		tasks[len(tasks)+1] = WorkerTask{
-			Name:     "Notify Message",
-			Interval: 30,
-			Func: func(ctx WorkerTaskContext) {
-
-			},
-		}
-
-		return tasks
-	}
-
-	return []WorkerTask{}
 }
 
 // isOkToQueryOBD checks once to see if voltage rules pass to issue PID requests

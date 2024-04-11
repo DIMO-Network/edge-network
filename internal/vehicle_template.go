@@ -31,6 +31,7 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
 func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vl loggers.VINLogger, unitID uuid.UUID) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
+	// todo: future - Separation of Concerns - do not read VIN here, have it passed in as dep
 	vinConfig, err := vt.lss.ReadVINConfig() // should this be more of VIN info? stored VIN info
 	if err != nil {
 		vt.logger.Err(err).Msg("could not read local settings for stored VIN, continuing")
