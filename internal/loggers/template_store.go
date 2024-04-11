@@ -14,6 +14,7 @@ const (
 	PIDConfigFile      = "/tmp/logger-pid-settings.json"
 	TemplateURLsFile   = "/tmp/template-urls.json"
 	DeviceSettingsFile = "/tmp/device-settings.json"
+	VehicleInfoFile    = "/tmp/vehicle-info.json"
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go
@@ -29,6 +30,9 @@ type TemplateStore interface {
 
 	ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error)
 	WriteTemplateDeviceSettings(settings models.TemplateDeviceSettings) error
+
+	ReadVehicleInfo() (*models.VehicleInfo, error)
+	WriteVehicleInfo(settings models.VehicleInfo) error
 }
 
 // templateStore wraps reading and writing different configurations locally
@@ -134,6 +138,30 @@ func (ts *templateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 
 func (ts *templateStore) WritePIDsConfig(settings models.TemplatePIDs) error {
 	err := ts.writeConfig(PIDConfigFile, settings)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ts *templateStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
+	data, err := ts.readConfig(VehicleInfoFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	vi := &models.VehicleInfo{}
+
+	err = json.Unmarshal(data, vi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall vehicleInfo: %s", err)
+	}
+
+	return vi, nil
+}
+
+func (ts *templateStore) WriteVehicleInfo(settings models.VehicleInfo) error {
+	err := ts.writeConfig(VehicleInfoFile, settings)
 	if err != nil {
 		return err
 	}

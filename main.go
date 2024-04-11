@@ -179,10 +179,24 @@ func main() {
 		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	}
 
+	lss := loggers.NewTemplateStore()
+
 	// get vehicle definitions from Identity API service
 	vehicleDefinition := getVehicleInfo(err, logger, ethAddr)
 	if vehicleDefinition != nil {
 		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleDefinition)
+		vehInfoErr := lss.WriteVehicleInfo(*vehicleDefinition)
+		if vehInfoErr != nil {
+			logger.Err(vehInfoErr).Msg("error writing vehicle info")
+		} else {
+			logger.Info().Msg("vehicle info written to local store")
+		}
+	} else {
+		logger.Info().Msg("no vehicle info found")
+		vehicleDefinition, err = lss.ReadVehicleInfo()
+		if err != nil {
+			logger.Err(err).Msg("error reading vehicle info")
+		}
 	}
 
 	// OBD / CAN Loggers
@@ -193,7 +207,6 @@ func main() {
 	}
 
 	vinLogger := loggers.NewVINLogger(logger)
-	lss := loggers.NewTemplateStore()
 	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
 	if vinErr != nil {
 		logger.Err(vinErr).Msg("error getting VIN")

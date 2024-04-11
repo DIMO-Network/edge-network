@@ -8,34 +8,35 @@ import (
 	reflect "reflect"
 
 	models "github.com/DIMO-Network/edge-network/internal/models"
+	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockIdentityApi is a mock of identityApiSvc interface.
-type MockIdentityApi struct {
+// MockIdentityAPI is a mock of IdentityAPI interface.
+type MockIdentityAPI struct {
 	ctrl     *gomock.Controller
-	recorder *MockIdentityApiMockRecorder
+	recorder *MockIdentityAPIMockRecorder
 }
 
-// MockIdentityApiMockRecorder is the mock recorder for MockIdentityApi.
-type MockIdentityApiMockRecorder struct {
-	mock *MockIdentityApi
+// MockIdentityAPIMockRecorder is the mock recorder for MockIdentityAPI.
+type MockIdentityAPIMockRecorder struct {
+	mock *MockIdentityAPI
 }
 
-// NewMockIdentityApi creates a new mock instance.
-func NewMockIdentityApi(ctrl *gomock.Controller) *MockIdentityApi {
-	mock := &MockIdentityApi{ctrl: ctrl}
-	mock.recorder = &MockIdentityApiMockRecorder{mock}
+// NewMockIdentityAPI creates a new mock instance.
+func NewMockIdentityAPI(ctrl *gomock.Controller) *MockIdentityAPI {
+	mock := &MockIdentityAPI{ctrl: ctrl}
+	mock.recorder = &MockIdentityAPIMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockIdentityApi) EXPECT() *MockIdentityApiMockRecorder {
+func (m *MockIdentityAPI) EXPECT() *MockIdentityAPIMockRecorder {
 	return m.recorder
 }
 
-// QueryIdentityAPIForVehicles mocks base method.
-func (m *MockIdentityApi) QueryIdentityAPIForVehicle(ethAddress string) (*models.VehicleInfo, error) {
+// QueryIdentityAPIForVehicle mocks base method.
+func (m *MockIdentityAPI) QueryIdentityAPIForVehicle(ethAddress common.Address) (*models.VehicleInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryIdentityAPIForVehicle", ethAddress)
 	ret0, _ := ret[0].(*models.VehicleInfo)
@@ -43,8 +44,8 @@ func (m *MockIdentityApi) QueryIdentityAPIForVehicle(ethAddress string) (*models
 	return ret0, ret1
 }
 
-// QueryIdentityAPIForVehicles indicates an expected call of QueryIdentityAPIForVehicles.
-func (mr *MockIdentityApiMockRecorder) QueryIdentityAPIForVehicle(ethAddress interface{}) *gomock.Call {
+// QueryIdentityAPIForVehicle indicates an expected call of QueryIdentityAPIForVehicle.
+func (mr *MockIdentityAPIMockRecorder) QueryIdentityAPIForVehicle(ethAddress interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryIdentityAPIForVehicle", reflect.TypeOf((*MockIdentityApi)(nil).QueryIdentityAPIForVehicle), ethAddress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryIdentityAPIForVehicle", reflect.TypeOf((*MockIdentityAPI)(nil).QueryIdentityAPIForVehicle), ethAddress)
 }

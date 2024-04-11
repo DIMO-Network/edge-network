@@ -210,11 +210,12 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	// then
 	_, powerStatus := wr.isOkToQueryOBD()
 	wr.queryOBD()
-	wr.fingerprintRunner.FingerprintSimple(powerStatus)
+	err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
 	wifi, wifiErr, location, locationErr, _, _ := wr.queryNonObd("ec2x")
 	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
 	// verify
+	assert.Nil(t, err)
 	assert.Equal(t, 13.3, s.Device.BatteryVoltage)
 	assert.Equal(t, "fuellevel", s.Vehicle.Signals[0].Name)
 	assert.Equal(t, 0, len(wr.signalsQueue.signals), "signals slice should be empty after composing device event")
@@ -515,7 +516,8 @@ func Test_compressDeviceStatusData(t *testing.T) {
 
 	// verify
 	var data models.DeviceStatusData
-	json.Unmarshal(bytesArr, &data)
+	err = json.Unmarshal(bytesArr, &data)
+	assert.Nil(t, err)
 	assert.Equal(t, 13.3, data.Device.BatteryVoltage)
 	assert.Equal(t, 2, data.Device.RpiUptimeSecs)
 }
