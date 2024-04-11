@@ -94,7 +94,7 @@ type CloudEventHeaders struct {
 }
 
 type VehicleInfo struct {
-	TokenID           int64             `json:"tokenId"`
+	TokenID           uint64            `json:"tokenId"`
 	VehicleDefinition VehicleDefinition `json:"definition"`
 }
 
@@ -120,11 +120,11 @@ type DeviceFingerprintCloudEvent struct {
 
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
-	Data    any `json:"data"`
-	TokenID int64            `json:"tokenId"`
-	Make    string           `json:"make"`
-	Model   string           `json:"model"`
-	Year    int              `json:"year"`
+	Data    any    `json:"data"`
+	TokenID uint64 `json:"tokenId"`
+	Make    string `json:"make"`
+	Model   string `json:"model"`
+	Year    int    `json:"year"`
 }
 
 type DeviceDataNetworkCloudEvent struct {
