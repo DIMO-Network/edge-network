@@ -248,10 +248,10 @@ func main() {
 }
 
 func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
-	identityAPIService := gateways.NewIdentityAPIService()
+	identityAPIService := gateways.NewIdentityAPIService(logger)
 	var vehicleDefinition *models.VehicleInfo
 	vehicleDef, err := gateways.Retry(3, 1*time.Second, logger, func() (interface{}, error) {
-		return identityAPIService.QueryIdentityAPIForVehicle(ethAddr.Hex())
+		return identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 	})
 
 	if err != nil {
