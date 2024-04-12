@@ -54,8 +54,7 @@ func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc l
 // It will query the VIN once on startup and send a fingerprint payload (only once per Run).
 // If ok to query OBD, queries each signal per it's designated interval.
 func (wr *workerRunner) Run() {
-	// todo v1: if no template settings obtained, we just want to send the status payload without obd stuff.
-
+	// requires deviceSettings and pids (even if empty) to run
 	vin, err := wr.loggerSettingsSvc.ReadVINConfig() // this could return nil vin
 	if err != nil {
 		wr.logger.Err(err).Msg("unable to get vin for worker runner from past state, continuing")
@@ -63,7 +62,7 @@ func (wr *workerRunner) Run() {
 	if vin != nil {
 		wr.logger.Info().Msgf("starting worker runner with vin: %s", vin.VIN)
 	}
-	wr.logger.Info().Msgf("starting worker runner with logger settings: %+v", *wr.deviceSettings)
+	wr.logger.Info().Msgf("starting worker runner with logger settings: %+v", wr.deviceSettings)
 
 	modem, err := commands.GetModemType(wr.unitID)
 	if err != nil {
@@ -155,7 +154,7 @@ func (wr *workerRunner) Run() {
 				}
 			}
 
-			// todo: maybe we should send the location more frequently, maybe every 10 seconds
+			// future: send only the location more frequently, every 10 seconds
 			time.Sleep(wr.sendPayloadInterval)
 		}
 	}

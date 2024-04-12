@@ -187,15 +187,13 @@ func main() {
 		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleDefinition)
 		vehInfoErr := lss.WriteVehicleInfo(*vehicleDefinition)
 		if vehInfoErr != nil {
-			logger.Err(vehInfoErr).Msg("error writing vehicle info")
-		} else {
-			logger.Info().Msg("vehicle info written to local store")
+			logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
 		}
 	} else {
-		logger.Info().Msg("no vehicle info found")
+		logger.Info().Msg("unable to get vehicle info from identity-api")
 		vehicleDefinition, err = lss.ReadVehicleInfo()
 		if err != nil {
-			logger.Err(err).Msg("error reading vehicle info")
+			logger.Err(err).Msg("no vehicle info found in tmp file cache")
 		}
 	}
 
@@ -205,25 +203,12 @@ func main() {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
-
 	vinLogger := loggers.NewVINLogger(logger)
-	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
-	if vinErr != nil {
-		logger.Err(vinErr).Msg("error getting VIN")
-		_ = ds.SendErrorPayload(errors.Wrap(vinErr, "could not get VIN"), nil)
-	} else {
-		writeVinErr := lss.WriteVINConfig(models.VINLoggerSettings{
-			VIN:              vinResp.VIN,
-			VINQueryName:     vinResp.QueryName,
-			VINLoggerVersion: 1,
-		})
-		if writeVinErr != nil {
-			logger.Err(writeVinErr).Msg("error writing VIN config")
-		}
-	}
-
 	vehicleSignalDecodingApi := gateways.NewVehicleSignalDecodingAPIService()
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingApi, lss)
+
+	// get the VIN, since dependency for other stuff. we want to use the last known query to reduce unnecessary OBD calls & speed it up
+	vin := getVIN(lss, vinLogger, logger, ds)
 
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
@@ -236,12 +221,12 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
-	// todo v2: what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend... check every 60s on timer for pairing
-	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr, vinLogger, unitID)
+	// todo v2: what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend, if have VIN this should help
+	// what about having default settings? But they may not work if we can't even get VIN.
+	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr, vin)
 	if err != nil {
-		logger.Err(err).Msg("unable to get loggers configuration settings")
+		logger.Err(err).Msg("unable to get device settings (pids, dbc, settings)")
 		// todo send mqtt error payload reporting this, should have own topic for errors
-
 	}
 	if pids != nil {
 		pj, err := json.Marshal(pids)
@@ -270,19 +255,39 @@ func main() {
 	logger.Info().Msgf("Terminating from signal: %s", sig)
 }
 
+// getVIN reads persisted VIN if any. If no VIN previously persisted, queries for it. For this reason, It is important
+// that when pairing new vehicle we delete the persisted VIN. Fingerprint will catch any mismatching VIN (eg. user connected to different car)
+func getVIN(lss loggers.TemplateStore, vinLogger loggers.VINLogger, logger zerolog.Logger, ds network.DataSender) *string {
+	vinConfig, _ := lss.ReadVINConfig()
+	if vinConfig != nil {
+		return &vinConfig.VIN
+	}
+	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
+	if vinErr != nil {
+		logger.Err(vinErr).Msg("error getting VIN")
+		_ = ds.SendErrorPayload(errors.Wrap(vinErr, "could not get VIN"), nil)
+	} else {
+		writeVinErr := lss.WriteVINConfig(models.VINLoggerSettings{
+			VIN:              vinResp.VIN,
+			VINQueryName:     vinResp.QueryName,
+			VINLoggerVersion: 1,
+		})
+		if writeVinErr != nil {
+			logger.Err(writeVinErr).Msg("error writing VIN config")
+		}
+		return &vinResp.VIN
+	}
+	return nil
+}
+
 func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
 	identityAPIService := gateways.NewIdentityAPIService(logger)
-	var vehicleDefinition *models.VehicleInfo
-	vehicleDef, err := gateways.Retry(3, 1*time.Second, logger, func() (interface{}, error) {
+	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		return identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 	})
 
 	if err != nil {
 		logger.Err(err).Msg("failed to get vehicle definitions")
-	}
-
-	if vehicleDef != nil {
-		vehicleDefinition = vehicleDef.(*models.VehicleInfo)
 	}
 
 	return vehicleDefinition
