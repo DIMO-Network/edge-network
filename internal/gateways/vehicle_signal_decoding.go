@@ -196,7 +196,7 @@ type PointerType[T any] interface {
 // This is the function type that we will retry
 type RetryableFunc func() (interface{}, error)
 
-func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (T, error) {
+func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (*T, error) {
 	var err error
 	var result interface{}
 	for i := 0; i < attempts; i++ {
@@ -209,7 +209,7 @@ func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn R
 			time.Sleep(sleep)
 			sleep *= 2
 		} else {
-			if value, ok := result.(T); ok {
+			if value, ok := result.(*T); ok {
 				return value, nil
 			} else {
 				return nil, errors.New("type assertion failed")

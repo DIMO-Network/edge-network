@@ -30,8 +30,8 @@ type workerRunner struct {
 	logger              zerolog.Logger
 	ethAddr             *common.Address
 	fingerprintRunner   FingerprintRunner
-	pids                models.TemplatePIDs
-	deviceSettings      models.TemplateDeviceSettings
+	pids                *models.TemplatePIDs
+	deviceSettings      *models.TemplateDeviceSettings
 	signalsQueue        *SignalsQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
@@ -40,7 +40,7 @@ type workerRunner struct {
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids models.TemplatePIDs, settings models.TemplateDeviceSettings) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second

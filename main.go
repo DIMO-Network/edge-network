@@ -282,17 +282,12 @@ func getVIN(lss loggers.TemplateStore, vinLogger loggers.VINLogger, logger zerol
 
 func getVehicleInfo(err error, logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
 	identityAPIService := gateways.NewIdentityAPIService(logger)
-	var vehicleDefinition *models.VehicleInfo
-	vehicleDef, err := gateways.Retry[*models.VehicleInfo](3, 1*time.Second, logger, func() (*models.VehicleInfo, error) {
+	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		return identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 	})
 
 	if err != nil {
 		logger.Err(err).Msg("failed to get vehicle definitions")
-	}
-
-	if vehicleDef != nil {
-		vehicleDefinition = vehicleDef.(*models.VehicleInfo)
 	}
 
 	return vehicleDefinition

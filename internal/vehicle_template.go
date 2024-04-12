@@ -47,14 +47,14 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vin *strin
 		}
 	}
 
-	templateURLsRemote, err := gateways.Retry[*models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	templateURLsRemote, err := gateways.Retry[models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetUrlsByEthAddr(addr)
 	})
 
 	if err != nil || templateURLsRemote == nil {
 		vt.logger.Info().Msgf("unable to get template urls by eth addr:%s, trying by VIN next", addr.String())
 		if vin != nil && len(*vin) == 17 {
-			templateURLsRemote, err = gateways.Retry[*models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+			templateURLsRemote, err = gateways.Retry[models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 				return vt.vsd.GetUrlsByVin(*vin)
 			})
 			if err != nil {
@@ -80,19 +80,20 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vin *strin
 	}
 	// if we get here, means version are different and we must retrieve and update
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
-	remotePids, err := gateways.Retry[*models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	remotePids, err := gateways.Retry[models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetPIDs(templateURLsRemote.PidURL)
 	})
 	if err != nil {
 		vt.logger.Err(err).Msgf("could not get pids from api url: %s", templateURLsRemote.PidURL)
 	} else {
+		pidsConfig = remotePids
 		err = vt.lss.WritePIDsConfig(*remotePids)
 		if err != nil {
 			vt.logger.Err(err).Msgf("failed to write pids config locally %+v", *remotePids)
 		}
 	}
 	// get device settings
-	deviceSettings, err = gateways.Retry[*models.TemplateDeviceSettings](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	deviceSettings, err = gateways.Retry[models.TemplateDeviceSettings](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingURL)
 	})
 	if err != nil {
