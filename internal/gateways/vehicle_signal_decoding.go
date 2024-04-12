@@ -186,10 +186,17 @@ func (v *vehicleSignalDecodingAPIService) GetDBC(url string) (*string, error) {
 	return &resp, nil
 }
 
+// Define a type constraint that allows only pointer types.
+type PointerType[T any] interface {
+	*T // | // T can be any type as long as it's a pointer
+	//*[]T | // T can be a slice pointer
+	//*map[string]T // T can be a map pointer
+}
+
 // This is the function type that we will retry
 type RetryableFunc func() (interface{}, error)
 
-func Retry(attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (interface{}, error) {
+func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (T, error) {
 	var err error
 	var result interface{}
 	for i := 0; i < attempts; i++ {
@@ -202,7 +209,11 @@ func Retry(attempts int, sleep time.Duration, logger zerolog.Logger, fn Retryabl
 			time.Sleep(sleep)
 			sleep *= 2
 		} else {
-			return result, nil
+			if value, ok := result.(T); ok {
+				return value, nil
+			} else {
+				return nil, errors.New("type assertion failed")
+			}
 		}
 	}
 	logger.Err(err).Msgf("Max retries reached for function")
