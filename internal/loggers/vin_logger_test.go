@@ -118,6 +118,18 @@ func Test_extractVIN(t *testing.T) {
 7e82220202020202020`,
 			wantErr: true,
 		},
+		{
+			name: "Mateusz and Steve example VIN UDS, vin_18DB33F1_UDS",
+			hexValue: `|-
+18DAF111101862F19011354A
+18DAF1112136524534483734
+18DAF11122424C3035363039
+18DAF1112337000000555555
+  `,
+			wantVin:         "5J6RE4H74BL056097",
+			wantVinStartPos: 10,
+			wantErr:         false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
