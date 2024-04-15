@@ -121,6 +121,8 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResp
 	if err != nil {
 		return
 	}
+	fmt.Printf("DBG response for %s: %s \n", request.Name, resp.Value)
+
 	switch v := resp.Value.(type) {
 	case string:
 		if isValidHexes(v) {
