@@ -126,7 +126,8 @@ func Test_extractVIN(t *testing.T) {
 18DAF11122424C3035363039
 18DAF1112337000000555555
   `,
-			wantVin:         "5J6RE4H74BL056097",
+			wantVin: "5J6RE4H74BL056097",
+			// need to use the request pid to help decode to find start position, 354A is start in frame 1, 37 is last byte we want in frame 4, the rest is padding.
 			wantVinStartPos: 10,
 			wantErr:         false,
 		},
