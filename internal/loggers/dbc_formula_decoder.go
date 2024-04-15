@@ -30,7 +30,7 @@ func ExtractAndDecodeWithDBCFormula(hexData, pid, formula string) (float64, stri
 	}
 
 	// Find the index of PID in the sliced hex string
-	pidIndex := strings.Index(slicedHexData, pid)
+	pidIndex := strings.Index(strings.ToLower(slicedHexData), strings.ToLower(pid))
 	if pidIndex == -1 {
 		return 0, "", errors.New("PID not found")
 	}
