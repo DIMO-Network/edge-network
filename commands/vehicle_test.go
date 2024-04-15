@@ -62,7 +62,7 @@ func TestRequestPID(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true",
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false",
 		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
