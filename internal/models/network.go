@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/DIMO-Network/edge-network/internal/api"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/api"
 )
 
 type CanDumpData struct {

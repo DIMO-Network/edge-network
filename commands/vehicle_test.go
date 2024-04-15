@@ -3,15 +3,18 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"testing"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"io/ioutil"
-	"net/http"
-	"testing"
 )
 
 func Test_isValidHex(t *testing.T) {
@@ -60,6 +63,8 @@ func TestRequestPID(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false",
@@ -72,7 +77,7 @@ func TestRequestPID(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)
@@ -90,6 +95,7 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
@@ -105,7 +111,7 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)
@@ -124,6 +130,8 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:])*0.1'",
@@ -136,7 +144,7 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)
@@ -155,6 +163,8 @@ func TestRequestPIDFormulaTypePythonWithMultipleHex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	registerResponderAndAssert(t, psPath, "obd.query foo header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:])*0.1'",
@@ -167,7 +177,7 @@ func TestRequestPIDFormulaTypePythonWithMultipleHex(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)
@@ -186,6 +196,8 @@ func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	registerResponderAndAssert(t, psPath, "obd.query airtemp header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
@@ -198,7 +210,7 @@ func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)
@@ -217,6 +229,8 @@ func TestRequestPIDFormulaTypePythonWithStringValue(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 	registerResponderAndAssert(t, psPath, "obd.query airtemp header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
@@ -229,7 +243,7 @@ func TestRequestPIDFormulaTypePythonWithStringValue(t *testing.T) {
 	}
 
 	// then
-	obdResp, _, err := RequestPIDRaw(unitID, request)
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
 
 	// verify
 	assert.Nil(t, err)

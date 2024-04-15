@@ -3,9 +3,10 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog"
 	"io"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 

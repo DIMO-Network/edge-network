@@ -3,13 +3,14 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"io"
-	"time"
 )
 
 //go:generate mockgen -source identity_api.go -destination mocks/identity_api_mock.go

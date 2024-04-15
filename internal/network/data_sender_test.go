@@ -2,13 +2,14 @@ package network
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/stretchr/testify/assert"
 
 	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
 	"github.com/ethereum/go-ethereum/common"
@@ -109,7 +110,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	mockClient.EXPECT().IsConnected().Times(1).Return(true)
 	mockClient.EXPECT().Disconnect(gomock.Any())
 	mockClient.EXPECT().Publish("status", uint8(0), false, gomock.Any()).Times(1).
-		Do(func(_ string, qos uint8, retained bool, payload string) {
+		Do(func(_ string, _ uint8, _ bool, payload string) {
 			assert.True(t, strings.Contains(payload, "tokenId"), "Payload does not contain tokenID")
 		}).Return(&mockedToken{})
 
