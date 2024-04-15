@@ -96,7 +96,7 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResp
 		return
 	}
 
-	cmd := fmt.Sprintf(`%s %s header="'%s'" mode='x%s' pid='x%s' protocol=%d force=true`,
+	cmd := fmt.Sprintf(`%s %s header='"%s"' mode='x%s' pid='x%s' protocol=%d force=true verify=false`,
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 
 	if request.FormulaType() == models.Python {

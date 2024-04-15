@@ -62,7 +62,7 @@ func TestRequestPID(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true",
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false",
 		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
@@ -93,7 +93,7 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true flow_control_clear=true flow_control_id_pair='744,7AE'",
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false flow_control_clear=true flow_control_id_pair='744,7AE'",
 		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
@@ -126,7 +126,7 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:])*0.1'",
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:])*0.1'",
 		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
@@ -157,7 +157,7 @@ func TestRequestPIDFormulaTypePythonWithMultipleHex(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query foo header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:])*0.1'",
+	registerResponderAndAssert(t, psPath, "obd.query foo header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:])*0.1'",
 		`{"value": "7e803412f6700000000\n7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
@@ -188,7 +188,7 @@ func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query airtemp header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
+	registerResponderAndAssert(t, psPath, "obd.query airtemp header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
 		`{"value": 17.92, "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
@@ -219,7 +219,7 @@ func TestRequestPIDFormulaTypePythonWithStringValue(t *testing.T) {
 
 	// mock pid resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query airtemp header=\"'0'\" mode='x00' pid='x00' protocol=6 force=true formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
+	registerResponderAndAssert(t, psPath, "obd.query airtemp header='\"0\"' mode='x00' pid='x00' protocol=6 force=true verify=false formula='bytes_to_int(messages[0].data[-2:]) * 0.001'",
 		`{"value": "17.92", "_stamp": "2024-02-29T17:17:30.534861"}`)
 
 	request := models.PIDRequest{
