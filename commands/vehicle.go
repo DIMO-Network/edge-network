@@ -2,11 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/rs/zerolog"
 
@@ -73,7 +74,7 @@ func GetDiagnosticCodes(unitID uuid.UUID, logger zerolog.Logger) (codes string, 
 }
 
 // RequestPIDRaw requests a pid via obd. Whatever calls this should be using a mutex to avoid calling while another in process, avoid overloading canbus
-func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResponse, ts time.Time, err error) {
+func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResponse, ts time.Time, err error) {
 	name := request.Name
 	protocol, errProtocol := strconv.Atoi(request.Protocol)
 	if errProtocol != nil {
@@ -115,12 +116,14 @@ func RequestPIDRaw(unitID uuid.UUID, request models.PIDRequest) (obdResp ObdResp
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	var resp api.ExecuteRawResponse
-	fmt.Printf("DBG requesting PID: %s \n", cmd)
+	logger.Debug().Msgf("requesting PID: %s", cmd)
 
 	err = api.ExecuteRequest("POST", path, req, &resp)
 	if err != nil {
 		return
 	}
+	logger.Debug().Msgf("response for %s: %s", request.Name, resp.Value)
+
 	switch v := resp.Value.(type) {
 	case string:
 		if isValidHexes(v) {

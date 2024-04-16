@@ -50,7 +50,7 @@ type ExecuteRawRequest struct {
 // Sometimes it's "value", sometimes "data".
 type ExecuteRawResponse struct {
 	// for obd command can be hex, but if formula passed in will be eg. a number 17.78
-	Value any    `json:"value"`
+	Value any `json:"value"`
 	// used for non obd commands often
 	Data string `json:"data"`
 	// "_stamp": "2024-02-29T17:17:30.534861" in UTC

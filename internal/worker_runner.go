@@ -284,7 +284,7 @@ func (wr *workerRunner) queryOBD() {
 			}
 		}
 		// execute the pid
-		obdResp, ts, err := commands.RequestPIDRaw(wr.unitID, request)
+		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.unitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue
