@@ -1,10 +1,6 @@
 package internal
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -35,7 +31,6 @@ type workerRunner struct {
 	signalsQueue        *SignalsQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
-	archive             bool
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
@@ -44,9 +39,8 @@ func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc l
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
-	archiveData := true
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, archive: archiveData}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -116,18 +110,8 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
-			var dataToSend any
-			dataToSend = s
-			if wr.archive {
-				// compress the device status data
-				compressedData, err := compressDeviceStatusData(s)
-				if err != nil {
-					wr.logger.Err(err).Msg("failed to compress device status in loop")
-				}
-				dataToSend = compressedData
-			}
 			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(dataToSend)
+			err = wr.dataSender.SendDeviceStatusData(s)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
@@ -158,31 +142,6 @@ func (wr *workerRunner) Run() {
 			time.Sleep(wr.sendPayloadInterval)
 		}
 	}
-}
-
-// DeviceStatusData is formatted as json, gzip compressed, then base64 compressed.
-// This is done to reduce the size of the payload sent to the cloud over MQTT.
-func compressDeviceStatusData(s models.DeviceStatusData) (*models.DeviceStatusCompressedData, error) {
-	payload, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	_, err = gz.Write(payload)
-	_ = gz.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	compressedData := &models.DeviceStatusCompressedData{
-		CommonData: models.CommonData{
-			Timestamp: time.Now().UTC().UnixMilli(),
-		},
-		Payload: base64.StdEncoding.EncodeToString(buf.Bytes()),
-	}
-	return compressedData, nil
 }
 
 // Stop is used only for functional tests
