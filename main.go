@@ -204,8 +204,8 @@ func main() {
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 	vinLogger := loggers.NewVINLogger(logger)
-	vehicleSignalDecodingApi := gateways.NewVehicleSignalDecodingAPIService()
-	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingApi, lss)
+	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService()
+	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the VIN, since dependency for other stuff. we want to use the last known query to reduce unnecessary OBD calls & speed it up
 	vin := getVIN(lss, vinLogger, logger, ds)
@@ -329,7 +329,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	unitSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	unitSerialChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	unitSerialChar.OnRead(func(_ *service.Char, options map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving unit serial number: %s", err)

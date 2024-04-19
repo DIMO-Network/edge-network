@@ -143,7 +143,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceNetworkTopic, payload, false)
+	err = ds.sendPayload(deviceNetworkTopic, payload, true)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
-	// i'm not sure this is correct, the datasender should hold the different topics in a const above and just use them here - not for other modules to decide.
+
 	err = ds.sendPayload(canDumpTopic, payload, false)
 	if err != nil {
 		return err
