@@ -198,7 +198,7 @@ func main() {
 	}
 
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition, Version)
 	if ethErr != nil {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)

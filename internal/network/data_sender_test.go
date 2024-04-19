@@ -1,10 +1,14 @@
 package network
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -50,13 +54,13 @@ func Test_dataSender_sendPayload(t *testing.T) {
 	// here we see signature is getting set as expected, otherwise would be empty
 	payload, err := sjson.Set(payload, "signature", "0xb794f5ea0ba39494ce")
 	require.NoError(t, err)
-	mockClient.EXPECT().Publish("topic", uint8(0), false, payload).Times(1).Return(&mockedToken{})
+	mockClient.EXPECT().Publish("topic", uint8(0), false, []byte(payload)).Times(1).Return(&mockedToken{})
 
 	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce"}`))
 
-	err = ds.sendPayload("topic", []byte(payload))
+	err = ds.sendPayload("topic", []byte(payload), false)
 	require.NoError(t, err)
 
 }
@@ -109,10 +113,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	mockClient.EXPECT().Connect().Times(1).Return(&mockedToken{})
 	mockClient.EXPECT().IsConnected().Times(1).Return(true)
 	mockClient.EXPECT().Disconnect(gomock.Any())
-	mockClient.EXPECT().Publish("status", uint8(0), false, gomock.Any()).Times(1).
-		Do(func(_ string, _ uint8, _ bool, payload string) {
-			assert.True(t, strings.Contains(payload, "tokenId"), "Payload does not contain tokenID")
-		}).Return(&mockedToken{})
+	mockClient.EXPECT().Publish("status", uint8(0), false, gomock.Any()).Times(1).Return(&mockedToken{})
 
 	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
@@ -120,6 +121,47 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 
 	err := ds.SendDeviceStatusData(deviceStatusData)
 	require.NoError(t, err)
+}
+
+func Test_compressDeviceStatusData(t *testing.T) {
+	// given
+	deviceStatusData := models.DeviceStatusData{
+		CommonData: models.CommonData{
+			Timestamp: 0,
+		},
+		Device: models.Device{
+			BatteryVoltage: 13.3,
+			RpiUptimeSecs:  2,
+		},
+	}
+	deviceStatusDataBytes, _ := json.Marshal(deviceStatusData)
+
+	// when
+	// then
+	compressedData, _ := compressPayload(deviceStatusDataBytes)
+	decoded, _ := base64.StdEncoding.DecodeString(compressedData.Payload)
+	bytesArr, err := decompressGzip(decoded)
+	if err != nil {
+		t.Errorf("error decompressing gzip: %v", err)
+	}
+
+	// verify
+	var data models.DeviceStatusData
+	err = json.Unmarshal(bytesArr, &data)
+	assert.Nil(t, err)
+	assert.Equal(t, 13.3, data.Device.BatteryVoltage)
+	assert.Equal(t, 2, data.Device.RpiUptimeSecs)
+}
+
+func decompressGzip(data []byte) ([]byte, error) {
+	b := bytes.NewBuffer(data)
+	r, err := gzip.NewReader(b)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	return ioutil.ReadAll(r)
 }
 
 type mockedToken struct {

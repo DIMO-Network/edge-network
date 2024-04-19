@@ -1,6 +1,9 @@
 package network
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -52,10 +55,11 @@ type dataSender struct {
 	ethAddr     common.Address
 	logger      zerolog.Logger
 	vehicleInfo *models.VehicleInfo
+	version     string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, version string) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -66,6 +70,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		ethAddr:     addr,
 		logger:      logger,
 		vehicleInfo: vehicleInfo,
+		version:     version,
 	}
 }
 
@@ -84,7 +89,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(fingerprintTopic, payload)
+	err = ds.sendPayload(fingerprintTopic, payload, false)
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("failed send payload")
 		return err
@@ -107,12 +112,16 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
 	}
 
+	if ds.version != "" {
+		ce.Version = ds.version
+	}
+
 	payload, err := json.Marshal(ce)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceStatusTopic, payload)
+	err = ds.sendPayload(deviceStatusTopic, payload, true)
 	if err != nil {
 		return err
 	}
@@ -134,7 +143,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceNetworkTopic, payload)
+	err = ds.sendPayload(deviceNetworkTopic, payload, false)
 	if err != nil {
 		return err
 	}
@@ -157,7 +166,7 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 	// i'm not sure this is correct, the datasender should hold the different topics in a const above and just use them here - not for other modules to decide.
-	err = ds.sendPayload(canDumpTopic, payload)
+	err = ds.sendPayload(canDumpTopic, payload, false)
 	if err != nil {
 		return err
 	}
@@ -178,7 +187,7 @@ func (ds *dataSender) SendErrorsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(fingerprintTopic, payload) // i think this is a bit funky, like errors should go in their own topic, we want to build an observable system
+	err = ds.sendPayload(fingerprintTopic, payload, false) // i think this is a bit funky, like errors should go in their own topic, we want to build an observable system
 	if err != nil {
 		return err
 	}
@@ -186,7 +195,7 @@ func (ds *dataSender) SendErrorsData(data models.ErrorsData) error {
 }
 
 // SendPayload connects to broker and sends a filled in status update via mqtt to broker address, should already be in json format
-func (ds *dataSender) sendPayload(topic string, payload []byte) error {
+func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) error {
 	// todo: determine if we want to be connecting and disconnecting from mqtt broker for every status update we send (when start sending more periodic data besides VIN)
 	if !gjson.GetBytes(payload, "subject").Exists() {
 		return fmt.Errorf("payload did not have expected subject cloud event property")
@@ -210,8 +219,18 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// Compress the payload
+	if compress {
+		compressedPayload, err := compressPayload(payload)
+		if err != nil {
+			return errors.Wrap(err, "Failed to compress device status data")
+		}
+		payload = []byte(compressedPayload.Payload)
+	}
+
 	// Publish the MQTT message
-	token := ds.client.Publish(topic, 0, false, string(payload))
+	token := ds.client.Publish(topic, 0, false, payload)
 	token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published
@@ -222,6 +241,24 @@ func (ds *dataSender) sendPayload(topic string, payload []byte) error {
 	ds.logger.Debug().Msgf("sending mqtt payload to topic: %s with payload: %s", topic, string(payload))
 
 	return nil
+}
+
+// DeviceStatusData is formatted as json, gzip compressed, then base64 compressed.
+// This is done to reduce the size of the payload sent to the cloud over MQTT.
+func compressPayload(payload []byte) (*models.CompressedPayload, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, err := gz.Write(payload)
+	_ = gz.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	compressedData := &models.CompressedPayload{
+		Payload: base64.StdEncoding.EncodeToString(buf.Bytes()),
+	}
+	return compressedData, nil
 }
 
 func (ds *dataSender) signPayload(payload []byte, unitID uuid.UUID) ([]byte, error) {

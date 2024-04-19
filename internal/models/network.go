@@ -29,9 +29,8 @@ type DeviceNetworkData struct {
 	WiFi                WiFi                    `json:"wifi,omitempty"`
 }
 
-type DeviceStatusCompressedData struct {
-	CommonData
-	Payload string `json:"payloadBase64,omitempty"`
+type CompressedPayload struct {
+	Payload string `json:"compressedPayload,omitempty"`
 }
 
 type Device struct {
@@ -122,10 +121,11 @@ type DeviceFingerprintCloudEvent struct {
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
 	Data    any    `json:"data"`
-	TokenID uint64 `json:"tokenId"`
+	TokenID uint64 `json:"vehicleTokenID"`
 	Make    string `json:"make"`
 	Model   string `json:"model"`
 	Year    int    `json:"year"`
+	Version string `json:"version"`
 }
 
 type DeviceDataNetworkCloudEvent struct {
