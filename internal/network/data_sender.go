@@ -226,7 +226,10 @@ func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) e
 		if err != nil {
 			return errors.Wrap(err, "Failed to compress device status data")
 		}
-		payload = []byte(compressedPayload.Payload)
+		payload, err = json.Marshal(compressedPayload)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshall compressedPayload")
+		}
 	}
 
 	// Publish the MQTT message
