@@ -99,7 +99,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
 	// todo validate what source should be here
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "1.0", "com.dimo.device.status")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "2.0", "com.dimo.device.status")
 	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -133,7 +133,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "1.0", "com.dimo.device.network")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "2.0", "com.dimo.device.network")
 	ce := models.DeviceDataNetworkCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
