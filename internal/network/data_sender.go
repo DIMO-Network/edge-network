@@ -33,12 +33,13 @@ const fingerprintTopic = "fingerprint"
 const canDumpTopic = "protocol/canbus/dump"
 const deviceStatusTopic = "status"
 const deviceNetworkTopic = "network"
+const deviceLogsTopic = "logs"        // used for observability
 const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
 	SendErrorPayload(err error, powerStatus *api.PowerStatusResponse) error
-	SendErrorsData(data models.ErrorsData) error
+	SendLogsData(data models.ErrorsData) error
 	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
 	SendFingerprintData(data models.FingerprintData) error
 	SendCanDumpData(data models.CanDumpData) error
@@ -173,11 +174,11 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 	return nil
 }
 
-func (ds *dataSender) SendErrorsData(data models.ErrorsData) error {
+func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "1.0", "zone.dimo.aftermarket.device.logs")
 	ce := models.DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -187,7 +188,7 @@ func (ds *dataSender) SendErrorsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(fingerprintTopic, payload, false) // i think this is a bit funky, like errors should go in their own topic, we want to build an observable system
+	err = ds.sendPayload(deviceLogsTopic, payload, true)
 	if err != nil {
 		return err
 	}
@@ -293,7 +294,7 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	}
 	data.Errors = append(data.Errors, err.Error())
 
-	return ds.SendErrorsData(data)
+	return ds.SendLogsData(data)
 }
 
 func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) models.CloudEventHeaders {

@@ -123,13 +123,17 @@ func (wr *workerRunner) Run() {
 						Timestamp: time.Now().UTC().UnixMilli(),
 					},
 				}
-
-				if cellErr == nil {
-					networkData.QMICellInfoResponse = cellInfo
+				if locationErr != nil {
+					networkData.Altitude = location.Altitude
+					networkData.Hdop = location.Hdop
+					networkData.Nsat = location.Nsat
+					networkData.Latitude = location.Latitude
+					networkData.Longitude = location.Longitude
 				}
-
-				if wifiErr == nil {
-					networkData.WiFi = *wifi
+				if cellErr == nil {
+					networkData.Cell = models.CellInfo{
+						Details: cellInfo.IntrafrequencyLteInfo,
+					}
 				}
 
 				err = wr.dataSender.SendDeviceNetworkData(networkData)
@@ -138,7 +142,7 @@ func (wr *workerRunner) Run() {
 				}
 			}
 
-			// future: send only the location more frequently, every 10 seconds
+			// future: send only the location more frequently, every 10 seconds ?
 			time.Sleep(wr.sendPayloadInterval)
 		}
 	}
@@ -222,9 +226,10 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 		// location fields mapped to separate struct
 		location = models.Location{
 			Hdop:      gspLocation.Hdop,
-			Nsat:      gspLocation.NsatGPS,
+			Nsat:      gspLocation.Nsat,
 			Latitude:  gspLocation.Lat,
 			Longitude: gspLocation.Lon,
+			Altitude:  gspLocation.Alt,
 		}
 	}
 	return &location, nil

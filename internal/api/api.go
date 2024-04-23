@@ -189,35 +189,38 @@ type QMICellInfoResponse struct {
 	InterfrequencyLteInfo struct {
 		UeInIdle string `json:"ue_in_idle"`
 	} `json:"interfrequency_lte_info"`
-	IntrafrequencyLteInfo struct {
-		Cell1 struct {
-			Rssi           string `json:"rssi"`
-			PhysicalCellID int    `json:"physical_cell_id"`
-			Rsrp           string `json:"rsrp"`
-			Rsrq           string `json:"rsrq"`
-		} `json:"cell_[1]"`
-		Plmn             int    `json:"plmn"`
-		GlobalCellID     int    `json:"global_cell_id"`
-		UeInIdle         string `json:"ue_in_idle"`
-		TrackingAreaCode int    `json:"tracking_area_code"`
-		Cell0            struct {
-			Rssi           string `json:"rssi"`
-			PhysicalCellID int    `json:"physical_cell_id"`
-			Rsrp           string `json:"rsrp"`
-			Rsrq           string `json:"rsrq"`
-		} `json:"cell_[0]"`
-		EutraAbsoluteRfChannelNumber string `json:"eutra_absolute_rf_channel_number"`
-		ServingCellID                int    `json:"serving_cell_id"`
-		Cell2                        struct {
-			Rssi           string `json:"rssi"`
-			PhysicalCellID int    `json:"physical_cell_id"`
-			Rsrp           string `json:"rsrp"`
-			Rsrq           string `json:"rsrq"`
-		} `json:"cell_[2]"`
-	} `json:"intrafrequency_lte_info"`
+	IntrafrequencyLteInfo   IntrafrequencyLteInfo `json:"intrafrequency_lte_info"`
 	LteInfoNeighboringWcdma struct {
 		UeInIdle string `json:"ue_in_idle"`
 	} `json:"lte_info_neighboring_wcdma"`
+}
+
+// IntrafrequencyLteInfo is what we get from the modem, which is also what the cell coverage union firehose expects under data.cell.details
+type IntrafrequencyLteInfo struct {
+	Cell1 struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[1]"`
+	Plmn             int    `json:"plmn"`
+	GlobalCellID     int    `json:"global_cell_id"`
+	UeInIdle         string `json:"ue_in_idle"`
+	TrackingAreaCode int    `json:"tracking_area_code"`
+	Cell0            struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[0]"`
+	EutraAbsoluteRfChannelNumber string `json:"eutra_absolute_rf_channel_number"`
+	ServingCellID                int    `json:"serving_cell_id"`
+	Cell2                        struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[2]"`
 }
 
 func ExecuteRequest(method, path string, reqVal, respVal any) (err error) {
