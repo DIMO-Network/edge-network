@@ -56,11 +56,10 @@ type dataSender struct {
 	ethAddr     common.Address
 	logger      zerolog.Logger
 	vehicleInfo *models.VehicleInfo
-	version     string
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, version string) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo) DataSender {
 	// Setup mqtt connection. Does not connect
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
@@ -71,7 +70,6 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		ethAddr:     addr,
 		logger:      logger,
 		vehicleInfo: vehicleInfo,
-		version:     version,
 	}
 }
 
@@ -111,10 +109,6 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		ce.Make = ds.vehicleInfo.VehicleDefinition.Make
 		ce.Model = ds.vehicleInfo.VehicleDefinition.Model
 		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
-	}
-
-	if ds.version != "" {
-		ce.Version = ds.version
 	}
 
 	payload, err := json.Marshal(ce)

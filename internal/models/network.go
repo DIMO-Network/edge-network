@@ -36,6 +36,9 @@ type CompressedPayload struct {
 type Device struct {
 	RpiUptimeSecs  int     `json:"rpiUptimeSecs,omitempty"`
 	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
+	Version        string  `json:"version,omitempty"`
+	IMEI           string  `json:"imei,omitempty"`
+	UnitId         string  `json:"unitId,omitempty"`
 }
 
 type Vehicle struct {
@@ -134,7 +137,6 @@ type DeviceDataStatusCloudEvent struct {
 	Make    string `json:"make"`
 	Model   string `json:"model"`
 	Year    int    `json:"year"`
-	Version string `json:"version"`
 }
 
 type DeviceDataNetworkCloudEvent struct {

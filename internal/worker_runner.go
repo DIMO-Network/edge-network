@@ -31,16 +31,17 @@ type workerRunner struct {
 	signalsQueue        *SignalsQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
+	version             string
 }
 
 func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, version string) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, version: version}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -109,6 +110,8 @@ func (wr *workerRunner) Run() {
 			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
+			s.Device.Version = wr.version
+			s.Device.UnitId = wr.unitID.String()
 
 			// send the cloud event
 			err = wr.dataSender.SendDeviceStatusData(s)
@@ -123,7 +126,7 @@ func (wr *workerRunner) Run() {
 						Timestamp: time.Now().UTC().UnixMilli(),
 					},
 				}
-				if locationErr != nil {
+				if locationErr == nil {
 					networkData.Altitude = location.Altitude
 					networkData.Hdop = location.Hdop
 					networkData.Nsat = location.Nsat
