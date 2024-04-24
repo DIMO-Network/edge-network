@@ -96,8 +96,8 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 	if err != nil {
 		return
 	}
-
-	cmd := fmt.Sprintf(`%s %s header='"%s"' mode='x%s' pid='x%s' protocol=%d force=true verify=false`,
+	// verify=false optionally add here depending, maybe pass as a parameter
+	cmd := fmt.Sprintf(`%s %s header='"%s"' mode='x%s' pid='x%s' protocol=%d force=true`,
 		api.ObdPIDQueryCommand, name, headerHex, modeHex, pidHex, protocol)
 
 	if request.FormulaType() == models.Python {
