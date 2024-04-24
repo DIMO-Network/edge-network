@@ -38,7 +38,7 @@ type Device struct {
 	BatteryVoltage float64 `json:"batteryVoltage,omitempty"`
 	Version        string  `json:"version,omitempty"`
 	IMEI           string  `json:"imei,omitempty"`
-	UnitId         string  `json:"unitId,omitempty"`
+	UnitID         string  `json:"unitId,omitempty"`
 }
 
 type Vehicle struct {

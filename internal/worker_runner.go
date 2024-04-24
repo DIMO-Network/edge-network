@@ -111,7 +111,7 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 			s.Device.Version = wr.version
-			s.Device.UnitId = wr.unitID.String()
+			s.Device.UnitID = wr.unitID.String()
 
 			// send the cloud event
 			err = wr.dataSender.SendDeviceStatusData(s)
