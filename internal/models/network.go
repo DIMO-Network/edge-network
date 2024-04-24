@@ -1,9 +1,8 @@
 package models
 
 import (
-	"time"
-
 	"github.com/DIMO-Network/edge-network/internal/api"
+	"time"
 )
 
 type CanDumpData struct {
@@ -23,10 +22,11 @@ type DeviceStatusData struct {
 	Vehicle Vehicle `json:"vehicle,omitempty"`
 }
 
+// DeviceNetworkData is used to submit to the cellular coverage firehose. Should have: timestamp, cell.details, latitude, longitude, altitude, nsat, hdop
 type DeviceNetworkData struct {
 	CommonData
-	QMICellInfoResponse api.QMICellInfoResponse `json:"cell,omitempty"`
-	WiFi                WiFi                    `json:"wifi,omitempty"`
+	Location
+	Cell CellInfo `json:"cell,omitempty"`
 }
 
 type CompressedPayload struct {
@@ -52,6 +52,7 @@ type Location struct {
 	Latitude  float64 `json:"latitude,omitempty"`
 	Longitude float64 `json:"longitude,omitempty"`
 	Nsat      int64   `json:"nsat,omitempty"`
+	Altitude  float64 `json:"altitude,omitempty"`
 }
 
 type SignalData struct {
@@ -63,8 +64,11 @@ type SignalData struct {
 
 type ErrorsData struct {
 	CommonData
-	Device Device   `json:"device,omitempty"`
-	Errors []string `json:"errors"`
+	Device Device `json:"device,omitempty"`
+	// deprecated
+	Errors  []string `json:"errors"`
+	Message string   `json:"message"`
+	Level   string   `json:"level"`
 }
 
 type DeviceErrorsCloudEvent struct {
@@ -79,6 +83,11 @@ type FingerprintData struct {
 	Protocol        string  `json:"protocol"`
 	Odometer        float64 `json:"odometer,omitempty"`
 	SoftwareVersion string  `json:"softwareVersion"`
+}
+
+type CellInfo struct {
+	Details api.IntrafrequencyLteInfo `json:"details,omitempty"`
+	IP      string                    `json:"ip,omitempty"`
 }
 
 // CloudEventHeaders contains the fields common to all CloudEvent messages. https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md

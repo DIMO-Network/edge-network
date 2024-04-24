@@ -96,9 +96,9 @@ func (mr *MockDataSenderMockRecorder) SendErrorPayload(err, powerStatus any) *go
 }
 
 // SendErrorsData mocks base method.
-func (m *MockDataSender) SendErrorsData(data models.ErrorsData) error {
+func (m *MockDataSender) SendLogsData(data models.ErrorsData) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendErrorsData", data)
+	ret := m.ctrl.Call(m, "SendLogsData", data)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -106,7 +106,7 @@ func (m *MockDataSender) SendErrorsData(data models.ErrorsData) error {
 // SendErrorsData indicates an expected call of SendErrorsData.
 func (mr *MockDataSenderMockRecorder) SendErrorsData(data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendErrorsData", reflect.TypeOf((*MockDataSender)(nil).SendErrorsData), data)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogsData", reflect.TypeOf((*MockDataSender)(nil).SendLogsData), data)
 }
 
 // SendFingerprintData mocks base method.
