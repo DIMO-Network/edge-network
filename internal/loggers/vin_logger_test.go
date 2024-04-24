@@ -153,7 +153,7 @@ func TestGetVIN(t *testing.T) {
 	const testVIN = "1FTEW1CP3NKE68593"
 	// mock http
 	v := `|-\n7e8101b62f190314654\n7e8214557314350334e\n7e8224b453638353933\n7e82300000000000000`
-	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
+	respJSON := fmt.Sprintf(`{"value": "%s", "_stamp": "2024-02-29T17:17:30.534861"}`, v)
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
@@ -178,7 +178,7 @@ func TestGetVIN_withQueryName(t *testing.T) {
 	const testVIN = "1FTEW1CP3NKE68593"
 	// mock http
 	v := `|-\n7e8101b62f190314654\n7e8214557314350334e\n7e8224b453638353933\n7e82300000000000000`
-	respJSON := fmt.Sprintf(`{"value": "%s"}`, v)
+	respJSON := fmt.Sprintf(`{"value": "%s", "_stamp": "2024-02-29T17:17:30.534861"}`, v)
 	url := fmt.Sprintf("%s/dongle/%s/execute_raw", "http://192.168.4.1:9000", unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, url, httpmock.NewStringResponder(200, respJSON))
 
