@@ -208,6 +208,36 @@ func GetIMSI(unitID uuid.UUID) (imsi string, err error) {
 	return
 }
 
+func GetIMEI(unitID uuid.UUID) (imei string, err error) {
+	req := api.ExecuteRawRequest{Command: api.GetModemCommand}
+	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+
+	var modem string
+	err = api.ExecuteRequest("POST", url, req, &modem)
+	if err != nil {
+		return
+	}
+
+	var resp api.ExecuteRawResponse
+	if modem == "ec2x" {
+		req = api.ExecuteRawRequest{Command: api.GetIMEIEc2xCommand}
+	} else {
+		req = api.ExecuteRawRequest{Command: api.GetIMEILe910cxCommand}
+	}
+
+	err = api.ExecuteRequest("POST", url, req, &resp)
+	if err != nil {
+		return
+	}
+
+	imei, ok := resp.Value.(string)
+	if !ok {
+		return "", fmt.Errorf("IMEI is not a string")
+	}
+
+	return
+}
+
 // GetModemType should return either just ec2x or le910cx
 func GetModemType(unitID uuid.UUID) (modem string, err error) {
 	req := api.ExecuteRawRequest{Command: api.GetModemCommand}

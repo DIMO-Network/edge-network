@@ -198,7 +198,7 @@ func main() {
 	}
 
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition, Version)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
 	if ethErr != nil {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
@@ -248,7 +248,7 @@ func main() {
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings)
+	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, Version)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

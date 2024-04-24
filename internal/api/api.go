@@ -31,6 +31,8 @@ const (
 	WifiScanNetworksCommand    = `wifi.scan`
 	CellNetworkIPAddrCommand   = `network.ip_addrs wwan0`
 	ObdPIDQueryCommand         = `obd.query`
+	GetIMEILe910cxCommand      = `modem.connection imei`
+	GetIMEIEc2xCommand         = `ec2x.imei`
 )
 
 const autoPiBaseURL = "http://192.168.4.1:9000"
