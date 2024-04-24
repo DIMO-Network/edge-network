@@ -66,6 +66,13 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
+	// query imei
+	imei, err := commands.GetIMEI(wr.unitID)
+	if err != nil {
+		wr.logger.Err(err).Msg("unable to get imei")
+	}
+	wr.logger.Info().Msgf("imei: %s", imei)
+
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// battery-voltage will be checked in obd related clock to determine if it is ok to query obd
 	// battery-voltage also will be checked in non-obd clock because we want to send it with every status payload
@@ -112,6 +119,7 @@ func (wr *workerRunner) Run() {
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 			s.Device.SoftwareVersion = wr.softwareVersion
 			s.Device.UnitID = wr.unitID.String()
+			s.Device.IMEI = imei
 
 			// send the cloud event
 			err = wr.dataSender.SendDeviceStatusData(s)
