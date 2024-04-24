@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,7 +15,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
 )
 
@@ -47,34 +48,18 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			if *queryName == citroenQueryName {
 				return passiveScanCitroen(vl.logger)
 			}
-			if *queryName != part.QueryName {
+			if *queryName != part.Name {
 				continue // skip until get to matching query
 			}
 		}
-		hdr := ""
-		formula := ""
-		if len(part.Header) > 0 {
-			hdr = "header=" + part.Header
+		resp, _, vinErr := commands.RequestPIDRaw(&vl.logger, unitID, part)
+		if vinErr != nil {
+			vl.logger.Err(vinErr).Msgf("query %s failed to get vin", part.Name)
+			continue
 		}
-		if len(part.Formula) > 0 {
-			formula = fmt.Sprintf(`formula='%s.decode("ascii")'`, part.Formula)
-		}
-		// todo: replace this whole thing with vehicle.GetRawPIDRequest etc
-		cmd := fmt.Sprintf(`obd.query vin %s mode=%s pid=%s %s force=True protocol=%s`,
-			hdr, part.Mode, part.PID, formula, part.Protocol)
+		vl.logger.Debug().Msgf("received GetVIN response value: %s \n", resp.Value)
 
-		req := api.ExecuteRawRequest{Command: cmd}
-		url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-
-		var resp api.ExecuteRawResponse
-
-		err = api.ExecuteRequest("POST", url, req, &resp)
-		if err != nil {
-			vl.logger.Err(err).Msg("failed to execute POST request to get vin")
-			continue // try again with different command if err
-		}
-		vl.logger.Debug().Msgf("received GetVIN response value: %s \n", resp.Value) // for debugging - will want this to validate.
-		// if no error, we want to make sure we get a semblance of a vin back
+		// try to extract the VIN from the raw hex string
 		value, ok := resp.Value.(string)
 		if !ok {
 			return nil, errors.New("GetVIN: value is not a string")
@@ -93,7 +78,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			return &VINResponse{
 				VIN:       vin,
 				Protocol:  part.Protocol,
-				QueryName: part.QueryName,
+				QueryName: part.Name,
 			}, nil
 		}
 		err = fmt.Errorf("response contained an invalid vin: %s", vin)
@@ -249,25 +234,16 @@ func passiveScanCitroen(logger zerolog.Logger) (*VINResponse, error) {
 
 // getVinCommandParts the PID command is composed of the protocol, header, PID and Mode. The Formula is just for
 // software interpretation. If remove formula need to interpret it in software, will be raw hex
-func getVinCommandParts() []vinCommandParts {
-	return []vinCommandParts{
-		{Protocol: "6", Header: "7DF", PID: "x02", Mode: "x09", QueryName: "vin_7DF_09_02"},
-		{Protocol: "6", Header: "7e0", PID: "x02", Mode: "x09", QueryName: "vin_7e0_09_02"},
-		{Protocol: "7", Header: "18DB33F1", PID: "x02", Mode: "x09", QueryName: "vin_18DB33F1_09_02"},
-		{Protocol: "6", Header: "7df", PID: "xF190", Mode: "x22", QueryName: "vin_7DF_UDS"},
-		{Protocol: "6", Header: "7e0", PID: "xF190", Mode: "x22", QueryName: "vin_7e0_UDS"},
-		{Protocol: "7", Header: "18DB33F1", PID: "xF190", Mode: "x22", QueryName: "vin_18DB33F1_UDS"},
-		{QueryName: "citroen"},
+func getVinCommandParts() []models.PIDRequest {
+	return []models.PIDRequest{
+		{Protocol: "6", Header: 2015, Pid: 2, Mode: 9, Name: "vin_7DF_09_02"},
+		{Protocol: "6", Header: 2016, Pid: 2, Mode: 9, Name: "vin_7e0_09_02"},
+		{Protocol: "7", Header: 417018865, Pid: 2, Mode: 9, Name: "vin_18DB33F1_09_02"},
+		{Protocol: "6", Header: 2015, Pid: 61840, Mode: 34, Name: "vin_7DF_UDS"},
+		{Protocol: "6", Header: 2016, Pid: 61840, Mode: 34, Name: "vin_7e0_UDS"},
+		{Protocol: "7", Header: 417018865, Pid: 61840, Mode: 34, Name: "vin_18DB33F1_UDS"},
+		{Name: "citroen"},
 	}
-}
-
-type vinCommandParts struct {
-	Formula   string
-	Protocol  string
-	Header    string
-	PID       string
-	Mode      string
-	QueryName string
 }
 
 type VINResponse struct {
