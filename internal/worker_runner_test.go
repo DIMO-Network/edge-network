@@ -253,8 +253,8 @@ func Test_workerRunner_Run(t *testing.T) {
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
-		assert.NotNil(t, data.QMICellInfoResponse)
-		assert.NotNil(t, data.WiFi)
+		assert.NotNil(t, data.Cell)
+		assert.NotNil(t, data.Longitude)
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -313,7 +313,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
-		assert.NotNil(t, data.QMICellInfoResponse)
+		assert.NotNil(t, data.Cell)
 	}).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -370,7 +370,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
-		assert.NotNil(t, data.QMICellInfoResponse)
+		assert.NotNil(t, data.Cell)
 	}).Return(nil)
 
 	requests := []models.PIDRequest{
