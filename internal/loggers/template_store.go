@@ -93,6 +93,7 @@ func (ts *templateStore) WriteTemplateDeviceSettings(settings models.TemplateDev
 	return nil
 }
 
+// NewTemplateStore instantiates new instance of class used to read and write local configuration files
 func NewTemplateStore() TemplateStore {
 	return &templateStore{}
 }
