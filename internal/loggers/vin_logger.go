@@ -97,6 +97,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 	return
 }
 
+// extractVIN converts the raw hex (as string) into a VIN by some algorithms
 func extractVIN(hexValue string) (vin string, startPosition int, err error) {
 	// loop for each line, ignore what we don't want
 	// start on the first 6th char,  cut out the first 5 of each line, convert that hex to ascii, remove any bad chars

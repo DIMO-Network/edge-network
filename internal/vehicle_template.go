@@ -14,7 +14,7 @@ import (
 // VehicleTemplates idea is to be a layer on top of calling the gateway for VehicleSignalDecoding, that handles
 // caching of configs - checking if there is an updated version of the templates available
 type VehicleTemplates interface {
-	GetTemplateSettings(addr *common.Address, vin *string) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
+	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
 }
 
 type vehicleTemplates struct {
@@ -29,7 +29,7 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
-func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vin *string) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
 	// read any existing settings
 	var pidsConfig *models.TemplatePIDs
 	var deviceSettings *models.TemplateDeviceSettings
@@ -52,15 +52,8 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, vin *strin
 	})
 
 	if err != nil || templateURLsRemote == nil {
-		vt.logger.Info().Msgf("unable to get template urls by eth addr:%s, trying by VIN next", addr.String())
-		if vin != nil && len(*vin) == 17 {
-			templateURLsRemote, err = gateways.Retry[models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
-				return vt.vsd.GetUrlsByVin(*vin)
-			})
-			if err != nil {
-				vt.logger.Err(err).Msg("unable to get template urls by vin")
-			}
-		}
+		vt.logger.Info().Msgf("unable to get template urls by eth addr:%s", addr.String())
+		// todo could have endpoint by vehicleTokenId to try with
 	}
 	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
 	if templateURLsLocal == nil && templateURLsRemote == nil {

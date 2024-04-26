@@ -123,7 +123,7 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 		return
 	}
 	logger.Debug().Msgf("response for %s: %s", request.Name, resp.Value)
-
+	// todo: need to account for multi-frame responses like VIN
 	switch v := resp.Value.(type) {
 	case string:
 		if isValidHexes(v) {
