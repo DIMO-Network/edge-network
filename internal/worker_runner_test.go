@@ -2,6 +2,12 @@ package internal
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+	_ "time"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -11,11 +17,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"net/http"
-	"os"
-	"testing"
-	"time"
-	_ "time"
 )
 
 func Test_workerRunner_NonObd(t *testing.T) {

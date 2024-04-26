@@ -220,12 +220,12 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get signal strength")
 		return nil, err
-	} else {
-		wifi = models.WiFi{
-			WPAState: wifiStatus.WPAState,
-			SSID:     wifiStatus.SSID,
-		}
 	}
+	wifi = models.WiFi{
+		WPAState: wifiStatus.WPAState,
+		SSID:     wifiStatus.SSID,
+	}
+
 	return &wifi, nil
 }
 
@@ -235,16 +235,16 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get gps location")
 		return nil, err
-	} else {
-		// location fields mapped to separate struct
-		location = models.Location{
-			Hdop:      gspLocation.Hdop,
-			Nsat:      gspLocation.Nsat,
-			Latitude:  gspLocation.Lat,
-			Longitude: gspLocation.Lon,
-			Altitude:  gspLocation.Alt,
-		}
 	}
+	// location fields mapped to separate struct
+	location = models.Location{
+		Hdop:      gspLocation.Hdop,
+		Nsat:      gspLocation.Nsat,
+		Latitude:  gspLocation.Lat,
+		Longitude: gspLocation.Lon,
+		Altitude:  gspLocation.Alt,
+	}
+
 	return &location, nil
 }
 
