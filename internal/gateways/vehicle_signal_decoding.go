@@ -212,9 +212,8 @@ func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn R
 		} else {
 			if value, ok := result.(*T); ok {
 				return value, nil
-			} else {
-				return nil, errors.New("type assertion failed")
 			}
+			return nil, errors.New("type assertion failed")
 		}
 	}
 	logger.Err(err).Msgf("Max retries reached for function")

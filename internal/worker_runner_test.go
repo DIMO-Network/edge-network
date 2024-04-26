@@ -2,6 +2,12 @@ package internal
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+	_ "time"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -11,11 +17,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"net/http"
-	"os"
-	"testing"
-	"time"
-	_ "time"
 )
 
 func Test_workerRunner_NonObd(t *testing.T) {
@@ -435,9 +436,11 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 		dataSender:        ds,
 		deviceSettings:    &models.TemplateDeviceSettings{},
 		fingerprintRunner: ls,
-		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
+		device: Device{
+			UnitID: unitID,
+		},
+		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
+		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
 	}
 	return wr
 }

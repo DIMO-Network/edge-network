@@ -3,7 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -255,7 +255,7 @@ func TestRequestPIDFormulaTypePythonWithStringValue(t *testing.T) {
 func registerResponderAndAssert(t *testing.T, psPath string, cmd string, body string) {
 	httpmock.RegisterResponderWithQuery(http.MethodPost, psPath, nil,
 		func(req *http.Request) (*http.Response, error) {
-			bodyBytes, err := ioutil.ReadAll(req.Body)
+			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
 				return httpmock.NewStringResponse(500, ""), err
 			}
