@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
