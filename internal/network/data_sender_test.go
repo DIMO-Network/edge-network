@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -161,7 +161,7 @@ func decompressGzip(data []byte) ([]byte, error) {
 	}
 	defer r.Close()
 
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 type mockedToken struct {
