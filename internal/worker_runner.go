@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -19,8 +19,16 @@ type WorkerRunner interface {
 	Run()
 }
 
+// Device represents the device information that is used in the worker runner
+// to construct the device event
+type Device struct {
+	SoftwareVersion string
+	HardwareVersion string
+	IMEI            string
+	UnitID          uuid.UUID
+}
+
 type workerRunner struct {
-	unitID              uuid.UUID
 	loggerSettingsSvc   loggers.TemplateStore
 	dataSender          network.DataSender
 	logger              zerolog.Logger
@@ -31,17 +39,17 @@ type workerRunner struct {
 	signalsQueue        *SignalsQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
-	softwareVersion     string
+	device              Device
 }
 
-func NewWorkerRunner(unitID uuid.UUID, addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
+func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, version string) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
-	return &workerRunner{unitID: unitID, ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, softwareVersion: version}
+	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
 }
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -59,19 +67,12 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("starting worker runner with logger settings: %+v", wr.deviceSettings)
 
-	modem, err := commands.GetModemType(wr.unitID)
+	modem, err := commands.GetModemType(wr.device.UnitID)
 	if err != nil {
 		modem = "ec2x"
 		wr.logger.Err(err).Msg("unable to get modem type, defaulting to ec2x")
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
-
-	// query imei
-	imei, err := commands.GetIMEI(wr.unitID)
-	if err != nil {
-		wr.logger.Err(err).Msg("unable to get imei")
-	}
-	wr.logger.Info().Msgf("imei: %s", imei)
 
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// battery-voltage will be checked in obd related clock to determine if it is ok to query obd
@@ -117,9 +118,6 @@ func (wr *workerRunner) Run() {
 			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
-			s.Device.SoftwareVersion = wr.softwareVersion
-			s.Device.UnitID = wr.unitID.String()
-			s.Device.IMEI = imei
 
 			// send the cloud event
 			err = wr.dataSender.SendDeviceStatusData(s)
@@ -170,8 +168,12 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 			Timestamp: time.Now().UTC().UnixMilli(),
 		},
 		Device: models.Device{
-			RpiUptimeSecs:  powerStatus.Rpi.Uptime.Seconds,
-			BatteryVoltage: powerStatus.VoltageFound,
+			RpiUptimeSecs:   powerStatus.Rpi.Uptime.Seconds,
+			BatteryVoltage:  powerStatus.VoltageFound,
+			SoftwareVersion: wr.device.SoftwareVersion,
+			HardwareVersion: wr.device.HardwareVersion,
+			UnitID:          wr.device.UnitID.String(),
+			IMEI:            wr.device.IMEI,
 		},
 		Vehicle: models.Vehicle{
 			Signals: wr.signalsQueue.Dequeue(),
@@ -205,7 +207,7 @@ func appendSignalData(signals []models.SignalData, name string, value interface{
 func (wr *workerRunner) queryNonObd(modem string) (*models.WiFi, error, *models.Location, error, api.QMICellInfoResponse, error) {
 	wifi, wifiErr := wr.queryWiFi()
 	location, locationErr := wr.queryLocation(modem)
-	cellInfo, cellErr := commands.GetQMICellInfo(wr.unitID)
+	cellInfo, cellErr := commands.GetQMICellInfo(wr.device.UnitID)
 	if cellErr != nil {
 		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
 	}
@@ -213,7 +215,7 @@ func (wr *workerRunner) queryNonObd(modem string) (*models.WiFi, error, *models.
 }
 
 func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
-	wifiStatus, err := commands.GetWifiStatus(wr.unitID)
+	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get signal strength")
@@ -228,7 +230,7 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 }
 
 func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
-	gspLocation, err := commands.GetGPSLocation(wr.unitID, modem)
+	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get gps location")
@@ -259,7 +261,7 @@ func (wr *workerRunner) queryOBD() {
 			}
 		}
 		// execute the pid
-		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.unitID, request)
+		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			continue
@@ -299,7 +301,7 @@ func uintToHexStr(val uint32) string {
 
 // isOkToQueryOBD checks once to see if voltage rules pass to issue PID requests
 func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
-	status, err := commands.GetPowerStatus(wr.unitID)
+	status, err := commands.GetPowerStatus(wr.device.UnitID)
 	if err != nil {
 		wr.logger.Err(err).Msg("failed to get powerStatus for worker runner check")
 		return false, status

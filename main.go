@@ -247,8 +247,22 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
+
+	// query imei
+	imei, err := commands.GetIMEI(unitID)
+	if err != nil {
+		logger.Err(err).Msg("unable to get imei")
+	}
+	logger.Info().Msgf("imei: %s", imei)
+
+	device := internal.Device{
+		UnitID:          unitID,
+		SoftwareVersion: Version,
+		HardwareVersion: hwRevision,
+		IMEI:            imei,
+	}
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(unitID, ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, Version)
+	runnerSvc := internal.NewWorkerRunner(ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, device)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

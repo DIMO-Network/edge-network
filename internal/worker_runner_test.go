@@ -435,9 +435,11 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 		dataSender:        ds,
 		deviceSettings:    &models.TemplateDeviceSettings{},
 		fingerprintRunner: ls,
-		unitID:            unitID,
-		pids:              &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue:      &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
+		device: Device{
+			UnitID: unitID,
+		},
+		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
+		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time)},
 	}
 	return wr
 }

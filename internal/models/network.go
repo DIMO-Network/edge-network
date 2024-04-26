@@ -37,6 +37,7 @@ type Device struct {
 	RpiUptimeSecs   int     `json:"rpiUptimeSecs,omitempty"`
 	BatteryVoltage  float64 `json:"batteryVoltage,omitempty"`
 	SoftwareVersion string  `json:"softwareVersion,omitempty"`
+	HardwareVersion string  `json:"hwVersion,omitempty"`
 	IMEI            string  `json:"imei,omitempty"`
 	UnitID          string  `json:"serial,omitempty"`
 }
