@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
@@ -114,26 +115,10 @@ func main() {
 		defer obCancel()
 	}
 
-	// get vehicle definitions from Identity API service
-	// todo: tweak this so that:
-	// if returns successfully but just no tokenId, keep trying every 60s to check if got minted, log each time
-	// if returns non-success/ transient error, quick retries and then lookup on disk, if nothing on disk just keep retrying but every 60s
-	// but dont block ble setup, gotta be able to pair.
-
-	// new func to block here until satisfy condition
-	vehicleInfo := getVehicleInfo(err, logger, ethAddr)
-	if vehicleInfo != nil {
-		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleInfo)
-		vehInfoErr := lss.WriteVehicleInfo(*vehicleInfo)
-		if vehInfoErr != nil {
-			logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
-		}
-	} else {
-		logger.Info().Msg("unable to get vehicle info from identity-api")
-		vehicleInfo, err = lss.ReadVehicleInfo()
-		if err != nil {
-			logger.Err(err).Msg("no vehicle info found in tmp file cache")
-		}
+	// block here until satisfy condition
+	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr")
 	}
 
 	// OBD / CAN Loggers
@@ -230,42 +215,53 @@ func setupBluez(name string) error {
 	return nil
 }
 
-// getVIN reads persisted VIN if any. If no VIN previously persisted, queries for it. For this reason, It is important
-// that when pairing new vehicle we delete the persisted VIN. Fingerprint will catch any mismatching VIN (eg. user connected to different car)
-func getVIN(lss loggers.TemplateStore, vinLogger loggers.VINLogger, logger zerolog.Logger, ds network.DataSender) *string {
-	vinConfig, _ := lss.ReadVINConfig()
-	if vinConfig != nil {
-		return &vinConfig.VIN
-	}
-	vinResp, vinErr := vinLogger.GetVIN(unitID, nil)
-	if vinErr != nil {
-		logger.Err(vinErr).Msg("error getting VIN")
-		_ = ds.SendErrorPayload(errors.Wrap(vinErr, "could not get VIN"), nil)
-	} else {
-		writeVinErr := lss.WriteVINConfig(models.VINLoggerSettings{
-			VIN:              vinResp.VIN,
-			VINQueryName:     vinResp.QueryName,
-			VINLoggerVersion: 1,
-		})
-		if writeVinErr != nil {
-			logger.Err(writeVinErr).Msg("error writing VIN config")
-		}
-		return &vinResp.VIN
-	}
-	return nil
-}
-
-func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address) *models.VehicleInfo {
+// getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
+func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address) (*models.VehicleInfo, error) {
 	identityAPIService := gateways.NewIdentityAPIService(logger)
 	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
-		return identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
+		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
+		if v != nil && v.TokenID == 0 {
+			return nil, fmt.Errorf("failed to query identity api for vehicle info - tokenId is zero")
+		}
+		return v, err
 	})
-
 	if err != nil {
-		logger.Err(err).Msg("failed to get vehicle definitions")
+		return nil, err
 	}
 
-	return vehicleDefinition
+	return vehicleDefinition, nil
+}
+
+// blockingGetVehicleInfo is a function that retries getVehicleInfo for 60 times with a 60-second interval.
+// If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
+// which would mean no pairing, then check the local cache since this is likely transient error.
+// If the vehicle info is not retrieved within the retries, a timeout error is returned.
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore) (*models.VehicleInfo, error) {
+	for i := 0; i < 60; i++ {
+		vehicleInfo, err := getVehicleInfo(logger, ethAddr)
+		if err != nil {
+			// todo future: send each err failure to logs mqtt topic
+			logger.Err(err).Msgf("failed to get vehicle info, will retry again in 60s")
+			// check for local cache but only if error is not of type tokenid zero
+			if !strings.Contains(err.Error(), "tokenId is zero") {
+				vehicleInfo, err = lss.ReadVehicleInfo()
+				if err != nil && vehicleInfo != nil {
+					return vehicleInfo, err
+				}
+			}
+		}
+		if vehicleInfo != nil {
+			logger.Info().Msgf("identity-api vehicle info: %+v", vehicleInfo)
+			vehInfoErr := lss.WriteVehicleInfo(*vehicleInfo)
+			if vehInfoErr != nil {
+				logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
+			}
+			return vehicleInfo, nil
+		}
+		logger.Error().Msg("unable to get vehicle info from identity-api, trying again in 60s")
+		time.Sleep(60 * time.Second)
+	}
+	return nil, fmt.Errorf("timed out waiting for identity-api vehicle info after many retries")
 }
 
 // Utility Function
