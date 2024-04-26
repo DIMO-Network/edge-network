@@ -152,8 +152,11 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 	if obdResp.IsHex && len(obdResp.ValueHex) == 0 {
 		err = fmt.Errorf("no response received")
 	}
-	ts, err = time.Parse("2006-01-02T15:04:05.000000", resp.Timestamp)
+	ts, errParse := time.Parse("2006-01-02T15:04:05.000000", resp.Timestamp)
 	ts = ts.UTC() // just in case
+	if errParse != nil {
+		err = fmt.Errorf("error parsing timestamp: %w", errParse)
+	}
 
 	return
 }

@@ -569,7 +569,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		gatt.FlagCharacteristicEncryptAuthenticatedWrite,
 	}
 
-	setWifiChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	setWifiChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error setting wifi connection: %s.", err)
@@ -784,7 +784,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		return
 	})
 
-	dtcChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	dtcChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error clearing diagnostic codes hash: %s.", err)
@@ -816,7 +816,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	sleepControlChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedWrite}
 
-	sleepControlChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	sleepControlChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error extending sleep time: %s.", err)
