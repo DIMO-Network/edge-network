@@ -115,7 +115,8 @@ func main() {
 		defer obCancel()
 	}
 
-	// block here until satisfy condition
+	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
+	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss)
 	if err != nil {
 		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr")
