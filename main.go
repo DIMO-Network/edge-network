@@ -71,8 +71,12 @@ func main() {
 		flag.Parse()
 		os.Exit(int(subcommands.Execute(ctx)))
 	}
+	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
+	logrus.SetLevel(logrus.InfoLevel)
+	// temporary for us, for release want info level - todo make configurable via cli?
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
-	logger.Info().Msgf("Starting DIMO Edge Network")
+	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
 	coldBoot, err := isColdBoot(logger, unitID)
 	if err != nil {
@@ -80,10 +84,6 @@ func main() {
 	}
 	logger.Info().Msgf("Bluetooth name: %s", name)
 	logger.Info().Msgf("Version: %s", Version)
-	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
-	logrus.SetLevel(logrus.InfoLevel)
-	// temporary for us, for release want info level - todo make configurable via cli?
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	hwRevision, err := commands.GetHardwareRevision(unitID)
 	if err != nil {
@@ -101,37 +101,7 @@ func main() {
 	}
 
 	lss := loggers.NewTemplateStore()
-
-	// get vehicle definitions from Identity API service
-	vehicleDefinition := getVehicleInfo(logger, ethAddr)
-	if vehicleDefinition != nil {
-		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleDefinition)
-		vehInfoErr := lss.WriteVehicleInfo(*vehicleDefinition)
-		if vehInfoErr != nil {
-			logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
-		}
-	} else {
-		logger.Info().Msg("unable to get vehicle info from identity-api")
-		vehicleDefinition, err = lss.ReadVehicleInfo()
-		if err != nil {
-			logger.Err(err).Msg("no vehicle info found in tmp file cache")
-		}
-	}
-
-	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleDefinition)
-	if ethErr != nil {
-		logger.Info().Msgf("error getting ethereum address: %s", err)
-		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
-	}
 	vinLogger := loggers.NewVINLogger(logger)
-	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService()
-	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
-
-	// get the VIN, since dependency for other stuff. we want to use the last known query to reduce unnecessary OBD calls & speed it up
-	// todo - is this what we want here? shouldn't it be fingerprint here?
-	vin := getVIN(lss, vinLogger, logger, ds)
-
 	// if hw revision is anything other than 5.2, setup BLE
 	if hwRevision != bleUnsupportedHW {
 		err = setupBluez(name)
@@ -143,9 +113,40 @@ func main() {
 		defer cancel()
 		defer obCancel()
 	}
-	// todo v2: what if vehicle hasn't been paired yet? so we don't have the ethAddr to DD mapping in backend, if have VIN this should help
-	// what about having default settings? But they may not work if we can't even get VIN.
-	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr, vin)
+
+	// get vehicle definitions from Identity API service
+	// todo: tweak this so that:
+	// if returns successfully but just no tokenId, keep trying every 60s to check if got minted, log each time
+	// if returns non-success/ transient error, quick retries and then lookup on disk, if nothing on disk just keep retrying but every 60s
+	// but dont block ble setup, gotta be able to pair.
+
+	// new func to block here until satisfy condition
+	vehicleInfo := getVehicleInfo(err, logger, ethAddr)
+	if vehicleInfo != nil {
+		logger.Info().Msgf("identity-api vehicle info: %+v", vehicleInfo)
+		vehInfoErr := lss.WriteVehicleInfo(*vehicleInfo)
+		if vehInfoErr != nil {
+			logger.Err(vehInfoErr).Msg("error writing vehicle info to tmp cache")
+		}
+	} else {
+		logger.Info().Msg("unable to get vehicle info from identity-api")
+		vehicleInfo, err = lss.ReadVehicleInfo()
+		if err != nil {
+			logger.Err(err).Msg("no vehicle info found in tmp file cache")
+		}
+	}
+
+	// OBD / CAN Loggers
+	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleInfo)
+	if ethErr != nil {
+		logger.Info().Msgf("error getting ethereum address: %s", err)
+		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
+	}
+	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService()
+	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
+
+	// get the template settings from remote, below method handles all the special logic
+	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Err(err).Msg("unable to get device settings (pids, dbc, settings)")
 		// todo send mqtt error payload reporting this, should have own topic for errors
