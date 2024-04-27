@@ -126,7 +126,14 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 
 	switch v := resp.Value.(type) {
 	case string:
-		if isHexFrames(v) {
+		if request.FormulaType() == models.Python { // formula was set to python, autopi processed it
+			if v == "" {
+				err = fmt.Errorf("empty response with formula: %s", request.Formula)
+				return
+			}
+			obdResp.IsHex = false
+			obdResp.Value = v
+		} else if isHexFrames(v) {
 			obdResp.IsHex = true
 			// clean autopi multiframe start characters
 			frames := strings.Split(v, "\n")
@@ -134,13 +141,6 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 				frames = append(frames[:0], frames[1:]...)
 			}
 			obdResp.ValueHex = frames
-		} else if len(request.Formula) > 0 { // formula was set, so expect resp not be be hex and already processed
-			if v == "" {
-				err = fmt.Errorf("empty response with formula: %s", request.Formula)
-				return
-			}
-			obdResp.IsHex = false
-			obdResp.Value = v
 		} else {
 			err = fmt.Errorf("invalid return value: %s", v)
 			return
