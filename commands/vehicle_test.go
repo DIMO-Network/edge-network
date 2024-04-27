@@ -19,21 +19,25 @@ import (
 
 func Test_isValidHex(t *testing.T) {
 	tests := []struct {
-		name string
-		hex  string
-		want bool
+		name     string
+		hex      string
+		want     bool
+		starts0x bool
 	}{
 		{
-			hex:  "0x1A3F",
-			want: true,
+			hex:      "0x1A3F",
+			want:     true,
+			starts0x: true,
 		},
 		{
-			hex:  "0X4D52",
-			want: true,
+			hex:      "0X4D52",
+			want:     true,
+			starts0x: true,
 		},
 		{
-			hex:  "7DF",
-			want: true,
+			hex:      "7DF",
+			want:     true,
+			starts0x: false,
 		},
 		{
 			hex:  "88Z1",
@@ -43,12 +47,45 @@ func Test_isValidHex(t *testing.T) {
 			hex:  "0x",
 			want: false,
 		},
+		{
+			hex:  "7E8101462F190574155",
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.hex, func(t *testing.T) {
 			if got := isValidHex(tt.hex); got != tt.want {
 				t.Errorf("isValidHex() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_isHexFrames(t *testing.T) {
+	tests := []struct {
+		name         string
+		hexMultiLine string
+		want         bool
+	}{
+		{
+			name:         "vin multi frame",
+			hexMultiLine: "|-\n7E8101462F190574155\n7E8215247423852324C\n7E8224E303036323232",
+			want:         true,
+		},
+		{
+			name:         "single line",
+			hexMultiLine: "7DF",
+			want:         true,
+		},
+		{
+			name:         "invalid",
+			hexMultiLine: "88Z1",
+			want:         false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, isHexFrames(tt.hexMultiLine), "isHexFrames(%v)", tt.hexMultiLine)
 		})
 	}
 }

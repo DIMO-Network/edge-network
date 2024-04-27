@@ -2,13 +2,11 @@ package loggers
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -57,22 +55,19 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			vl.logger.Err(vinErr).Msgf("query %s failed to get vin", part.Name)
 			continue
 		}
-		vl.logger.Debug().Msgf("received GetVIN response value: %s \n", resp.Value)
+		vl.logger.Debug().Msgf("received GetVIN response Value: %s \n", resp.Value)
+		vl.logger.Debug().Msgf("received GetVIN response ValueHex: %s \n", resp.ValueHex)
 
 		// try to extract the VIN from the raw hex string
-		value, ok := resp.Value.(string)
-		if !ok {
-			return nil, errors.New("GetVIN: value is not a string")
-		}
-		if len(part.Formula) == 0 {
+		if resp.IsHex {
 			// if no formula, means we got raw hex back so lets try extracting vin from that
-			vin, _, err = extractVIN(value)
+			vin, _, err = extractVIN(resp.ValueHex)
 			if err != nil {
 				vl.logger.Err(err).Msg("could not extract vin from hex")
 				continue // try again on next loop with different command
 			}
 		} else {
-			vin = value
+			vin = resp.Value.(string)
 		}
 		if validateVIN(vin) {
 			return &VINResponse{
@@ -81,6 +76,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 				QueryName: part.Name,
 			}, nil
 		}
+		// just set the err, don't return it in the loop since we want to try all options
 		err = fmt.Errorf("response contained an invalid vin: %s", vin)
 	}
 
@@ -98,14 +94,13 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 }
 
 // extractVIN converts the raw hex (as string) into a VIN by some algorithms
-func extractVIN(hexValue string) (vin string, startPosition int, err error) {
+func extractVIN(hexValueFrames []string) (vin string, startPosition int, err error) {
 	// loop for each line, ignore what we don't want
 	// start on the first 6th char,  cut out the first 5 of each line, convert that hex to ascii, remove any bad chars
 	// use regexp to look for only good characters
-	lines := strings.Split(hexValue, "\n")
-	cutStartPos := findVINLineStart(lines)
+	cutStartPos := findVINLineStart(hexValueFrames)
 	decodedVin := ""
-	for _, line := range lines {
+	for _, line := range hexValueFrames {
 		if len(line) < 6 {
 			continue
 		}
