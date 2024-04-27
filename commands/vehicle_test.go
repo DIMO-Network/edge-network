@@ -3,11 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"testing"
-
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/google/uuid"
@@ -15,6 +10,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"io"
+	"net/http"
+	"os"
+	"testing"
 )
 
 func Test_isValidHex(t *testing.T) {
@@ -90,7 +89,7 @@ func Test_isHexFrames(t *testing.T) {
 	}
 }
 
-func TestRequestPID(t *testing.T) {
+func TestRequestPIDRaw(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -123,7 +122,70 @@ func TestRequestPID(t *testing.T) {
 	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
-func TestRequestPIDWithCanFlowControl(t *testing.T) {
+func TestRequestPIDRaw_InvalidHexResponse(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
+	// mock pid resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true",
+		`{"value": "SEARCHING...", "_stamp": "2024-02-29T17:17:30.534861"}`)
+
+	request := models.PIDRequest{
+		Name:            "fuellevel",
+		IntervalSeconds: 60,
+	}
+
+	// then
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
+
+	// verify
+	assert.NotNil(t, err)
+	assert.Equal(t, false, obdResp.IsHex)
+	assert.Contains(t, err.Error(), "invalid return value")
+}
+
+func TestRequestPIDRaw_InvalidFormulaResponse(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
+
+	// mock pid resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	registerResponderAndAssert(t, psPath, "obd.query fuellevelfailure header='\"0\"' mode='x00' pid='x00' protocol=6 force=true formula=' xxx'",
+		`{"value": "", "_stamp": "2024-02-29T17:17:30.534861"}`)
+
+	request := models.PIDRequest{
+		Name:            "fuellevelfailure",
+		IntervalSeconds: 60,
+		Formula:         "python: xxx",
+	}
+
+	// then
+	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
+
+	// verify
+	assert.NotNil(t, err)
+	assert.Equal(t, false, obdResp.IsHex)
+	assert.Contains(t, err.Error(), "empty response")
+}
+
+func TestRequestPIDRaw_WithCanFlowControl(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -157,7 +219,7 @@ func TestRequestPIDWithCanFlowControl(t *testing.T) {
 	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
-func TestRequestPIDFormulaTypePython(t *testing.T) {
+func TestRequestPIDRaw_FormulaTypePython(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -190,7 +252,7 @@ func TestRequestPIDFormulaTypePython(t *testing.T) {
 	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
-func TestRequestPIDFormulaTypePythonWithMultipleHex(t *testing.T) {
+func TestRequestPIDRaw_FormulaTypePythonWithMultipleHex(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -223,7 +285,7 @@ func TestRequestPIDFormulaTypePythonWithMultipleHex(t *testing.T) {
 	assert.Equal(t, 2, len(obdResp.ValueHex))
 }
 
-func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
+func TestRequestPIDRaw_FormulaTypePythonWithFloatValue(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -256,7 +318,7 @@ func TestRequestPIDFormulaTypePythonWithFloatValue(t *testing.T) {
 	assert.Equal(t, 17.92, obdResp.Value)
 }
 
-func TestRequestPIDFormulaTypePythonWithStringValue(t *testing.T) {
+func TestRequestPIDRaw_FormulaTypePythonWithStringValue(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

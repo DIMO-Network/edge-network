@@ -135,6 +135,10 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 			}
 			obdResp.ValueHex = frames
 		} else if len(request.Formula) > 0 { // formula was set, so expect resp not be be hex and already processed
+			if v == "" {
+				err = fmt.Errorf("empty response with formula: %s", request.Formula)
+				return
+			}
 			obdResp.IsHex = false
 			obdResp.Value = v
 		} else {
