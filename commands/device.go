@@ -232,7 +232,7 @@ func GetIMEI(unitID uuid.UUID) (imei string, err error) {
 
 	imei, ok := resp.Value.(string)
 	if !ok {
-		return "", fmt.Errorf("IMEI is not a string")
+		return "", fmt.Errorf("IMEI is not a string: %+v, request: %+v", resp.Value, req)
 	}
 
 	return
