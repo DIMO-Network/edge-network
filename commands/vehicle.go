@@ -128,18 +128,18 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 	case string:
 		if isHexFrames(v) {
 			obdResp.IsHex = true
-			obdResp.ValueHex = strings.Split(v, "\n")
-
-			for i := range obdResp.ValueHex {
-				// add validation here for float values
-				if len(obdResp.ValueHex[i]) > 0 && !isValidHex(obdResp.ValueHex[i]) {
-					err = fmt.Errorf("invalid return value: %s", obdResp.ValueHex[i])
-					return
-				}
+			// clean autopi multiframe start characters
+			frames := strings.Split(v, "\n")
+			if len(frames) > 0 && frames[0] == "|-" {
+				frames = append(frames[:0], frames[1:]...)
 			}
-		} else {
+			obdResp.ValueHex = frames
+		} else if len(request.Formula) > 0 { // formula was set, so expect resp not be be hex and already processed
 			obdResp.IsHex = false
 			obdResp.Value = v
+		} else {
+			err = fmt.Errorf("invalid return value: %s", v)
+			return
 		}
 	case float64:
 		// the int value always unmarshal to float, that's why we

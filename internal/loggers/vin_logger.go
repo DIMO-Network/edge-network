@@ -55,8 +55,7 @@ func (vl *vinLogger) GetVIN(unitID uuid.UUID, queryName *string) (vinResp *VINRe
 			vl.logger.Err(vinErr).Msgf("query %s failed to get vin", part.Name)
 			continue
 		}
-		vl.logger.Debug().Msgf("received GetVIN response Value: %s \n", resp.Value)
-		vl.logger.Debug().Msgf("received GetVIN response ValueHex: %s \n", resp.ValueHex)
+		vl.logger.Debug().Msgf("received GetVIN response: %+v", resp)
 
 		// try to extract the VIN from the raw hex string
 		if resp.IsHex {
