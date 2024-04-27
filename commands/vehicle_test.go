@@ -89,134 +89,96 @@ func Test_isHexFrames(t *testing.T) {
 	}
 }
 
-func TestRequestPIDRaw(t *testing.T) {
-	// when
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	unitID := uuid.New()
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
+func TestRequestPIDRaw_table(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
-
-	// mock pid resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true",
-		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
-
-	request := models.PIDRequest{
-		Name:            "fuellevel",
-		IntervalSeconds: 60,
-		Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+	// formula only used if type python
+	testCases := []struct {
+		name             string
+		inputPIDRequest  models.PIDRequest
+		obdQuery         string
+		respBody         string
+		expectedValueHex []string
+		expectedError    string // if not empty error contains this
+	}{
+		{
+			"Happy path hex and dbc",
+			models.PIDRequest{
+				Name:            "fuellevel",
+				IntervalSeconds: 60,
+				Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+			},
+			"obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true",
+			`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`,
+			[]string{"7e803412f6700000000"},
+			"",
+		},
+		{
+			"invalid hex response",
+			models.PIDRequest{
+				Name:            "fuellevel",
+				IntervalSeconds: 60,
+			},
+			"obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true",
+			`{"value": "SEARCHING...", "_stamp": "2024-02-29T17:17:30.534861"}`,
+			nil,
+			"invalid return value",
+		},
+		{
+			"invalid python autopi formula response",
+			models.PIDRequest{
+				Name:            "fuellevelfailure",
+				IntervalSeconds: 60,
+				Formula:         "python: xxx",
+			},
+			"obd.query fuellevelfailure header='\"0\"' mode='x00' pid='x00' protocol=6 force=true formula=' xxx'",
+			`{"value": "", "_stamp": "2024-02-29T17:17:30.534861"}`,
+			nil,
+			"empty response",
+		},
+		{
+			"query with can flow control",
+			models.PIDRequest{
+				Name:                 "fuellevel",
+				IntervalSeconds:      60,
+				Formula:              "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+				CanflowControlClear:  true,
+				CanFlowControlIDPair: "744,7AE",
+			},
+			"obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true flow_control_clear=true flow_control_id_pair='744,7AE'",
+			`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`,
+			[]string{"7e803412f6700000000"},
+			"",
+		},
+		// Add more test cases here
 	}
 
-	// then
-	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			httpmock.Activate()
+			defer httpmock.DeactivateAndReset()
+			unitID := uuid.New()
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
 
-	// verify
-	assert.Nil(t, err)
-	assert.True(t, obdResp.IsHex)
-	assert.NotNil(t, obdResp.ValueHex)
-	assert.Equal(t, 1, len(obdResp.ValueHex))
-}
+			psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+			registerResponderAndAssert(t, psPath, tc.obdQuery,
+				tc.respBody)
+			obdResp, _, err := RequestPIDRaw(&logger, unitID, tc.inputPIDRequest)
 
-func TestRequestPIDRaw_InvalidHexResponse(t *testing.T) {
-	// when
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			if tc.expectedError != "" {
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.Nil(t, err)
+			}
 
-	unitID := uuid.New()
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
-
-	// mock pid resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true",
-		`{"value": "SEARCHING...", "_stamp": "2024-02-29T17:17:30.534861"}`)
-
-	request := models.PIDRequest{
-		Name:            "fuellevel",
-		IntervalSeconds: 60,
+			if len(tc.expectedValueHex) > 0 {
+				assert.Equal(t, true, obdResp.IsHex)
+				assert.NotNil(t, obdResp.ValueHex)
+				assert.Equal(t, tc.expectedValueHex, obdResp.ValueHex)
+			}
+		})
 	}
 
-	// then
-	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
-
-	// verify
-	assert.NotNil(t, err)
-	assert.Equal(t, false, obdResp.IsHex)
-	assert.Contains(t, err.Error(), "invalid return value")
-}
-
-func TestRequestPIDRaw_InvalidFormulaResponse(t *testing.T) {
-	// when
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	unitID := uuid.New()
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
-
-	// mock pid resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevelfailure header='\"0\"' mode='x00' pid='x00' protocol=6 force=true formula=' xxx'",
-		`{"value": "", "_stamp": "2024-02-29T17:17:30.534861"}`)
-
-	request := models.PIDRequest{
-		Name:            "fuellevelfailure",
-		IntervalSeconds: 60,
-		Formula:         "python: xxx",
-	}
-
-	// then
-	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
-
-	// verify
-	assert.NotNil(t, err)
-	assert.Equal(t, false, obdResp.IsHex)
-	assert.Contains(t, err.Error(), "empty response")
-}
-
-func TestRequestPIDRaw_WithCanFlowControl(t *testing.T) {
-	// when
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	unitID := uuid.New()
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	logger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
-
-	// mock pid resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
-	registerResponderAndAssert(t, psPath, "obd.query fuellevel header='\"0\"' mode='x00' pid='x00' protocol=6 force=true flow_control_clear=true flow_control_id_pair='744,7AE'",
-		`{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`)
-
-	request := models.PIDRequest{
-		Name:                 "fuellevel",
-		IntervalSeconds:      60,
-		Formula:              "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
-		CanflowControlClear:  true,
-		CanFlowControlIDPair: "744,7AE",
-	}
-
-	// then
-	obdResp, _, err := RequestPIDRaw(&logger, unitID, request)
-
-	// verify
-	assert.Nil(t, err)
-	assert.True(t, obdResp.IsHex)
-	assert.NotNil(t, obdResp.ValueHex)
-	assert.Equal(t, 1, len(obdResp.ValueHex))
 }
 
 func TestRequestPIDRaw_FormulaTypePython(t *testing.T) {
