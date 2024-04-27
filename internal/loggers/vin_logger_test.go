@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -134,7 +135,8 @@ func Test_extractVIN(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotVin, gotStartPos, err := extractVIN(tt.hexValue)
+			frames := strings.Split(tt.hexValue, "\n")
+			gotVin, gotStartPos, err := extractVIN(frames)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("extractVIN() error = %v, wantErr %v", err, tt.wantErr)
 				return

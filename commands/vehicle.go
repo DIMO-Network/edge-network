@@ -123,23 +123,27 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 		return
 	}
 	logger.Debug().Msgf("response for %s: %s", request.Name, resp.Value)
-	// todo: need to account for multi-frame responses like VIN
+
 	switch v := resp.Value.(type) {
 	case string:
-		if isValidHexes(v) {
-			obdResp.IsHex = true
-			obdResp.ValueHex = strings.Split(v, "\n")
-
-			for i := range obdResp.ValueHex {
-				// add validation here for float values
-				if len(obdResp.ValueHex[i]) > 0 && !isValidHex(obdResp.ValueHex[i]) {
-					err = fmt.Errorf("invalid return value: %s", obdResp.ValueHex[i])
-					return
-				}
+		if request.FormulaType() == models.Python { // formula was set to python, autopi processed it
+			if v == "" {
+				err = fmt.Errorf("empty response with formula: %s", request.Formula)
+				return
 			}
-		} else {
 			obdResp.IsHex = false
 			obdResp.Value = v
+		} else if isHexFrames(v) {
+			obdResp.IsHex = true
+			// clean autopi multiframe start characters
+			frames := strings.Split(v, "\n")
+			if len(frames) > 0 && frames[0] == "|-" {
+				frames = append(frames[:0], frames[1:]...)
+			}
+			obdResp.ValueHex = frames
+		} else {
+			err = fmt.Errorf("invalid return value: %s", v)
+			return
 		}
 	case float64:
 		// the int value always unmarshal to float, that's why we
@@ -169,11 +173,18 @@ func isValidHex(s string) bool {
 	return re.MatchString(s)
 }
 
-func isValidHexes(s string) bool {
-	// Regex to match one or multiple valid hexadecimal strings separated by a newline character.
-	// Each hexadecimal string starts with an optional "0x" or "0X", followed by one or more hexadecimal characters (0-9, a-f, A-F).
-	re := regexp.MustCompile(`^(0x|0X)?[0-9a-fA-F]+(\n(0x|0X)?[0-9a-fA-F]+)*$`)
-	return re.MatchString(s)
+// isHexFrames checks if the input string consists of valid hexadecimal strings separated by newline characters.
+func isHexFrames(s string) bool {
+	frames := strings.Split(s, "\n")
+	for _, frame := range frames {
+		if frame == "|-" { // autopi specific resp thing for multiframes
+			continue
+		}
+		if !isValidHex(frame) {
+			return false
+		}
+	}
+	return true
 }
 
 // uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
