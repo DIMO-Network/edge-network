@@ -33,13 +33,25 @@ type vehicleSignalDecodingAPIService struct {
 	httpClient shared.HTTPClientWrapper
 }
 
+// Environment define the environment type
+type Environment int
+
+const (
+	Development Environment = iota
+	Production
+)
+
+func (e Environment) String() string {
+	return [...]string{"development", "prod"}[e]
+}
+
 var VehicleSignalDecodingAPIURL string
 
-func NewVehicleSignalDecodingAPIService(env string) VehicleSignalDecoding {
+func NewVehicleSignalDecodingAPIService(env Environment) VehicleSignalDecoding {
 	h := map[string]string{}
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
 
-	if env == "dev" {
+	if env == Development {
 		VehicleSignalDecodingAPIURL = "https://vehicle-signal-decoding.dev.dimo.zone"
 	} else {
 		VehicleSignalDecodingAPIURL = "https://vehicle-signal-decoding.dimo.zone"

@@ -25,12 +25,12 @@ type identityAPIService struct {
 
 var IdentityAPIURL string
 
-func NewIdentityAPIService(logger zerolog.Logger, env string) IdentityAPI {
+func NewIdentityAPIService(logger zerolog.Logger, env Environment) IdentityAPI {
 	h := map[string]string{}
 	h["Content-Type"] = "application/json"
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, false) // ok to ignore err since only used for tor check
 
-	if env == "dev" {
+	if env == Development {
 		IdentityAPIURL = "https://identity-api.dev.dimo.zone/query"
 	} else {
 		IdentityAPIURL = "https://identity-api.dimo.zone/query"
