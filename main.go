@@ -219,7 +219,7 @@ func setupBluez(name string) error {
 
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
 func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address) (*models.VehicleInfo, error) {
-	identityAPIService := gateways.NewIdentityAPIService(logger)
+	identityAPIService := gateways.NewIdentityAPIService(logger, ENV)
 	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
