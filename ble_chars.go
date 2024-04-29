@@ -314,7 +314,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		gatt.FlagCharacteristicEncryptAuthenticatedWrite,
 	}
 
-	setWifiChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	setWifiChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error setting wifi connection: %s.", err)
@@ -372,7 +372,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	imsiChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	imsiChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	imsiChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving IMSI: %s", err)
@@ -414,7 +414,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
 	// normally gets called during device pairing from mobile App
-	vinChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving VIN: %s", err)
@@ -460,7 +460,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	}
 	protocolChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
-	protocolChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	protocolChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving Protocol: %s", err)
@@ -500,7 +500,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	dtcChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead, gatt.FlagCharacteristicEncryptAuthenticatedWrite}
 
 	// dtcChar will return error codes if found, if nothing found with a success will return "0", if nothing found but error response returns "1"
-	dtcChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	dtcChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving diagnostic codes: %s", err)
@@ -529,7 +529,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		return
 	})
 
-	dtcChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	dtcChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error clearing diagnostic codes hash: %s.", err)
@@ -561,7 +561,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	sleepControlChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedWrite}
 
-	sleepControlChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	sleepControlChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error extending sleep time: %s.", err)
@@ -606,7 +606,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		gatt.FlagCharacteristicRead,
 	}
 
-	addrChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	addrChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		logger.Info().Msg("Got address request")
 
 		addr, err := commands.GetEthereumAddress(unitID)
@@ -635,7 +635,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		gatt.FlagCharacteristicEncryptAuthenticatedRead,
 	}
 
-	signChar.OnWrite(func(c *service.Char, value []byte) (resp []byte, err error) {
+	signChar.OnWrite(func(_ *service.Char, value []byte) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error signing hash: %s.", err)
@@ -665,7 +665,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		return
 	})
 
-	signChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	signChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		logger.Info().Msgf("Got read request for hash: %s.", hex.EncodeToString(lastSignature))
 		resp = lastSignature
 		return
