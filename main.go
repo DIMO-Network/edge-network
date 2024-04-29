@@ -29,6 +29,7 @@ import (
 )
 
 var Version = "development"
+var ENV = "prod"
 
 const bleUnsupportedHW = "5.2"
 
@@ -128,7 +129,7 @@ func main() {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
-	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService()
+	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(ENV)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the template settings from remote, below method handles all the special logic

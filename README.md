@@ -9,6 +9,12 @@ Compile for the AutoPi with
 brew install --build-from-source upx
 GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network
 ```
+
+Add next env var to above build command if you are running edge network on dev device(meaning your device is pairing in dev environment):
+```
+-X 'main.ENV=dev'
+```
+
 Binaries will build [for releases](https://github.com/DIMO-Network/edge-network/releases) from the [workflow](.github/workflows/release.yaml).
 
 Copy to the AutoPi with, e.g.,
