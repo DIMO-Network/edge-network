@@ -88,7 +88,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	unitSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	unitSerialChar.OnRead(func(_ *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	unitSerialChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving unit serial number: %s", err)
@@ -114,7 +114,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	secondSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	secondSerialChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	secondSerialChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving secondary serial number: %s", err)
@@ -147,7 +147,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	hwRevisionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	hwRevisionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	hwRevisionChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving hardware revision: %s", err)
@@ -180,7 +180,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	bluetoothVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	bluetoothVersionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	bluetoothVersionChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving hardware revision: %s", err)
