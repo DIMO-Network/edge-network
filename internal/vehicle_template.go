@@ -53,7 +53,6 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 
 	if err != nil || templateURLsRemote == nil {
 		vt.logger.Info().Msgf("unable to get template urls by eth addr:%s", addr.String())
-		// todo could have endpoint by vehicleTokenId to try with
 	}
 	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
 	if templateURLsLocal == nil && templateURLsRemote == nil {
@@ -71,7 +70,11 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		vt.logger.Info().Msg("vehicle template configuration has not changed, keeping current.")
 		return pidsConfig, deviceSettings, nil
 	}
-	// if we get here, means version are different and we must retrieve and update
+	// if we get here, means version are different and we must retrieve and update, or we have nothing recent saved locally
+	saveUrlsErr := vt.lss.WriteTemplateURLs(*templateURLsRemote)
+	if saveUrlsErr != nil {
+		vt.logger.Err(saveUrlsErr).Msgf("failed to save template urls %+v", *templateURLsRemote)
+	}
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
 	remotePids, err := gateways.Retry[models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetPIDs(templateURLsRemote.PidURL)

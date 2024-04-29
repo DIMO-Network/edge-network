@@ -134,7 +134,7 @@ func main() {
 	// get the template settings from remote, below method handles all the special logic
 	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
-		logger.Err(err).Msg("unable to get device settings (pids, dbc, settings)")
+		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
 		// todo send mqtt error payload reporting this, should have own topic for errors
 	}
 	if pids != nil {
