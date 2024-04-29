@@ -208,7 +208,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	softwareVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	softwareVersionChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	softwareVersionChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving software version: %s", err)
@@ -241,7 +241,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	signalStrengthChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
 
-	signalStrengthChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	signalStrengthChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving signal strength: %s", err)
@@ -274,7 +274,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	wifiStatusChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
-	wifiStatusChar.OnRead(func(c *service.Char, options map[string]interface{}) (resp []byte, err error) {
+	wifiStatusChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
 				logger.Err(err).Msgf("Error retrieving wifi connection status: %s", err)
