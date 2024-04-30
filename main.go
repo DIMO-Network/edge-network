@@ -29,6 +29,7 @@ import (
 )
 
 var Version = "development"
+var ENV = "prod"
 
 const bleUnsupportedHW = "5.2"
 
@@ -83,8 +84,18 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
 	}
+
+	// define environment
+	var env gateways.Environment
+	if ENV == "prod" {
+		env = gateways.Production
+	} else {
+		env = gateways.Development
+	}
+
 	logger.Info().Msgf("Bluetooth name: %s", name)
 	logger.Info().Msgf("Version: %s", Version)
+	logger.Info().Msgf("Environment: %s", env)
 
 	hwRevision, err := commands.GetHardwareRevision(unitID)
 	if err != nil {
@@ -117,7 +128,7 @@ func main() {
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
-	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss)
+	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, env)
 	if err != nil {
 		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr")
 	}
@@ -128,7 +139,7 @@ func main() {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
-	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService()
+	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(env)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the template settings from remote, below method handles all the special logic
@@ -217,8 +228,8 @@ func setupBluez(name string) error {
 }
 
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
-func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address) (*models.VehicleInfo, error) {
-	identityAPIService := gateways.NewIdentityAPIService(logger)
+func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, env gateways.Environment) (*models.VehicleInfo, error) {
+	identityAPIService := gateways.NewIdentityAPIService(logger, env)
 	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
@@ -237,9 +248,9 @@ func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address) (*models.Veh
 // If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
 // which would mean no pairing, then check the local cache since this is likely transient error.
 // If the vehicle info is not retrieved within the retries, a timeout error is returned.
-func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore) (*models.VehicleInfo, error) {
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, env gateways.Environment) (*models.VehicleInfo, error) {
 	for i := 0; i < 60; i++ {
-		vehicleInfo, err := getVehicleInfo(logger, ethAddr)
+		vehicleInfo, err := getVehicleInfo(logger, ethAddr, env)
 		if err != nil {
 			// todo future: send each err failure to logs mqtt topic
 			logger.Err(err).Msgf("failed to get vehicle info, will retry again in 60s")

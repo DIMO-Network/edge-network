@@ -66,7 +66,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	// if no change, just return what we have
 	if templateURLsLocal != nil &&
 		templateURLsRemote.PidURL == templateURLsLocal.PidURL &&
-		templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL {
+		templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL && deviceSettings != nil {
 		vt.logger.Info().Msg("vehicle template configuration has not changed, keeping current.")
 		return pidsConfig, deviceSettings, nil
 	}
@@ -94,6 +94,13 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	})
 	if err != nil {
 		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingURL)
+	}
+
+	if deviceSettings != nil {
+		devSetError := vt.lss.WriteTemplateDeviceSettings(*deviceSettings)
+		if devSetError != nil {
+			vt.logger.Err(devSetError).Msg("error writing device template settings to tmp cache")
+		}
 	}
 
 	return pidsConfig, deviceSettings, nil
