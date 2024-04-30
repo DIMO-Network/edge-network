@@ -96,5 +96,12 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		vt.logger.Err(err).Msgf("could not get settings from api url: %s", templateURLsRemote.DeviceSettingURL)
 	}
 
+	if deviceSettings != nil {
+		devSetError := vt.lss.WriteTemplateDeviceSettings(*deviceSettings)
+		if devSetError != nil {
+			vt.logger.Err(devSetError).Msg("error writing device template settings to tmp cache")
+		}
+	}
+
 	return pidsConfig, deviceSettings, nil
 }
