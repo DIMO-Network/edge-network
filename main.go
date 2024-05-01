@@ -75,15 +75,6 @@ func main() {
 	}
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
-	// temporary for us, for release want info level - todo make configurable via cli?
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
-	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
-
-	coldBoot, err := isColdBoot(logger, unitID)
-	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
-	}
 
 	// define environment
 	var env gateways.Environment
@@ -91,6 +82,19 @@ func main() {
 		env = gateways.Production
 	} else {
 		env = gateways.Development
+	}
+	// temporary for us, for release want info level - todo make configurable via cli?
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
+	// setup datasender here so we can send errors to it
+	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
+	//  From this point forward, any log events produced by this logger will pass through the hook.
+	logger = logger.Hook(&LogHook{dataSender: ds})
+
+	coldBoot, err := isColdBoot(logger, unitID)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
 	}
 
 	logger.Info().Msgf("Bluetooth name: %s", name)
@@ -134,7 +138,8 @@ func main() {
 	}
 
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleInfo)
+	// we still need to set vehicleInfo, I know this is ugly, but..
+	ds.SetVehicleInfo(vehicleInfo)
 	if ethErr != nil {
 		logger.Info().Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)

@@ -48,6 +48,9 @@ type DataSender interface {
 	SendDeviceStatusData(data any) error
 	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
 	SendDeviceNetworkData(data models.DeviceNetworkData) error
+	// SetVehicleInfo sets the vehicle info for the data sender
+	// todo we need somehow to set VehicleInfo differently, we need better separation of concerns here
+	SetVehicleInfo(vehicleInfo *models.VehicleInfo)
 }
 
 type dataSender struct {
@@ -71,6 +74,10 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		logger:      logger,
 		vehicleInfo: vehicleInfo,
 	}
+}
+
+func (ds *dataSender) SetVehicleInfo(vehicleInfo *models.VehicleInfo) {
+	ds.vehicleInfo = vehicleInfo
 }
 
 func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {

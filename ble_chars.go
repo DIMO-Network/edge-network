@@ -417,7 +417,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Msgf("Error retrieving VIN: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), "mqtt", "true")).Msgf("Error retrieving VIN: %s", err)
 			}
 		}()
 
@@ -463,7 +463,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	protocolChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Msgf("Error retrieving Protocol: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), "mqtt", "true")).Msgf("Error retrieving Protocol: %s", err)
 			}
 		}()
 		if lastProtocol != "" {
