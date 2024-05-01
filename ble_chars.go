@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/internal"
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -417,7 +418,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), "mqtt", "true")).Msgf("Error retrieving VIN: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error retrieving VIN: %s", err)
 			}
 		}()
 
@@ -463,7 +464,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	protocolChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), "mqtt", "true")).Msgf("Error retrieving Protocol: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error retrieving Protocol: %s", err)
 			}
 		}()
 		if lastProtocol != "" {

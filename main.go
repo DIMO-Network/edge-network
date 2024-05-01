@@ -90,7 +90,7 @@ func main() {
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
-	logger = logger.Hook(&LogHook{dataSender: ds})
+	logger = logger.Hook(&internal.LogHook{DataSender: ds})
 
 	coldBoot, err := isColdBoot(logger, unitID)
 	if err != nil {
@@ -112,9 +112,8 @@ func main() {
 			logger.Err(ethErr).Msg("eth addr error")
 		}
 		logger.Fatal().Msgf("could not get ethereum address")
-	} else {
-		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	}
+	logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 
 	lss := loggers.NewTemplateStore()
 	vinLogger := loggers.NewVINLogger(logger)
@@ -134,14 +133,15 @@ func main() {
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, env)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr")
+		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
 	}
 
 	// OBD / CAN Loggers
 	// we still need to set vehicleInfo, I know this is ugly, but..
 	ds.SetVehicleInfo(vehicleInfo)
 	if ethErr != nil {
-		logger.Info().Msgf("error getting ethereum address: %s", err)
+		// would we ever end up here?
+		logger.Err(ethErr).Msgf("error getting ethereum address: %s", err)
 		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
 	}
 	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(env)
@@ -151,7 +151,6 @@ func main() {
 	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
-		// todo send mqtt error payload reporting this, should have own topic for errors
 	}
 	if pids != nil {
 		pj, err := json.Marshal(pids)
@@ -176,6 +175,7 @@ func main() {
 	// query imei
 	imei, err := commands.GetIMEI(unitID)
 	if err != nil {
+		// should we send it to ds?
 		logger.Err(err).Msg("unable to get imei")
 	}
 	logger.Info().Msgf("imei: %s", imei)

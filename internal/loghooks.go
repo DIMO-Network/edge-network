@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"errors"
@@ -6,8 +6,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type keyType string
+
+const LogToMqtt keyType = "mqtt_log"
+
 type LogHook struct {
-	dataSender network.DataSender
+	DataSender network.DataSender
 }
 
 // Run All fatal log level will be sent to mqtt,
@@ -17,13 +21,19 @@ func (h *LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	// This is where you can modify the event by adding fields, changing
 	// existing ones, or even decide to not log the event.
 	if level == zerolog.FatalLevel {
-		h.dataSender.SendErrorPayload(errors.New(msg), nil)
+		err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
+		if err != nil {
+			return
+		}
 	}
 
 	if level == zerolog.ErrorLevel {
-		if e.GetCtx().Value("mqtt") != nil {
-			h.dataSender.SendErrorPayload(errors.New(msg), nil)
-			e.Str("mqtt", "message send over the mqtt bus")
+		if e.GetCtx().Value(LogToMqtt) != nil {
+			err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
+			if err != nil {
+				return
+			}
+			e.Str(string(LogToMqtt), "send message over the mqtt bus")
 		}
 	}
 }

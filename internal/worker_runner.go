@@ -122,6 +122,7 @@ func (wr *workerRunner) Run() {
 			// send the cloud event
 			err = wr.dataSender.SendDeviceStatusData(s)
 			if err != nil {
+				// should we send it over mqtt?
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
 
@@ -147,6 +148,7 @@ func (wr *workerRunner) Run() {
 
 				err = wr.dataSender.SendDeviceNetworkData(networkData)
 				if err != nil {
+					// same as above, should we send it over mqtt?
 					wr.logger.Err(err).Msg("failed to send device network data")
 				}
 			}
