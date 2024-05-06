@@ -93,8 +93,10 @@ func main() {
 			logger.Err(ethErr).Msg("eth addr error")
 		}
 		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	}
-	logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
