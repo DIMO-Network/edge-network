@@ -16,7 +16,7 @@ type LogHook struct {
 
 // Run All fatal log level will be sent to mqtt,
 // if we want error log level be sent to mqtt bus, we need to log it like:
-// logger.Err(err).Ctx(context.WithValue(context.Background(), "mqtt", "true")).Msgf("Error msg: %s", err)
+// logger.Err(err).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error msg: %s", err)
 func (h *LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	// This is where you can modify the event by adding fields, changing
 	// existing ones, or even decide to not log the event.
@@ -27,13 +27,11 @@ func (h *LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 		}
 	}
 
-	if level == zerolog.ErrorLevel {
-		if e.GetCtx().Value(LogToMqtt) != nil {
-			err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
-			if err != nil {
-				return
-			}
-			e.Str(string(LogToMqtt), "send message over the mqtt bus")
+	if e.GetCtx().Value(LogToMqtt) != nil {
+		err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
+		if err != nil {
+			return
 		}
+		e.Str(string(LogToMqtt), "send message over the mqtt bus")
 	}
 }

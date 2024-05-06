@@ -172,7 +172,6 @@ func main() {
 	// query imei
 	imei, err := commands.GetIMEI(unitID)
 	if err != nil {
-		// should we send it to ds?
 		logger.Err(err).Msg("unable to get imei")
 	}
 	logger.Info().Msgf("imei: %s", imei)
