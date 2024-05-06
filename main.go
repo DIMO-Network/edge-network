@@ -86,6 +86,15 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
+
+	// check if we were able to get ethereum address, otherwise fail fast
+	if ethAddr == nil {
+		if ethErr != nil {
+			logger.Err(ethErr).Msg("eth addr error")
+		}
+		logger.Fatal().Msgf("could not get ethereum address")
+	}
+	logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
@@ -105,14 +114,6 @@ func main() {
 		logger.Err(err).Msg("error getting hardware rev")
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
-
-	if ethAddr == nil {
-		if ethErr != nil {
-			logger.Err(ethErr).Msg("eth addr error")
-		}
-		logger.Fatal().Msgf("could not get ethereum address")
-	}
-	logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 
 	lss := loggers.NewTemplateStore()
 	vinLogger := loggers.NewVINLogger(logger)
