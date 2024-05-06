@@ -126,6 +126,7 @@ func main() {
 		defer obCancel()
 	}
 
+	// linter test
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, env)
