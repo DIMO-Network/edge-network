@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"os"
 	"os/signal"
 	"strings"
@@ -137,13 +136,8 @@ func main() {
 	}
 
 	// OBD / CAN Loggers
-	// we still need to set vehicleInfo, I know this is ugly, but..
+	// set vehicle info here, so we can use it for status messages
 	ds.SetVehicleInfo(vehicleInfo)
-	if ethErr != nil {
-		// would we ever end up here?
-		logger.Err(ethErr).Msgf("error getting ethereum address: %s", err)
-		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
-	}
 	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(env)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 

@@ -52,8 +52,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	})
 
 	if err != nil || templateURLsRemote == nil {
-		// should it be info? maybe warn?
-		vt.logger.Info().Msgf("unable to get template urls by eth addr:%s", addr.String())
+		vt.logger.Warn().Msgf("unable to get template urls by eth addr:%s", addr.String())
 	}
 	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
 	if templateURLsLocal == nil && templateURLsRemote == nil {
