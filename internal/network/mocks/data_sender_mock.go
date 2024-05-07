@@ -53,6 +53,17 @@ func (mr *MockDataSenderMockRecorder) SendCanDumpData(data any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCanDumpData", reflect.TypeOf((*MockDataSender)(nil).SendCanDumpData), data)
 }
 
+// SetVehicleInfo(vehicleInfo *models.VehicleInfo)
+func (m *MockDataSender) SetVehicleInfo(vehicleInfo *models.VehicleInfo) {
+	m.ctrl.T.Helper()
+}
+
+// SetVehicleInfo indicates an expected call of SetVehicleInfo.
+func (mr *MockDataSenderMockRecorder) SetVehicleInfo(data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVehicleInfo", reflect.TypeOf((*MockDataSender)(nil).SetVehicleInfo), data)
+}
+
 // SendDeviceStatusData mocks base method.
 func (m *MockDataSender) SendDeviceStatusData(data any) error {
 	m.ctrl.T.Helper()

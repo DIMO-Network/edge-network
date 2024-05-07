@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"os"
 	"os/signal"
 	"strings"
@@ -75,15 +74,6 @@ func main() {
 	}
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
-	// temporary for us, for release want info level - todo make configurable via cli?
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
-	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
-
-	coldBoot, err := isColdBoot(logger, unitID)
-	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
-	}
 
 	// define environment
 	var env gateways.Environment
@@ -91,6 +81,30 @@ func main() {
 		env = gateways.Production
 	} else {
 		env = gateways.Development
+	}
+	// temporary for us, for release want info level - todo make configurable via cli?
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
+
+	// check if we were able to get ethereum address, otherwise fail fast
+	if ethAddr == nil {
+		if ethErr != nil {
+			logger.Err(ethErr).Msg("eth addr error")
+		}
+		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+	}
+
+	// setup datasender here so we can send errors to it
+	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
+	//  From this point forward, any log events produced by this logger will pass through the hook.
+	logger = logger.Hook(&internal.LogHook{DataSender: ds})
+
+	coldBoot, err := isColdBoot(logger, unitID)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
 	}
 
 	logger.Info().Msgf("Bluetooth name: %s", name)
@@ -102,15 +116,6 @@ func main() {
 		logger.Err(err).Msg("error getting hardware rev")
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
-
-	if ethAddr == nil {
-		if ethErr != nil {
-			logger.Err(ethErr).Msg("eth addr error")
-		}
-		logger.Fatal().Msgf("could not get ethereum address")
-	} else {
-		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
-	}
 
 	lss := loggers.NewTemplateStore()
 	vinLogger := loggers.NewVINLogger(logger)
@@ -130,15 +135,12 @@ func main() {
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, env)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr")
+		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
 	}
 
 	// OBD / CAN Loggers
-	ds := network.NewDataSender(unitID, *ethAddr, logger, vehicleInfo)
-	if ethErr != nil {
-		logger.Info().Msgf("error getting ethereum address: %s", err)
-		_ = ds.SendErrorPayload(errors.Wrap(ethErr, "could not get device eth addr"), nil)
-	}
+	// set vehicle info here, so we can use it for status messages
+	ds.SetVehicleInfo(vehicleInfo)
 	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(env)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
@@ -146,7 +148,6 @@ func main() {
 	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
-		// todo send mqtt error payload reporting this, should have own topic for errors
 	}
 	if pids != nil {
 		pj, err := json.Marshal(pids)
