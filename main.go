@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/DIMO-Network/edge-network/oauth"
 	"github.com/ethereum/go-ethereum/common"
 	"os"
 	"os/signal"
@@ -84,6 +85,16 @@ func main() {
 	}
 	// temporary for us, for release want info level - todo make configurable via cli?
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	// we need here to start get certificate from CA, and setup mqtt requests
+	// get JWT token from auth
+	cert, err := oauth.SignWeb3Certificate(ethAddr.String(), "https://auth.dev.dimo.zone", "step-ca", "KsQ7pruHob6D3NLFQEg9", "https://ca.dev.dimo.zone", "a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f", "/opt/autopi/client.pem", true, logger, unitID)
+
+	if err != nil {
+		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+	}
+
+	logger.Info().Msgf("Certificate response: %s", cert)
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
