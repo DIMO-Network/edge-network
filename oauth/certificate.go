@@ -37,41 +37,41 @@ const domain = "http://127.0.0.1:10000"
 
 type CertificateService struct {
 	logger            zerolog.Logger
-	oauthUrl          string
-	oauthClientId     string
+	oauthURL          string
+	oauthClientID     string
 	oauthClientSecret string
-	caUrl             string
+	caURL             string
 	caFingerprint     string
 	certificatePath   string
 }
 
 func NewCertificateService(logger zerolog.Logger, env gateways.Environment, certificatePath string) *CertificateService {
 	// set the auth and ca urls based on the environment
-	var authUrl string
-	var caUrl string
-	var oauthClientId string
+	var authURL string
+	var caURL string
+	var oauthClientID string
 	var oauthClientSecret string
 	var caFingerprint string
 	if env == gateways.Development {
-		authUrl = "https://auth.dev.dimo.zone"
-		caUrl = "https://ca.dev.dimo.zone"
-		oauthClientId = "step-ca"
+		authURL = "https://auth.dev.dimo.zone"
+		caURL = "https://ca.dev.dimo.zone"
+		oauthClientID = "step-ca"
 		oauthClientSecret = "KsQ7pruHob6D3NLFQEg9"
 		caFingerprint = "a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f"
 	} else {
-		authUrl = "https://auth.dimo.zone"
-		caUrl = "https://ca.dimo.zone"
-		oauthClientId = "step-ca"
+		authURL = "https://auth.dimo.zone"
+		caURL = "https://ca.dimo.zone"
+		oauthClientID = "step-ca"
 		oauthClientSecret = "mkoLsNAfiG2DM2DfqYsX"
 		caFingerprint = "9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed"
 	}
 
 	return &CertificateService{
 		logger:            logger,
-		oauthUrl:          authUrl,
-		oauthClientId:     oauthClientId,
+		oauthURL:          authURL,
+		oauthClientID:     oauthClientID,
 		oauthClientSecret: oauthClientSecret,
-		caUrl:             caUrl,
+		caURL:             caURL,
 		caFingerprint:     caFingerprint,
 		certificatePath:   certificatePath,
 	}
@@ -142,7 +142,7 @@ func (cs *CertificateService) signWeb3Certificate(ethAddress string, confirm boo
 		return "", errors.New("This command will create and sign a new client certificate - add parameter 'confirm=true' to continue anyway")
 	}
 
-	token, err := GetOauthToken(cs.logger, cs.oauthUrl, cs.oauthClientId, cs.oauthClientSecret, ethAddress, unitID)
+	token, err := GetOauthToken(cs.logger, cs.oauthURL, cs.oauthClientID, cs.oauthClientSecret, ethAddress, unitID)
 	if err != nil {
 		return "", err
 	}
@@ -150,7 +150,7 @@ func (cs *CertificateService) signWeb3Certificate(ethAddress string, confirm boo
 	cs.logger.Debug().Msgf("Token response: %s", token)
 
 	// Create a new client for the CA
-	stepCa, err := ca.NewClient(cs.caUrl, ca.WithRootSHA256(cs.caFingerprint))
+	stepCa, err := ca.NewClient(cs.caURL, ca.WithRootSHA256(cs.caFingerprint))
 	if err != nil {
 		return "", err
 	}
