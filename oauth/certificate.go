@@ -12,6 +12,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -26,7 +28,54 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
+
+const generateChallenge = "/auth/web3/generate_challenge"
+const submitChallenge = "/auth/web3/submit_challenge"
+const domain = "http://127.0.0.1:10000"
+
+type CertificateService struct {
+	logger            zerolog.Logger
+	oauthUrl          string
+	oauthClientId     string
+	oauthClientSecret string
+	caUrl             string
+	caFingerprint     string
+	certificatePath   string
+}
+
+func NewCertificateService(logger zerolog.Logger, env gateways.Environment, certificatePath string) *CertificateService {
+	// set the auth and ca urls based on the environment
+	var authUrl string
+	var caUrl string
+	var oauthClientId string
+	var oauthClientSecret string
+	var caFingerprint string
+	if env == gateways.Development {
+		authUrl = "https://auth.dev.dimo.zone"
+		caUrl = "https://ca.dev.dimo.zone"
+		oauthClientId = "step-ca"
+		oauthClientSecret = "KsQ7pruHob6D3NLFQEg9"
+		caFingerprint = "a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f"
+	} else {
+		authUrl = "https://auth.dimo.zone"
+		caUrl = "https://ca.dimo.zone"
+		oauthClientId = "step-ca"
+		oauthClientSecret = "mkoLsNAfiG2DM2DfqYsX"
+		caFingerprint = "9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed"
+	}
+
+	return &CertificateService{
+		logger:            logger,
+		oauthUrl:          authUrl,
+		oauthClientId:     oauthClientId,
+		oauthClientSecret: oauthClientSecret,
+		caUrl:             caUrl,
+		caFingerprint:     caFingerprint,
+		certificatePath:   certificatePath,
+	}
+}
 
 type ChallengeResponse struct {
 	State     string `json:"state"`
@@ -37,9 +86,95 @@ type TokenResponse struct {
 	AccessToken string `json:"access_token"`
 }
 
-const generateChallenge = "/auth/web3/generate_challenge"
-const submitChallenge = "/auth/web3/submit_challenge"
-const domain = "http://127.0.0.1:10000"
+// CheckCertAndRenewIfExpiresSoon checks if the certificate exists and renews it if it expires in 1 day
+func (cs *CertificateService) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID uuid.UUID) error {
+	// check if the certificate file exists
+	_, err := os.Stat(cs.certificatePath)
+	if os.IsNotExist(err) {
+		cert, err := cs.signWeb3Certificate(ethAddr.String(), true, unitID)
+
+		if err != nil {
+			return fmt.Errorf("failed to request certificate: %w", err)
+		}
+
+		cs.logger.Info().Msgf("Certificate response: %s", cert)
+		return nil
+	}
+
+	// Read the cert file
+	certPEM, err := os.ReadFile(cs.certificatePath)
+	if err != nil {
+		cs.logger.Warn().Msgf("Failed to read the cert file: %s", err)
+	}
+
+	// Parse the PEM-encoded certificate
+	block, _ := pem.Decode(certPEM)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return fmt.Errorf("failed to decode PEM block containing the certificate")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	cs.logger.Info().Msgf("Certificate expires on: %s", cert.NotAfter)
+
+	// Check if the certificate will expire in 1 day
+	if time.Until(cert.NotAfter) <= 24*time.Hour {
+		cs.logger.Warn().Msgf("Certificate will expire on: %s. Renewing now...", cert.NotAfter)
+		cert, err := cs.signWeb3Certificate(ethAddr.String(), true, unitID)
+
+		cs.logger.Info().Msgf("Certificate response: %s", cert)
+		if err != nil {
+			return fmt.Errorf("failed to renew certificate: %w", err)
+		}
+		cs.logger.Info().Msg("Certificate renewed successfully")
+	}
+
+	return nil
+}
+
+// SignWeb3Certificate exchanges an JWT  for a signed certificate
+func (cs *CertificateService) signWeb3Certificate(ethAddress string, confirm bool, unitID uuid.UUID) (string, error) {
+	// duplicated from python code, not sure if we need it
+	if !confirm {
+		return "", errors.New("This command will create and sign a new client certificate - add parameter 'confirm=true' to continue anyway")
+	}
+
+	token, err := GetOauthToken(cs.logger, cs.oauthUrl, cs.oauthClientId, cs.oauthClientSecret, ethAddress, unitID)
+	if err != nil {
+		return "", err
+	}
+
+	cs.logger.Debug().Msgf("Token response: %s", token)
+
+	// Create a new client for the CA
+	stepCa, err := ca.NewClient(cs.caUrl, ca.WithRootSHA256(cs.caFingerprint))
+	if err != nil {
+		return "", err
+	}
+	// Generate a new sign request with a randomly generated key.
+	req, _, err := createSignRequest(token, ethAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	certificate, err := stepCa.Sign(req)
+	if err != nil {
+		return "", err
+	}
+
+	certificatePem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.CaPEM.Raw})
+
+	// Save certificate
+	err = os.WriteFile(cs.certificatePath, certificatePem, 0644)
+	if err != nil {
+		return "", err
+	}
+
+	return string(certificatePem), nil
+}
 
 // GetOauthToken  retrieves an oauth token from the auth server by generating a challenge, signing it and submitting it
 func GetOauthToken(logger zerolog.Logger, oauthUrl, oauthClientId, oauthClientSecret, ethAddress string, unitID uuid.UUID) (string, error) {
@@ -107,65 +242,10 @@ func GetOauthToken(logger zerolog.Logger, oauthUrl, oauthClientId, oauthClientSe
 	return tokenResp.AccessToken, nil
 }
 
-// SignWeb3Certificate exchanges an JWT  for a signed certificate
-func SignWeb3Certificate(ethAddress, oauthUrl, oauthClientId, oauthClientSecret, caUrl, caFingerprint, certificatePath string, confirm bool, logger zerolog.Logger, unitID uuid.UUID) (string, error) {
-	// duplicated from python code, not sure if we need it
-	if !confirm {
-		return "", errors.New("This command will create and sign a new client certificate - add parameter 'confirm=true' to continue anyway")
-	}
-
-	token, err := GetOauthToken(logger, oauthUrl, oauthClientId, oauthClientSecret, ethAddress, unitID)
-	if err != nil {
-		return "", err
-	}
-
-	logger.Debug().Msgf("Token response: %s", token)
-
-	// Create a new client for the CA
-	stepCa, err := ca.NewClient(caUrl, ca.WithRootSHA256(caFingerprint))
-	if err != nil {
-		return "", err
-	}
-	// Generate a new sign request with a randomly generated key.
-	req, _, err := CreateSignRequest(token, ethAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	certificate, err := stepCa.Sign(req)
-	if err != nil {
-		return "", err
-	}
-
-	certificatePem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.CaPEM.Raw})
-
-	// Save certificate
-	err = os.WriteFile(certificatePath, certificatePem, 0644)
-	if err != nil {
-		return "", err
-	}
-
-	return string(certificatePem), nil
-}
-
-// signChallenge signs the challenge message with the unitID
-func signChallenge(message string, unitID uuid.UUID) (string, error) {
-	// Hash the message
-	keccak256Hash := crypto.Keccak256Hash([]byte(message))
-
-	// Sign the hash
-	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
-	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("failed to sign the challenge for oauth with serial number: %s", unitID))
-	}
-
-	return "0x" + hex.EncodeToString(sig), nil
-}
-
 // CreateSignRequest is a helper function that given an x509 OTT returns a
 // simple but secure sign request as well as the private key used. It is almost copy of ca.CreateSignRequest, the only difference
 // that we set the CommonName to the etherAdd instead of the claims.Subject
-func CreateSignRequest(ott string, etherAdd string) (*api.SignRequest, cr.PrivateKey, error) {
+func createSignRequest(ott string, etherAdd string) (*api.SignRequest, cr.PrivateKey, error) {
 	token, err := jose.ParseSigned(ott)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error parsing ott")
@@ -211,4 +291,18 @@ func CreateSignRequest(ott string, etherAdd string) (*api.SignRequest, cr.Privat
 		CsrPEM: api.CertificateRequest{CertificateRequest: cr},
 		OTT:    ott,
 	}, pk, nil
+}
+
+// signChallenge signs the challenge message with the unitID
+func signChallenge(message string, unitID uuid.UUID) (string, error) {
+	// Hash the message
+	keccak256Hash := crypto.Keccak256Hash([]byte(message))
+
+	// Sign the hash
+	sig, err := commands.SignHash(unitID, keccak256Hash.Bytes())
+	if err != nil {
+		return "", errors.Wrap(err, fmt.Sprintf("failed to sign the challenge for oauth with serial number: %s", unitID))
+	}
+
+	return "0x" + hex.EncodeToString(sig), nil
 }
