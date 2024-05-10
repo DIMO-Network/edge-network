@@ -41,7 +41,7 @@ type Signer interface {
 	Sign(req *api.SignRequest) (*api.SignResponse, error)
 }
 
-type CertificateService struct {
+type Service struct {
 	logger            zerolog.Logger
 	oauthURL          string
 	oauthClientID     string
@@ -52,7 +52,7 @@ type CertificateService struct {
 	stepCa            Signer
 }
 
-func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer) *CertificateService {
+func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer) *Service {
 	// set the auth and ca urls based on the environment
 	var authURL string
 	var caURL string
@@ -73,7 +73,7 @@ func NewCertificateService(logger zerolog.Logger, env gateways.Environment, clie
 		caFingerprint = "9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed"
 	}
 
-	return &CertificateService{
+	return &Service{
 		logger:            logger,
 		oauthURL:          authURL,
 		oauthClientID:     oauthClientID,
@@ -95,7 +95,7 @@ type TokenResponse struct {
 }
 
 // CheckCertAndRenewIfExpiresSoon checks if the certificate exists and renews it if it expires in 1 day
-func (cs *CertificateService) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID uuid.UUID) error {
+func (cs *Service) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID uuid.UUID) error {
 	// check if the certificate file exists
 	_, err := os.Stat(cs.certificatePath)
 	if os.IsNotExist(err) {
@@ -154,7 +154,7 @@ func (cs *CertificateService) CheckCertAndRenewIfExpiresSoon(ethAddr common.Addr
 }
 
 // SignWeb3Certificate exchanges an JWT  for a signed certificate
-func (cs *CertificateService) SignWeb3Certificate(ethAddress string, confirm bool, unitID uuid.UUID) (string, error) {
+func (cs *Service) SignWeb3Certificate(ethAddress string, confirm bool, unitID uuid.UUID) (string, error) {
 	// duplicated from python code, not sure if we need it
 	if !confirm {
 		return "", errors.New("This command will create and sign a new client certificate - add parameter 'confirm=true' to continue anyway")
@@ -192,7 +192,7 @@ func (cs *CertificateService) SignWeb3Certificate(ethAddress string, confirm boo
 }
 
 // GetOauthToken  retrieves an oauth token from the auth server by generating a challenge, signing it and submitting it
-func (cs *CertificateService) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, error) {
+func (cs *Service) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, error) {
 	// Init/generate challenge
 	initParams := url.Values{}
 	initParams.Set("domain", domain)
