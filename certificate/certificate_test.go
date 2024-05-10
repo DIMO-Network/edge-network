@@ -87,7 +87,7 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 
 	// set up the expectation for the Post call to "https://ca.dimo.zone"
 	cert := generateCert()
-	mockSigner.EXPECT().Sign(gomock.Any()).Return(&api.SignResponse{CaPEM: api.Certificate{cert}}, nil)
+	mockSigner.EXPECT().Sign(gomock.Any()).Return(&api.SignResponse{CaPEM: api.Certificate{Certificate: cert}}, nil)
 	// Set up the expectation for the PostForm call
 	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/generate_challenge",
 		httpmock.NewStringResponder(200, `{"state": "oae7fkpeyxdatezkac5lzmo2p","challenge": "auth.dimo.zone wants you to sign in with your Ethereum account:\n0x064493aF03c949d58EE03Df0e771B6Eb19A1018A\n\n127.0.0.1 is asking you sign in.\n\nURI: https://auth.dimo.zone\nVersion: 1\nChain ID: 1\nNonce: zrIC3hmEvCsv8exZxjsMBYhEciu7oB\nIssued At: 2024-05-09T16:11:21Z"}`))

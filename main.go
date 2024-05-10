@@ -86,14 +86,6 @@ func main() {
 	// temporary for us, for release want info level - todo make configurable via cli?
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
-	//  start mqtt certificate verification routine
-	cs := certificate.NewCertificateService(logger, env, nil)
-	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
-
-	if err != nil {
-		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
-	}
-
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
 	// check if we were able to get ethereum address, otherwise fail fast
@@ -104,6 +96,14 @@ func main() {
 		logger.Fatal().Msgf("could not get ethereum address")
 	} else {
 		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+	}
+
+	//  start mqtt certificate verification routine
+	cs := certificate.NewCertificateService(logger, env, nil)
+	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
+
+	if err != nil {
+		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
 	}
 
 	// setup datasender here so we can send errors to it
