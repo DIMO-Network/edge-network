@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/certificate"
 	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/DIMO-Network/edge-network/oauth"
 	"github.com/ethereum/go-ethereum/common"
 	"os"
 	"os/signal"
@@ -87,7 +87,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	//  start mqtt certificate verification routine
-	cs := oauth.NewCertificateService(logger, env, "/opt/autopi/client.pem")
+	cs := certificate.NewCertificateService(logger, env, nil)
 	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
 	if err != nil {
