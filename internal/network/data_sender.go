@@ -179,6 +179,12 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
+
+	// sending the serial number of the device
+	if ds.unitID != uuid.Nil {
+		data.Device.UnitID = ds.unitID.String()
+	}
+
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "1.0", "zone.dimo.aftermarket.device.logs")
 	ce := models.DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,

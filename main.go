@@ -57,7 +57,11 @@ func main() {
 
 	name, unitID = commands.GetDeviceName(logger)
 	logger.Info().Msgf("SerialNumber Number: %s", unitID)
-	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
+
+	// retry logic for getting ethereum address
+	ethAddr, ethErr := gateways.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+		return commands.GetEthereumAddress(unitID)
+	})
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
