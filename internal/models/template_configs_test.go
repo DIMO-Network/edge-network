@@ -33,6 +33,13 @@ func TestPIDRequest_FormulaType(t *testing.T) {
 			},
 			want: Python,
 		},
+		{
+			name: "unknown formula type",
+			fields: fields{
+				Formula: `(bytes_to_int(messages[0].data[-1:]) - 50) * 1.8 + 32`,
+			},
+			want: Unknown,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,6 +91,13 @@ func TestPIDRequest_FormulaValue(t *testing.T) {
 				Formula: `python:(bytes_to_int(messages[0].data[-1:]) - 50) * 1.8 + 32`,
 			},
 			want: `(bytes_to_int(messages[0].data[-1:]) - 50) * 1.8 + 32`,
+		},
+		{
+			name: "no formula type",
+			fields: fields{
+				Formula: `bytes_to_int(messages[0].data[-1:]) - 50`,
+			},
+			want: `bytes_to_int(messages[0].data[-1:]) - 50`,
 		},
 	}
 	for _, tt := range tests {
