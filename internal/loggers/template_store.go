@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	VINLoggerFile      = "/tmp/vin-settings.json"
-	PIDConfigFile      = "/tmp/logger-pid-settings.json"
-	TemplateURLsFile   = "/tmp/template-urls.json"
-	DeviceSettingsFile = "/tmp/device-settings.json"
-	VehicleInfoFile    = "/tmp/vehicle-info.json"
+	VINLoggerFile      = "/opt/autopi/vin-settings.json"
+	PIDConfigFile      = "/opt/autopi/logger-pid-settings.json"
+	TemplateURLsFile   = "/opt/autopi/template-urls.json"
+	DeviceSettingsFile = "/opt/autopi/device-settings.json"
+	VehicleInfoFile    = "/opt/autopi/vehicle-info.json"
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go

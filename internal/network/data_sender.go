@@ -3,10 +3,14 @@ package network
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/certificate"
+	"os"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -62,11 +66,47 @@ type dataSender struct {
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, defaultClient bool) DataSender {
 	// Setup mqtt connection. Does not connect
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker(broker)
-	client := mqtt.NewClient(opts)
+	var client mqtt.Client
+	if defaultClient {
+		opts := mqtt.NewClientOptions()
+		opts.AddBroker(broker)
+		client = mqtt.NewClient(opts)
+	} else {
+		// Load CA certificate
+		caCert, err := os.ReadFile("/opt/autopi/root_cert_bundle.crt")
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to read CA certificate")
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		// Load client certificate and private key
+		cert, err := tls.LoadX509KeyPair(certificate.CertPath, certificate.PrivateKeyPath)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to load client certificate and private key")
+		}
+
+		// Create TLS configuration
+		tlsConfig := &tls.Config{
+			RootCAs:      caCertPool,
+			Certificates: []tls.Certificate{cert},
+		}
+
+		// Create MQTT client options
+		opts := mqtt.NewClientOptions()
+		// TODO change to production broker based on env
+		opts.AddBroker("ssl://stream.dev.dimo.zone:8884")
+		opts.SetTLSConfig(tlsConfig)
+
+		// Create and start a client
+		client = mqtt.NewClient(opts)
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			logger.Error().Err(err).Msg("failed to connect to mqtt broker")
+		}
+	}
+
 	return &dataSender{
 		client:      client,
 		unitID:      unitID,

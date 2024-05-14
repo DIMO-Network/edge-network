@@ -99,7 +99,7 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	cs := certificate.NewCertificateService(logger, env, nil)
+	cs := certificate.NewCertificateService(logger, env, nil, certificate.CertFileWriter{})
 	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
 	if err != nil {
@@ -107,7 +107,7 @@ func main() {
 	}
 
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, true)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	logger = logger.Hook(&internal.LogHook{DataSender: ds})
 

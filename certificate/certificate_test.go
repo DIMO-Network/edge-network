@@ -38,7 +38,7 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	cs := NewCertificateService(logger, gateways.Development, nil)
+	cs := NewCertificateService(logger, gateways.Development, nil, mockFileSystem())
 
 	// when
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", serial.String())
@@ -78,7 +78,7 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	cs := NewCertificateService(logger, gateways.Development, mockSigner)
+	cs := NewCertificateService(logger, gateways.Development, mockSigner, mockFileSystem())
 
 	// when
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", serial.String())
@@ -87,7 +87,7 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 
 	// set up the expectation for the Post call to "https://ca.dimo.zone"
 	cert := generateCert()
-	mockSigner.EXPECT().Sign(gomock.Any()).Return(&api.SignResponse{CaPEM: api.Certificate{Certificate: cert}}, nil)
+	mockSigner.EXPECT().Sign(gomock.Any()).Return(&api.SignResponse{ServerPEM: api.Certificate{Certificate: cert}}, nil)
 	// Set up the expectation for the PostForm call
 	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/generate_challenge",
 		httpmock.NewStringResponder(200, `{"state": "oae7fkpeyxdatezkac5lzmo2p","challenge": "auth.dimo.zone wants you to sign in with your Ethereum account:\n0x064493aF03c949d58EE03Df0e771B6Eb19A1018A\n\n127.0.0.1 is asking you sign in.\n\nURI: https://auth.dimo.zone\nVersion: 1\nChain ID: 1\nNonce: zrIC3hmEvCsv8exZxjsMBYhEciu7oB\nIssued At: 2024-05-09T16:11:21Z"}`))
@@ -101,6 +101,25 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 	// verify
 	assert.NoError(t, err)
 	assert.True(t, certFromServer != "")
+}
+
+// helper function to mock Filesystem
+func mockFileSystem() *MockFileSystem {
+	system := MockFileSystem{
+		WriteFileFunc: func(filename string, data []byte, perm os.FileMode) error {
+			return nil
+		},
+		ReadFileFunc: func(filename string) ([]byte, error) {
+			return nil, nil
+		},
+		StatFileFunc: func(name string) (os.FileInfo, error) {
+			return nil, nil
+		},
+		IsNotExistFunc: func(err error) bool {
+			return false
+		},
+	}
+	return &system
 }
 
 // helper function to generate a certificate
@@ -177,4 +196,28 @@ func (m *MockSigner) Sign(req *api.SignRequest) (*api.SignResponse, error) {
 func (mr *MockSignerMockRecorder) Sign(req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockSigner)(nil).Sign), req)
+}
+
+// MockFileSystem is a mock of FileSystem interface.
+type MockFileSystem struct {
+	WriteFileFunc  func(filename string, data []byte, perm os.FileMode) error
+	ReadFileFunc   func(filename string) ([]byte, error)
+	StatFileFunc   func(name string) (os.FileInfo, error)
+	IsNotExistFunc func(err error) bool
+}
+
+func (m MockFileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return m.WriteFileFunc(filename, data, perm)
+}
+
+func (m MockFileSystem) ReadFile(filename string) ([]byte, error) {
+	return m.ReadFile(filename)
+}
+
+func (m MockFileSystem) Stat(name string) (os.FileInfo, error) {
+	return m.StatFileFunc(name)
+}
+
+func (m MockFileSystem) IsNotExist(err error) bool {
+	return m.IsNotExistFunc(err)
 }

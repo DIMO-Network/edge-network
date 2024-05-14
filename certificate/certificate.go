@@ -34,11 +34,38 @@ import (
 const generateChallenge = "/auth/web3/generate_challenge"
 const submitChallenge = "/auth/web3/submit_challenge"
 const domain = "http://127.0.0.1:10000"
-const certificatePath = "/opt/autopi/client.pem"
+const CertPath = "/opt/autopi/client.crt"
+const PrivateKeyPath = "/opt/autopi/client.pem"
 
 //go:generate mockgen -source certificate.go -destination mocks/certificate_mock.go
 type Signer interface {
 	Sign(req *api.SignRequest) (*api.SignResponse, error)
+}
+
+// FileSystem Create a FileSystem interface to allow for mocking in tests
+type FileSystem interface {
+	WriteFile(filename string, data []byte, perm os.FileMode) error
+	ReadFile(filename string) ([]byte, error)
+	Stat(name string) (os.FileInfo, error)
+	IsNotExist(err error) bool
+}
+
+type CertFileWriter struct{}
+
+func (r CertFileWriter) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(filename, data, perm)
+}
+
+func (r CertFileWriter) ReadFile(filename string) ([]byte, error) {
+	return os.ReadFile(filename)
+}
+
+func (r CertFileWriter) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
+}
+
+func (r CertFileWriter) IsNotExist(err error) bool {
+	return os.IsNotExist(err)
 }
 
 type Service struct {
@@ -50,9 +77,10 @@ type Service struct {
 	caFingerprint     string
 	certificatePath   string
 	stepCa            Signer
+	fileSys           FileSystem
 }
 
-func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer) *Service {
+func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer, fileSys FileSystem) *Service {
 	// set the auth and ca urls based on the environment
 	var authURL string
 	var caURL string
@@ -80,8 +108,9 @@ func NewCertificateService(logger zerolog.Logger, env gateways.Environment, clie
 		oauthClientSecret: oauthClientSecret,
 		caURL:             caURL,
 		caFingerprint:     caFingerprint,
-		certificatePath:   certificatePath,
+		certificatePath:   CertPath,
 		stepCa:            client,
+		fileSys:           fileSys,
 	}
 }
 
@@ -97,25 +126,20 @@ type TokenResponse struct {
 // CheckCertAndRenewIfExpiresSoon checks if the certificate exists and renews it if it expires in 1 day
 func (cs *Service) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID uuid.UUID) error {
 	// check if the certificate file exists
-	_, err := os.Stat(cs.certificatePath)
-	if os.IsNotExist(err) {
+	_, err := cs.fileSys.Stat(cs.certificatePath)
+	if cs.fileSys.IsNotExist(err) {
+		// TOD add retry
 		cert, err := cs.SignWeb3Certificate(ethAddr.String(), true, unitID)
-
 		if err != nil {
 			return fmt.Errorf("failed to request certificate: %w", err)
 		}
 
-		cs.logger.Info().Msgf("Certificate response: %s", cert)
-		// Save certificate
-		err = os.WriteFile(cs.certificatePath, []byte(cert), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to save certificate: %w", err)
-		}
+		cs.logger.Debug().Msgf("Certificate response: %s", cert)
 		return nil
 	}
 
 	// Read the cert file
-	certPEM, err := os.ReadFile(cs.certificatePath)
+	certPEM, err := cs.fileSys.ReadFile(cs.certificatePath)
 	if err != nil {
 		cs.logger.Warn().Msgf("Failed to read the cert file: %s", err)
 	}
@@ -133,21 +157,16 @@ func (cs *Service) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID
 
 	cs.logger.Info().Msgf("Certificate expires on: %s", cert.NotAfter)
 
-	// Check if the certificate will expire in 1 day
-	if time.Until(cert.NotAfter) <= 24*time.Hour {
+	// Check if the certificate will expire in 7 days
+	if time.Until(cert.NotAfter) <= 7*24*time.Hour {
 		cs.logger.Warn().Msgf("Certificate will expire on: %s. Renewing now...", cert.NotAfter)
+		// TOD add retry
 		cert, err := cs.SignWeb3Certificate(ethAddr.String(), true, unitID)
 
-		cs.logger.Info().Msgf("Certificate response: %s", cert)
 		if err != nil {
-			return fmt.Errorf("failed to renew certificate: %w", err)
+			return fmt.Errorf("failed to request certificate: %w", err)
 		}
-		cs.logger.Info().Msg("Certificate renewed successfully")
-		// Save certificate
-		err = os.WriteFile(cs.certificatePath, []byte(cert), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to save certificate: %w", err)
-		}
+		cs.logger.Debug().Msgf("Certificate response: %s", cert)
 	}
 
 	return nil
@@ -176,17 +195,44 @@ func (cs *Service) SignWeb3Certificate(ethAddress string, confirm bool, unitID u
 		}
 	}
 	// Generate a new sign request with a randomly generated key.
-	req, _, err := createSignRequest(token, ethAddress)
+	req, pk, err := createSignRequest(token, ethAddress)
 	if err != nil {
-		panic(err)
+		return "", errors.Wrap(err, "error creating sign request")
 	}
 
+	// Marshal the private key into PKCS8 format
+	pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(pk)
+	if err != nil {
+		return "", err
+	}
+
+	// Encode the private key into PEM format
+	pemBlock := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: pkcs8Bytes,
+	}
+	pemData := pem.EncodeToMemory(pemBlock)
+
+	// Write the PEM data to a file
+	err = cs.fileSys.WriteFile(PrivateKeyPath, pemData, 0644)
+	if err != nil {
+		return "", err
+	}
+
+	// Sign the certificate request
 	certificate, err := cs.stepCa.Sign(req)
 	if err != nil {
 		return "", err
 	}
 
-	certificatePem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.CaPEM.Raw})
+	certificatePem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.ServerPEM.Raw})
+
+	cs.logger.Debug().Msg("Certificate renewed successfully")
+	// Save certificate
+	err = cs.fileSys.WriteFile(cs.certificatePath, certificatePem, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to save certificate: %w", err)
+	}
 
 	return string(certificatePem), nil
 }
