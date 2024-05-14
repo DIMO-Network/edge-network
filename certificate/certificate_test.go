@@ -106,16 +106,16 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 // helper function to mock Filesystem
 func mockFileSystem() *MockFileSystem {
 	system := MockFileSystem{
-		WriteFileFunc: func(filename string, data []byte, perm os.FileMode) error {
+		WriteFileFunc: func(_ string, _ []byte, _ os.FileMode) error {
 			return nil
 		},
-		ReadFileFunc: func(filename string) ([]byte, error) {
+		ReadFileFunc: func(_ string) ([]byte, error) {
 			return nil, nil
 		},
-		StatFileFunc: func(name string) (os.FileInfo, error) {
+		StatFileFunc: func(_ string) (os.FileInfo, error) {
 			return nil, nil
 		},
-		IsNotExistFunc: func(err error) bool {
+		IsNotExistFunc: func(_ error) bool {
 			return false
 		},
 	}
@@ -211,7 +211,7 @@ func (m MockFileSystem) WriteFile(filename string, data []byte, perm os.FileMode
 }
 
 func (m MockFileSystem) ReadFile(filename string) ([]byte, error) {
-	return m.ReadFile(filename)
+	return m.ReadFileFunc(filename)
 }
 
 func (m MockFileSystem) Stat(name string) (os.FileInfo, error) {
