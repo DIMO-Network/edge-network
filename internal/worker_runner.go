@@ -194,11 +194,16 @@ func (wr *workerRunner) startLocationQuery(modem string) {
 					Value:     location.Nsat,
 				})
 
-				// convert float seconds to int nanoseconds
-				intNanoseconds := int(wr.deviceSettings.LocationFrequencySecs * 1e9)
-				time.Sleep(time.Duration(intNanoseconds))
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "altitude",
+					Value:     location.Altitude,
+				})
 				wr.logger.Debug().Msg("location data sent")
 			}
+			// convert float seconds to int nanoseconds
+			intNanoseconds := int(wr.deviceSettings.LocationFrequencySecs * 1e9)
+			time.Sleep(time.Duration(intNanoseconds))
 		}
 	}()
 }
@@ -231,6 +236,7 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "latitude", location.Latitude)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "hdop", location.Hdop)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "nsat", location.Nsat)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "altitude", location.Altitude)
 	}
 
 	// only update Wi-Fi if no error

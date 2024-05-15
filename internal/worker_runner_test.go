@@ -320,10 +320,9 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			} else if strings.Contains(bodyString, "power.status") {
 				return httpmock.NewStringResponse(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`), nil
-			} else {
-				// If the request body does not match, return an error response
-				return httpmock.NewStringResponse(400, `{"error": "invalid request body"}`), nil
 			}
+			// If the request body does not match, return an error response
+			return httpmock.NewStringResponse(400, `{"error": "invalid request body"}`), nil
 		},
 	)
 
