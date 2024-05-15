@@ -101,8 +101,17 @@ func main() {
 		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
 	}
 
+	//  start mqtt certificate verification routine
+	// TODO uncomment when we take over MQTT connection
+	// cs := certificate.NewCertificateService(logger, env, nil, certificate.CertFileWriter{})
+	// err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
+
+	// if err != nil {
+	//	logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+	//}
+
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, nil)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, true)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	logger = logger.Hook(&internal.LogHook{DataSender: ds})
 
