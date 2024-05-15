@@ -47,7 +47,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
-	interval := 20 * time.Second
+	interval := 10 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
 }
@@ -103,6 +103,12 @@ func (wr *workerRunner) Run() {
 		}
 	}()
 
+	// start the location query if the frequency is set
+	// float e.g. 0.5 would be 2x per second
+	if wr.deviceSettings.LocationFrequencySecs > 0 {
+		wr.startLocationQuery(modem)
+	}
+
 	// Note: this delay required for the tests only, to make sure that queryOBD is executed before nonObd signals
 	time.Sleep(1 * time.Second)
 	for {
@@ -155,6 +161,46 @@ func (wr *workerRunner) Run() {
 			time.Sleep(wr.sendPayloadInterval)
 		}
 	}
+}
+
+func (wr *workerRunner) startLocationQuery(modem string) {
+	go func() {
+		wr.logger.Info().Msgf("Start query location data with every %.2f sec", wr.deviceSettings.LocationFrequencySecs)
+		for {
+			location, locationErr := wr.queryLocation(modem)
+			if locationErr == nil {
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "longitude",
+					Value:     location.Longitude,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "latitude",
+					Value:     location.Latitude,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "hdop",
+					Value:     location.Hdop,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "nsat",
+					Value:     location.Nsat,
+				})
+
+				// convert float seconds to int nanoseconds
+				intNanoseconds := int(wr.deviceSettings.LocationFrequencySecs * 1e9)
+				time.Sleep(time.Duration(intNanoseconds))
+				wr.logger.Debug().Msg("location data sent")
+			}
+		}
+	}()
 }
 
 // Stop is used only for functional tests

@@ -2,8 +2,10 @@ package internal
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 	_ "time"
@@ -270,6 +272,90 @@ func Test_workerRunner_Run(t *testing.T) {
 	wr := createWorkerRunner(ts, ds, ls, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+}
+
+// test for both obd and non-obd and location which executes concurrently
+func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock location data
+	locPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+locPath,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			// Match the request body
+			if strings.Contains(bodyString, "config.get modem") {
+				return httpmock.NewStringResponse(200, `{"response": "ok"}`), nil
+			} else if strings.Contains(bodyString, "ec2x.gnss_location") {
+				return httpmock.NewStringResponse(200, `{"lat": 42.270118333333336 , "lon": -71.50163833333333}`), nil
+			} else if strings.Contains(bodyString, "obd.query") {
+				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+			} else if strings.Contains(bodyString, "power.status") {
+				return httpmock.NewStringResponse(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`), nil
+			} else {
+				// If the request body does not match, return an error response
+				return httpmock.NewStringResponse(400, `{"error": "invalid request body"}`), nil
+			}
+		},
+	)
+
+	expectOnMocks(ts, vl, unitID, ds, 2)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.True(t, len(data.Vehicle.Signals) > 10)
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.True(t, len(data.Vehicle.Signals) > 40, "should have more signals after second data send")
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.Cell)
+		assert.NotNil(t, data.Longitude)
+	}).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	// since location consists from 4 signals, we should have more than 40 signals in the 5 sec interval
+	wr.deviceSettings.LocationFrequencySecs = 0.5
 	wr.stop = make(chan bool)
 
 	// then
