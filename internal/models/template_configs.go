@@ -73,6 +73,7 @@ type TemplateDeviceSettings struct {
 	TemplateName                           string  `json:"template_name"`
 	WakeTriggerVoltageLevel                float64 `json:"wake_trigger_voltage_level"`
 	MinVoltageOBDLoggers                   float64 `json:"min_voltage_obd_loggers"`
+	LocationFrequencySecs                  float64 `json:"location_frequency_secs"`
 }
 
 // VINLoggerSettings contains the settings we store locally related to the VIN (last VIN obtained and any other related info)

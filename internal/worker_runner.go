@@ -103,6 +103,13 @@ func (wr *workerRunner) Run() {
 		}
 	}()
 
+	// start the location query if the frequency is set
+	// float e.g. 0.5 would be 2x per second
+	// do not start the location query if the frequency is 0 or sendPayloadInterval (which is 20s)
+	if wr.deviceSettings.LocationFrequencySecs > 0 && wr.deviceSettings.LocationFrequencySecs != wr.sendPayloadInterval.Seconds() {
+		wr.startLocationQuery(modem)
+	}
+
 	// Note: this delay required for the tests only, to make sure that queryOBD is executed before nonObd signals
 	time.Sleep(1 * time.Second)
 	for {
@@ -157,6 +164,51 @@ func (wr *workerRunner) Run() {
 	}
 }
 
+func (wr *workerRunner) startLocationQuery(modem string) {
+	go func() {
+		wr.logger.Info().Msgf("Start query location data with every %.2f sec", wr.deviceSettings.LocationFrequencySecs)
+		for {
+			location, locationErr := wr.queryLocation(modem)
+			if locationErr == nil {
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "longitude",
+					Value:     location.Longitude,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "latitude",
+					Value:     location.Latitude,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "hdop",
+					Value:     location.Hdop,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "nsat",
+					Value:     location.Nsat,
+				})
+
+				wr.signalsQueue.Enqueue(models.SignalData{
+					Timestamp: time.Now().UTC().UnixMilli(),
+					Name:      "altitude",
+					Value:     location.Altitude,
+				})
+				wr.logger.Debug().Msg("location data sent")
+			}
+			// convert float seconds to int nanoseconds
+			intNanoseconds := int(wr.deviceSettings.LocationFrequencySecs * 1e9)
+			time.Sleep(time.Duration(intNanoseconds))
+		}
+	}()
+}
+
 // Stop is used only for functional tests
 func (wr *workerRunner) Stop() {
 	wr.stop <- true
@@ -185,6 +237,7 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "latitude", location.Latitude)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "hdop", location.Hdop)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "nsat", location.Nsat)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "altitude", location.Altitude)
 	}
 
 	// only update Wi-Fi if no error
