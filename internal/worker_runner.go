@@ -47,7 +47,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
-	interval := 10 * time.Second
+	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
 }
@@ -105,7 +105,8 @@ func (wr *workerRunner) Run() {
 
 	// start the location query if the frequency is set
 	// float e.g. 0.5 would be 2x per second
-	if wr.deviceSettings.LocationFrequencySecs > 0 {
+	// do not start the location query if the frequency is 0 or sendPayloadInterval (which is 20s)
+	if wr.deviceSettings.LocationFrequencySecs > 0 && wr.deviceSettings.LocationFrequencySecs != wr.sendPayloadInterval.Seconds() {
 		wr.startLocationQuery(modem)
 	}
 
