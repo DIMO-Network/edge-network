@@ -22,7 +22,7 @@ type IdentityAPI interface {
 type identityAPIService struct {
 	httpClient shared.HTTPClientWrapper
 	logger     zerolog.Logger
-	apiUrl     string
+	apiURL     string
 }
 
 func NewIdentityAPIService(logger zerolog.Logger, config config.Config) IdentityAPI {
@@ -33,7 +33,7 @@ func NewIdentityAPIService(logger zerolog.Logger, config config.Config) Identity
 	return &identityAPIService{
 		httpClient: hcw,
 		logger:     logger,
-		apiUrl:     config.Services.Identity.Host,
+		apiURL:     config.Services.Identity.Host,
 	}
 }
 
@@ -64,11 +64,11 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 	}
 
 	// POST request
-	res, err := i.httpClient.ExecuteRequest(i.apiUrl, "POST", payloadBytes)
+	res, err := i.httpClient.ExecuteRequest(i.apiURL, "POST", payloadBytes)
 	if err != nil {
 		i.logger.Err(err).Send()
 		if _, ok := err.(shared.HTTPResponseError); !ok {
-			return nil, errors.Wrapf(err, "error calling identity api to get vehicles definition from url %s", i.apiUrl)
+			return nil, errors.Wrapf(err, "error calling identity api to get vehicles definition from url %s", i.apiURL)
 		}
 	}
 	defer res.Body.Close() // nolint
@@ -82,7 +82,7 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error get vehicles definition from url %s", i.apiUrl)
+		return nil, errors.Wrapf(err, "error get vehicles definition from url %s", i.apiURL)
 	}
 
 	var vehicleResponse struct {

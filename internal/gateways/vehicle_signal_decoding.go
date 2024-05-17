@@ -32,7 +32,7 @@ type VehicleSignalDecoding interface {
 
 type vehicleSignalDecodingAPIService struct {
 	httpClient shared.HTTPClientWrapper
-	apiUrl     string
+	apiURL     string
 }
 
 // Environment define the environment type
@@ -53,7 +53,7 @@ func NewVehicleSignalDecodingAPIService(conf config.Config) VehicleSignalDecodin
 
 	return &vehicleSignalDecodingAPIService{
 		httpClient: hcw,
-		apiUrl:     conf.Services.Vehicle.Host,
+		apiURL:     conf.Services.Vehicle.Host,
 	}
 }
 
@@ -89,7 +89,7 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplateP
 // todo add method to get DBC's and device settings
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.TemplateURLs, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", v.apiUrl, vin), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", v.apiURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
@@ -118,7 +118,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.Temp
 }
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", v.apiUrl, ethAddr), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", v.apiURL, ethAddr), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by eth addr %s", ethAddr)

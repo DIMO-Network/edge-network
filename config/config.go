@@ -44,7 +44,7 @@ type Services struct {
 
 type Auth struct {
 	Host          string `yaml:"host"`
-	ClientId      string `yaml:"clientId"`
+	ClientID      string `yaml:"clientId"`
 	ClientSecret  string `yaml:"clientSecret"`
 	CaFingerprint string `yaml:"caFingerprint"`
 }

@@ -84,7 +84,7 @@ func NewCertificateService(logger zerolog.Logger, conf config.Config, client Sig
 	return &Service{
 		logger:            logger,
 		oauthURL:          conf.Services.Auth.Host,
-		oauthClientID:     conf.Services.Auth.ClientId,
+		oauthClientID:     conf.Services.Auth.ClientID,
 		oauthClientSecret: conf.Services.Auth.ClientSecret,
 		caURL:             conf.Services.Ca.Host,
 		caFingerprint:     conf.Services.Auth.CaFingerprint,
