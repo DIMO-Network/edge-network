@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/certificate"
+	"github.com/DIMO-Network/edge-network/config"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -35,10 +37,6 @@ import (
 // it is the responsibility of the DataSender to determine what topic to use
 const fingerprintTopic = "fingerprint"
 const canDumpTopic = "protocol/canbus/dump"
-const deviceStatusTopic = "status"
-const deviceNetworkTopic = "network"
-const deviceLogsTopic = "logs"        // used for observability
-const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
@@ -63,17 +61,19 @@ type dataSender struct {
 	ethAddr     common.Address
 	logger      zerolog.Logger
 	vehicleInfo *models.VehicleInfo
+	mqtt        config.Mqtt
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, defaultClient bool) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, conf config.Config) DataSender {
 	// Setup mqtt connection. Does not connect
-	var client mqtt.Client
-	if defaultClient {
-		opts := mqtt.NewClientOptions()
-		opts.AddBroker(broker)
-		client = mqtt.NewClient(opts)
-	} else {
+	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
+
+	// Create MQTT client options
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(conf.Mqtt.Broker.Host + ":" + strconv.Itoa(conf.Mqtt.Broker.Port))
+
+	if isSecureConn {
 		// Load CA certificate
 		caCert, err := os.ReadFile("/opt/autopi/root_cert_bundle.crt")
 		if err != nil {
@@ -94,17 +94,13 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 			Certificates: []tls.Certificate{cert},
 		}
 
-		// Create MQTT client options
-		opts := mqtt.NewClientOptions()
-		// TODO change to production broker based on env
-		opts.AddBroker("ssl://stream.dev.dimo.zone:8884")
+		// Create MQTT client options with TLS configuration
 		opts.SetTLSConfig(tlsConfig)
-
-		// Create and start a client
-		client = mqtt.NewClient(opts)
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			logger.Error().Err(err).Msg("failed to connect to mqtt broker")
-		}
+	}
+	// Create and start a client
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		logger.Error().Err(token.Error()).Msg("failed to connect to mqtt broker")
 	}
 
 	return &dataSender{
@@ -113,6 +109,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		ethAddr:     addr,
 		logger:      logger,
 		vehicleInfo: vehicleInfo,
+		mqtt:        conf.Mqtt,
 	}
 }
 
@@ -162,7 +159,7 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceStatusTopic, payload, true)
+	err = ds.sendPayload(ds.mqtt.Topics.Status, payload, true)
 	if err != nil {
 		return err
 	}
@@ -184,7 +181,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceNetworkTopic, payload, true)
+	err = ds.sendPayload(ds.mqtt.Topics.Network, payload, true)
 	if err != nil {
 		return err
 	}
@@ -234,7 +231,7 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceLogsTopic, payload, true)
+	err = ds.sendPayload(ds.mqtt.Topics.Logs, payload, true)
 	if err != nil {
 		return err
 	}

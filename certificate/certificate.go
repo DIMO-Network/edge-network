@@ -12,7 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/commands"
-	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/DIMO-Network/edge-network/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
@@ -80,37 +80,18 @@ type Service struct {
 	fileSys           FileSystem
 }
 
-func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer, fileSys FileSystem) *Service {
-	// set the auth and ca urls based on the environment
-	var authURL string
-	var caURL string
-	var oauthClientID string
-	var oauthClientSecret string
-	var caFingerprint string
-	if env == gateways.Development {
-		authURL = "https://auth.dev.dimo.zone"
-		caURL = "https://ca.dev.dimo.zone"
-		oauthClientID = "step-ca"
-		oauthClientSecret = "KsQ7pruHob6D3NLFQEg9"
-		caFingerprint = "a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f"
-	} else {
-		authURL = "https://auth.dimo.zone"
-		caURL = "https://ca.dimo.zone"
-		oauthClientID = "step-ca"
-		oauthClientSecret = "mkoLsNAfiG2DM2DfqYsX"
-		caFingerprint = "9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed"
-	}
-
+func NewCertificateService(logger zerolog.Logger, conf config.Config, client Signer, fileSys FileSystem) *Service {
 	return &Service{
 		logger:            logger,
-		oauthURL:          authURL,
-		oauthClientID:     oauthClientID,
-		oauthClientSecret: oauthClientSecret,
-		caURL:             caURL,
-		caFingerprint:     caFingerprint,
+		oauthURL:          conf.Services.Auth.Host,
+		oauthClientID:     conf.Services.Auth.ClientId,
+		oauthClientSecret: conf.Services.Auth.ClientSecret,
+		caURL:             conf.Services.Ca.Host,
+		caFingerprint:     conf.Services.Auth.CaFingerprint,
 		certificatePath:   CertPath,
-		stepCa:            client,
-		fileSys:           fileSys,
+		// the below are needed mostly for the testing
+		stepCa:  client,
+		fileSys: fileSys,
 	}
 }
 

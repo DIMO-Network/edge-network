@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"os"
 	"strconv"
 	"time"
@@ -45,7 +46,7 @@ type PassiveCanDumper struct {
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
 // and also writes to local files. Can frames from memory will be automatically paginated into appropriate
 // qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
-func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
+func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool, config dimoConfig.Config) error {
 	unitID := UnitID.String()
 	ethAddr := EthAddr.String()
 
@@ -86,7 +87,7 @@ func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, Eth
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, log, nil, true)
+		ds := network.NewDataSender(UnitID, EthAddr, log, nil, config)
 		sendErr := ds.SendCanDumpData(models.CanDumpData{
 			CommonData: models.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),

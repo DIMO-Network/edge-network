@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/rs/zerolog"
-
 	"github.com/DIMO-Network/edge-network/commands"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type scanVINCmd struct {
@@ -31,7 +31,7 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&p.send, "send", false, "send result over mqtt to the cloud")
 }
 
-func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	p.logger.Info().Msg("trying to get VIN\n")
 	// this is purposely left un-refactored
 	vl := loggers.NewVINLogger(p.logger)
@@ -39,7 +39,13 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	if err != nil {
 		p.logger.Fatal().Msgf("could not get eth address %s", err.Error())
 	}
-	ds := network.NewDataSender(p.unitID, *addr, p.logger, nil, true)
+	// read config file
+	conf, ok := args[0].(dimoConfig.Config)
+	if !ok {
+		p.logger.Error().Msg("unable to read config file")
+		return subcommands.ExitFailure
+	}
+	ds := network.NewDataSender(p.unitID, *addr, p.logger, nil, conf)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
 		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())

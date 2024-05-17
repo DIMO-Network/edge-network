@@ -1,0 +1,48 @@
+
+dev:
+  mqtt:
+    broker:
+      host: tcp://localhost
+      port: 1883
+      tls:
+        enabled: false
+    topics:
+      status: status
+      network: network
+      logs: logs
+  services:
+    auth:
+      host: https://auth.dev.dimo.zone
+      clientId: step-ca
+      clientSecret: KsQ7pruHob6D3NLFQEg9
+      caFingerprint: a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f
+    ca:
+      host: https://ca.dev.dimo.zone
+    identity:
+      host: https://identity-api.dev.dimo.zone/query
+    vehicle-signal-decoding:
+      host: https://vehicle-signal-decoding.dev.dimo.zone
+
+prod:
+  mqtt:
+    broker:
+      host: tcp://localhost
+      port: 1883
+      tls:
+        enabled: false
+    topics:
+      status: status
+      network: network
+      logs: logs
+  services:
+    auth:
+      host: https://auth.dimo.zone
+      clientId: step-ca
+      clientSecret: mkoLsNAfiG2DM2DfqYsX
+      caFingerprint: 9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed
+    ca:
+      host: https://ca.dimo.zone
+    identity:
+      host: https://identity-api.dimo.zone/query
+    vehicle-signal-decoding:
+      host: https://vehicle-signal-decoding.dimo.zone
