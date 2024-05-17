@@ -12,8 +12,8 @@ services:
   auth:
     host: https://auth.dimo.zone
     clientId: step-ca
-    clientSecret: mkoLsNAfiG2DM2DfqYsX
-    caFingerprint: 9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed
+    clientSecret: replace-me
+    caFingerprint: replace-me
   ca:
     host: https://ca.dimo.zone
   identity:

@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// Config represents the configuration for the edge-network
 type Config struct {
 	Mqtt     Mqtt     `yaml:"mqtt"`
 	Services Services `yaml:"services"`

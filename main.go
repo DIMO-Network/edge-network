@@ -69,21 +69,20 @@ func main() {
 
 	// define environment
 	var env gateways.Environment
-	var file string
+	var confFileName string
 	if ENV == "prod" {
 		env = gateways.Production
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		file = "config.yaml"
+		confFileName = "config.yaml"
 	} else {
 		env = gateways.Development
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		file = "config-dev.yaml"
+		confFileName = "config-dev.yaml"
 	}
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig(configFiles, file)
+	config, confErr := dimoConfig.ReadConfig(configFiles, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
-	// todo print config to logs
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")
 	}
