@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"io"
 	"net/http"
 	"os"
@@ -76,6 +77,11 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 
 	mockClient := mock_network.NewMockClient(mockCtrl)
+
+	config, confErr := dimoConfig.ReadConfigFromPath("../../config-dev.yaml")
+	if confErr != nil {
+		testLogger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
 	ds := &dataSender{
 		client:  mockClient,
 		unitID:  uuid.New(),
@@ -89,6 +95,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 				Year:  2022,
 			},
 		},
+		mqtt: config.Mqtt,
 	}
 	deviceStatusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
