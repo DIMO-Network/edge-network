@@ -1,8 +1,11 @@
 package config
 
 import (
+	"embed"
 	"fmt"
-	"github.com/spf13/viper"
+	"github.com/DIMO-Network/shared"
+	"io/fs"
+	"os"
 )
 
 type Config struct {
@@ -57,26 +60,30 @@ type Vehicle struct {
 	Host string `yaml:"host"`
 }
 
-// edge-network binary without viper lib is ~ 8.1 Mb
-// with viper lib - ~ 8.3 Mb
-// todo consider to remove viper lib and use yaml.Unmarshal
-func ReadConfig(profile string, confPath string) (*Config, error) {
-	// read config file
-
-	// shared repo/ loadConfig yaml// we need optimize binary size
-	viper.SetConfigName("config") // name of config file (without extension)
-	viper.AddConfigPath(confPath) // path to look for the config file in
-
-	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil {             // Handle errors reading the config file
-		return nil, fmt.Errorf("Fatal error config file: %s \n", err)
+// ReadConfig reads the config file from the given path
+func ReadConfig(configFiles embed.FS, configFileName string) (*Config, error) {
+	// read config file from embed.FS
+	data, err := fs.ReadFile(configFiles, configFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Unmarshal the configuration into the Config struct
-	var config Config
-	err = viper.UnmarshalKey(profile, &config)
+	filePathOnDisk := "/opt/autopi/config.yaml"
+	err = os.WriteFile(filePathOnDisk, data, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to decode into struct, %v", err)
+		return nil, fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return ReadConfigFromPath(filePathOnDisk)
+}
+
+// ReadConfigFromPath ReadConfig reads the config file from the given path
+func ReadConfigFromPath(filePath string) (*Config, error) {
+	// read config file
+	config, err := shared.LoadConfig[Config](filePath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 	return &config, nil
 }

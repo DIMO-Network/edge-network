@@ -11,7 +11,6 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-	"io/fs"
 	"os"
 	"os/signal"
 	"strings"
@@ -39,8 +38,8 @@ var name string
 
 var btManager btmgmt.BtMgmt
 
-//go:embed config.yaml
-var embeddedFiles embed.FS
+//go:embed config.yaml config-dev.yaml
+var configFiles embed.FS
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().
@@ -70,26 +69,19 @@ func main() {
 
 	// define environment
 	var env gateways.Environment
+	var file string
 	if ENV == "prod" {
 		env = gateways.Production
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		file = "config.yaml"
 	} else {
 		env = gateways.Development
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		file = "config-dev.yaml"
 	}
 
 	// read config file
-	data, err := fs.ReadFile(embeddedFiles, "config.yaml")
-	if err != nil {
-		logger.Fatal().Err(err).Msg("unable to read embedded config file")
-	}
-
-	err = os.WriteFile("/opt/autopi/config.yaml", data, 0644)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("unable to write config file")
-	}
-
-	config, confErr := dimoConfig.ReadConfig(ENV, "/opt/autopi/")
+	config, confErr := dimoConfig.ReadConfig(configFiles, file)
 	logger.Debug().Msgf("Config: %+v\n", config)
 	// todo print config to logs
 	if confErr != nil {

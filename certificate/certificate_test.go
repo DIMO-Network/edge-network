@@ -39,7 +39,7 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 		Logger()
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig("dev", "../.")
+	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")
 	}
@@ -84,7 +84,7 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 		Logger()
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig("dev", "../.")
+	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")
 	}
