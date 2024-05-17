@@ -124,7 +124,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "1.0", "zone.dimo.aftermarket.device.fingerprint")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "zone.dimo.aftermarket.device.fingerprint")
 	ce := models.DeviceFingerprintCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -144,7 +144,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 }
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
-	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "1.0", "com.dimo.device.status")
+	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "com.dimo.device.status.v2")
 	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -174,7 +174,7 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "2.0", "com.dimo.device.network")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "com.dimo.device.network")
 	ce := models.DeviceDataNetworkCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -195,7 +195,7 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "1.0", "zone.dimo.aftermarket.canbus.dump")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "zone.dimo.aftermarket.canbus.dump")
 	ce := models.CanDumpCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -224,7 +224,7 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		data.Device.UnitID = ds.unitID.String()
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "1.0", "zone.dimo.aftermarket.device.logs")
+	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "zone.dimo.aftermarket.device.logs")
 	ce := models.DeviceErrorsCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
@@ -343,11 +343,11 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	return ds.SendLogsData(data)
 }
 
-func newCloudEventHeaders(ethAddress common.Address, source string, specVersion string, eventType string) models.CloudEventHeaders {
+func newCloudEventHeaders(ethAddress common.Address, source string, eventType string) models.CloudEventHeaders {
 	ce := models.CloudEventHeaders{
 		ID:          ksuid.New().String(),
 		Source:      source,
-		SpecVersion: specVersion,
+		SpecVersion: "1.0",
 		Subject:     ethAddress.Hex(),
 		Time:        time.Now().UTC(),
 		Type:        eventType,
