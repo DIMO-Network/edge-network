@@ -144,8 +144,7 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 }
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
-	// todo validate what source should be here
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/status", "2.0", "com.dimo.device.status")
+	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "1.0", "com.dimo.device.status")
 	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
