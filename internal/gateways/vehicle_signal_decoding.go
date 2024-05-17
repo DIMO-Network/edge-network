@@ -53,7 +53,7 @@ func NewVehicleSignalDecodingAPIService(conf config.Config) VehicleSignalDecodin
 
 	return &vehicleSignalDecodingAPIService{
 		httpClient: hcw,
-		apiUrl:     conf.Services.VehicleSignalDecoding.Host,
+		apiUrl:     conf.Services.Vehicle.Host,
 	}
 }
 

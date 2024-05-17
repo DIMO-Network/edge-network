@@ -20,7 +20,7 @@ dev:
       host: https://ca.dev.dimo.zone
     identity:
       host: https://identity-api.dev.dimo.zone/query
-    vehicle-signal-decoding:
+    vehicle:
       host: https://vehicle-signal-decoding.dev.dimo.zone
 
 prod:
@@ -44,5 +44,5 @@ prod:
       host: https://ca.dimo.zone
     identity:
       host: https://identity-api.dimo.zone/query
-    vehicle-signal-decoding:
+    vehicle:
       host: https://vehicle-signal-decoding.dimo.zone

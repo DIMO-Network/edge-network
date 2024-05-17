@@ -32,10 +32,10 @@ type Topics struct {
 }
 
 type Services struct {
-	Auth                  Auth                  `yaml:"auth"`
-	Ca                    Ca                    `yaml:"ca"`
-	Identity              Identity              `yaml:"identity"`
-	VehicleSignalDecoding VehicleSignalDecoding `yaml:"vehicle-signal-decoding"`
+	Auth     Auth     `yaml:"auth"`
+	Ca       Ca       `yaml:"ca"`
+	Identity Identity `yaml:"identity"`
+	Vehicle  Vehicle  `yaml:"vehicle"`
 }
 
 type Auth struct {
@@ -53,12 +53,17 @@ type Identity struct {
 	Host string `yaml:"host"`
 }
 
-type VehicleSignalDecoding struct {
+type Vehicle struct {
 	Host string `yaml:"host"`
 }
 
+// edge-network binary without viper lib is ~ 8.1 Mb
+// with viper lib - ~ 8.3 Mb
+// todo consider to remove viper lib and use yaml.Unmarshal
 func ReadConfig(profile string, confPath string) (*Config, error) {
 	// read config file
+
+	// shared repo/ loadConfig yaml// we need optimize binary size
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.AddConfigPath(confPath) // path to look for the config file in
 
