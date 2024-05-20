@@ -30,9 +30,10 @@ type TLS struct {
 }
 
 type Topics struct {
-	Status  string `yaml:"status"`
-	Network string `yaml:"network"`
-	Logs    string `yaml:"logs"`
+	Status      string `yaml:"status"`
+	Network     string `yaml:"network"`
+	Logs        string `yaml:"logs"`
+	Fingerprint string `yaml:"fingerprint"`
 }
 
 type Services struct {
@@ -43,14 +44,18 @@ type Services struct {
 }
 
 type Auth struct {
-	Host          string `yaml:"host"`
-	ClientID      string `yaml:"clientId"`
-	ClientSecret  string `yaml:"clientSecret"`
-	CaFingerprint string `yaml:"caFingerprint"`
+	Host                 string `yaml:"host"`
+	ClientID             string `yaml:"clientId"`
+	ClientSecret         string `yaml:"clientSecret"`
+	CaFingerprint        string `yaml:"caFingerprint"`
+	GenerateChallengeURI string `yaml:"generateChallengeURI"`
+	SubmitChallengeURI   string `yaml:"submitChallengeURI"`
 }
 
 type Ca struct {
-	Host string `yaml:"host"`
+	Host           string `yaml:"host"`
+	CertPath       string `yaml:"certPath"`
+	PrivateKeyPath string `yaml:"privateKeyPath"`
 }
 
 type Identity struct {

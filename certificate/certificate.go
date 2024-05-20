@@ -31,11 +31,7 @@ import (
 	"time"
 )
 
-const generateChallenge = "/auth/web3/generate_challenge"
-const submitChallenge = "/auth/web3/submit_challenge"
 const domain = "http://127.0.0.1:10000"
-const CertPath = "/opt/autopi/client.crt"
-const PrivateKeyPath = "/opt/autopi/client.pem"
 
 //go:generate mockgen -source certificate.go -destination mocks/certificate_mock.go
 type Signer interface {
@@ -69,26 +65,32 @@ func (r CertFileWriter) IsNotExist(err error) bool {
 }
 
 type Service struct {
-	logger            zerolog.Logger
-	oauthURL          string
-	oauthClientID     string
-	oauthClientSecret string
-	caURL             string
-	caFingerprint     string
-	certificatePath   string
-	stepCa            Signer
-	fileSys           FileSystem
+	logger               zerolog.Logger
+	oauthURL             string
+	oauthClientID        string
+	oauthClientSecret    string
+	caURL                string
+	caFingerprint        string
+	certificatePath      string
+	privateKeyPath       string
+	generateChallengeURI string
+	submitChallengeURI   string
+	stepCa               Signer
+	fileSys              FileSystem
 }
 
 func NewCertificateService(logger zerolog.Logger, conf config.Config, client Signer, fileSys FileSystem) *Service {
 	return &Service{
-		logger:            logger,
-		oauthURL:          conf.Services.Auth.Host,
-		oauthClientID:     conf.Services.Auth.ClientID,
-		oauthClientSecret: conf.Services.Auth.ClientSecret,
-		caURL:             conf.Services.Ca.Host,
-		caFingerprint:     conf.Services.Auth.CaFingerprint,
-		certificatePath:   CertPath,
+		logger:               logger,
+		oauthURL:             conf.Services.Auth.Host,
+		oauthClientID:        conf.Services.Auth.ClientID,
+		oauthClientSecret:    conf.Services.Auth.ClientSecret,
+		caURL:                conf.Services.Ca.Host,
+		caFingerprint:        conf.Services.Auth.CaFingerprint,
+		certificatePath:      conf.Services.Ca.CertPath,
+		privateKeyPath:       conf.Services.Ca.PrivateKeyPath,
+		generateChallengeURI: conf.Services.Auth.GenerateChallengeURI,
+		submitChallengeURI:   conf.Services.Auth.SubmitChallengeURI,
 		// the below are needed mostly for the testing
 		stepCa:  client,
 		fileSys: fileSys,
@@ -195,7 +197,7 @@ func (cs *Service) SignWeb3Certificate(ethAddress string, confirm bool, unitID u
 	pemData := pem.EncodeToMemory(pemBlock)
 
 	// Write the PEM data to a file
-	err = cs.fileSys.WriteFile(PrivateKeyPath, pemData, 0644)
+	err = cs.fileSys.WriteFile(cs.privateKeyPath, pemData, 0644)
 	if err != nil {
 		return "", err
 	}
@@ -228,9 +230,9 @@ func (cs *Service) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, e
 	initParams.Set("scope", "openid email")
 	initParams.Set("address", ethAddress)
 
-	resp, err := http.PostForm(cs.oauthURL+generateChallenge, initParams)
+	resp, err := http.PostForm(cs.oauthURL+cs.generateChallengeURI, initParams)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error requesting challenge from oauth server: %+v\n", initParams))
 	}
 	defer resp.Body.Close()
 
@@ -264,21 +266,21 @@ func (cs *Service) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, e
 	submitParams.Set("signature", signedChallenge)
 	submitParams.Set("client_secret", cs.oauthClientSecret)
 
-	resp, err = http.Post(cs.oauthURL+submitChallenge, "application/x-www-form-urlencoded", strings.NewReader(submitParams.Encode()))
+	resp, err = http.Post(cs.oauthURL+cs.submitChallengeURI, "application/x-www-form-urlencoded", strings.NewReader(submitParams.Encode()))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error submit challenge to oauth server: %+v\n", submitParams))
 	}
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error reading response body: %+v\n", resp.Body))
 	}
 
 	// Extract 'access_token' from the response body
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error unmarshalling response body: %s\n", body))
 	}
 
 	return tokenResp.AccessToken, nil
