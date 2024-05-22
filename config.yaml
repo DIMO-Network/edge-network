@@ -8,6 +8,7 @@ mqtt:
     status: status
     network: network
     logs: logs
+    fingerprint: fingerprint
 services:
   auth:
     host: https://auth.dimo.zone

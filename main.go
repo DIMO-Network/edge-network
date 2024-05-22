@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/certificate"
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -116,13 +117,12 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	// TODO uncomment when we take over MQTT connection
-	// cs := certificate.NewCertificateService(logger, env, nil, certificate.CertFileWriter{})
-	// err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
+	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
+	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
-	// if err != nil {
-	//	logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
-	//}
+	if err != nil {
+		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+	}
 
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, *config)
