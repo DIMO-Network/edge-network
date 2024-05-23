@@ -99,7 +99,7 @@ func main() {
 	if len(os.Args) > 1 {
 		ctx := context.Background()
 		flag.Parse()
-		os.Exit(int(subcommands.Execute(ctx, config)))
+		os.Exit(int(subcommands.Execute(ctx)))
 	}
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
