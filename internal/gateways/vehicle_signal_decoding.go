@@ -3,6 +3,7 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/config"
 	"io"
 	"time"
 
@@ -31,6 +32,7 @@ type VehicleSignalDecoding interface {
 
 type vehicleSignalDecodingAPIService struct {
 	httpClient shared.HTTPClientWrapper
+	apiURL     string
 }
 
 // Environment define the environment type
@@ -45,20 +47,13 @@ func (e Environment) String() string {
 	return [...]string{"development", "prod"}[e]
 }
 
-var VehicleSignalDecodingAPIURL string
-
-func NewVehicleSignalDecodingAPIService(env Environment) VehicleSignalDecoding {
+func NewVehicleSignalDecodingAPIService(conf config.Config) VehicleSignalDecoding {
 	h := map[string]string{}
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, true) // ok to ignore err since only used for tor check
 
-	if env == Development {
-		VehicleSignalDecodingAPIURL = "https://vehicle-signal-decoding.dev.dimo.zone"
-	} else {
-		VehicleSignalDecodingAPIURL = "https://vehicle-signal-decoding.dimo.zone"
-	}
-
 	return &vehicleSignalDecodingAPIService{
 		httpClient: hcw,
+		apiURL:     conf.Services.Vehicle.Host,
 	}
 }
 
@@ -94,7 +89,7 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplateP
 // todo add method to get DBC's and device settings
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.TemplateURLs, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", VehicleSignalDecodingAPIURL, vin), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", v.apiURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by vin %s", vin)
@@ -123,7 +118,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.Temp
 }
 
 func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error) {
-	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", VehicleSignalDecodingAPIURL, ethAddr), "GET", nil)
+	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", v.apiURL, ethAddr), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
 			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get PID configurations by eth addr %s", ethAddr)

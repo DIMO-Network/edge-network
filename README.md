@@ -97,7 +97,7 @@ Change the template on the device to "no loggers" id 117.
 
 ### Deploying binary to device
 
-- build binary use command at beginning - targeting linux: `GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network`
+- build binary use command at beginning - targeting linux: `GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0' -X 'main.ENV=dev'" -o edge-network && upx edge-network`
 - scp edge-network pi@192.168.181.129:~
 - ssh pi@192.168.181.129
 - sudo systemctl stop edge-network

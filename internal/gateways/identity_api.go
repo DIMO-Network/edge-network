@@ -3,6 +3,7 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/config"
 	"io"
 	"time"
 
@@ -21,24 +22,18 @@ type IdentityAPI interface {
 type identityAPIService struct {
 	httpClient shared.HTTPClientWrapper
 	logger     zerolog.Logger
+	apiURL     string
 }
 
-var IdentityAPIURL string
-
-func NewIdentityAPIService(logger zerolog.Logger, env Environment) IdentityAPI {
+func NewIdentityAPIService(logger zerolog.Logger, config config.Config) IdentityAPI {
 	h := map[string]string{}
 	h["Content-Type"] = "application/json"
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, false) // ok to ignore err since only used for tor check
 
-	if env == Development {
-		IdentityAPIURL = "https://identity-api.dev.dimo.zone/query"
-	} else {
-		IdentityAPIURL = "https://identity-api.dimo.zone/query"
-	}
-
 	return &identityAPIService{
 		httpClient: hcw,
 		logger:     logger,
+		apiURL:     config.Services.Identity.Host,
 	}
 }
 
@@ -69,11 +64,11 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 	}
 
 	// POST request
-	res, err := i.httpClient.ExecuteRequest(IdentityAPIURL, "POST", payloadBytes)
+	res, err := i.httpClient.ExecuteRequest(i.apiURL, "POST", payloadBytes)
 	if err != nil {
 		i.logger.Err(err).Send()
 		if _, ok := err.(shared.HTTPResponseError); !ok {
-			return nil, errors.Wrapf(err, "error calling identity api to get vehicles definition from url %s", IdentityAPIURL)
+			return nil, errors.Wrapf(err, "error calling identity api to get vehicles definition from url %s", i.apiURL)
 		}
 	}
 	defer res.Body.Close() // nolint
@@ -87,7 +82,7 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error get vehicles definition from url %s", IdentityAPIURL)
+		return nil, errors.Wrapf(err, "error get vehicles definition from url %s", i.apiURL)
 	}
 
 	var vehicleResponse struct {

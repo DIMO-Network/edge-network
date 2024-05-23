@@ -9,8 +9,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/certificate"
+	"github.com/DIMO-Network/edge-network/config"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -30,15 +32,8 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// thought: should we have a different topic for errors? eg. signals we could not get, failed fingerprinting
-
 // it is the responsibility of the DataSender to determine what topic to use
-const fingerprintTopic = "fingerprint"
 const canDumpTopic = "protocol/canbus/dump"
-const deviceStatusTopic = "status"
-const deviceNetworkTopic = "network"
-const deviceLogsTopic = "logs"        // used for observability
-const broker = "tcp://localhost:1883" // local mqtt broker address
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
@@ -63,17 +58,19 @@ type dataSender struct {
 	ethAddr     common.Address
 	logger      zerolog.Logger
 	vehicleInfo *models.VehicleInfo
+	mqtt        config.Mqtt
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, defaultClient bool) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, conf config.Config) DataSender {
 	// Setup mqtt connection. Does not connect
-	var client mqtt.Client
-	if defaultClient {
-		opts := mqtt.NewClientOptions()
-		opts.AddBroker(broker)
-		client = mqtt.NewClient(opts)
-	} else {
+	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
+
+	// Create MQTT client options
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(conf.Mqtt.Broker.Host + ":" + strconv.Itoa(conf.Mqtt.Broker.Port))
+
+	if isSecureConn {
 		// Load CA certificate
 		caCert, err := os.ReadFile("/opt/autopi/root_cert_bundle.crt")
 		if err != nil {
@@ -83,7 +80,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		caCertPool.AppendCertsFromPEM(caCert)
 
 		// Load client certificate and private key
-		cert, err := tls.LoadX509KeyPair(certificate.CertPath, certificate.PrivateKeyPath)
+		cert, err := tls.LoadX509KeyPair(conf.Services.Ca.CertPath, conf.Services.Ca.PrivateKeyPath)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to load client certificate and private key")
 		}
@@ -94,17 +91,13 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 			Certificates: []tls.Certificate{cert},
 		}
 
-		// Create MQTT client options
-		opts := mqtt.NewClientOptions()
-		// TODO change to production broker based on env
-		opts.AddBroker("ssl://stream.dev.dimo.zone:8884")
+		// Create MQTT client options with TLS configuration
 		opts.SetTLSConfig(tlsConfig)
-
-		// Create and start a client
-		client = mqtt.NewClient(opts)
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			logger.Error().Err(err).Msg("failed to connect to mqtt broker")
-		}
+	}
+	// Create and start a client
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		logger.Error().Err(token.Error()).Msg("failed to connect to mqtt broker")
 	}
 
 	return &dataSender{
@@ -113,6 +106,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 		ethAddr:     addr,
 		logger:      logger,
 		vehicleInfo: vehicleInfo,
+		mqtt:        conf.Mqtt,
 	}
 }
 
@@ -135,7 +129,13 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(fingerprintTopic, payload, false)
+	fingerprint := ds.mqtt.Topics.Fingerprint
+	// if the fingerprint topic has a %s in it, replace it with the subject
+	// this is needed for backwards compatibility with the old topic format serving by mosquito
+	if strings.Contains(fingerprint, "%s") {
+		fingerprint = fmt.Sprintf(fingerprint, ceh.Subject)
+	}
+	err = ds.sendPayload(fingerprint, payload, false)
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("failed send payload")
 		return err
@@ -162,7 +162,14 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceStatusTopic, payload, true)
+	status := ds.mqtt.Topics.Status
+	// if the status topic has a %s in it, replace it with the subject
+	// this is needed for backwards compatibility with the old topic format serving by mosquito
+	if strings.Contains(status, "%s") {
+		status = fmt.Sprintf(status, ceh.Subject)
+	}
+
+	err = ds.sendPayload(status, payload, true)
 	if err != nil {
 		return err
 	}
@@ -184,7 +191,13 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceNetworkTopic, payload, true)
+	network := ds.mqtt.Topics.Network
+	// if the network topic has a %s in it, replace it with the subject
+	// this is needed for backwards compatibility with the old topic format serving by mosquito
+	if strings.Contains(network, "%s") {
+		network = fmt.Sprintf(network, ceh.Subject)
+	}
+	err = ds.sendPayload(network, payload, true)
 	if err != nil {
 		return err
 	}
@@ -234,7 +247,13 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(deviceLogsTopic, payload, true)
+	logs := ds.mqtt.Topics.Logs
+	// if the network topic has a %s in it, replace it with the subject
+	// this is needed for backwards compatibility with the old topic format serving by mosquito
+	if strings.Contains(logs, "%s") {
+		logs = fmt.Sprintf(logs, ceh.Subject)
+	}
+	err = ds.sendPayload(logs, payload, true)
 	if err != nil {
 		return err
 	}

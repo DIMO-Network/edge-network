@@ -12,7 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/DIMO-Network/edge-network/commands"
-	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/DIMO-Network/edge-network/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
@@ -31,11 +31,7 @@ import (
 	"time"
 )
 
-const generateChallenge = "/auth/web3/generate_challenge"
-const submitChallenge = "/auth/web3/submit_challenge"
 const domain = "http://127.0.0.1:10000"
-const CertPath = "/opt/autopi/client.crt"
-const PrivateKeyPath = "/opt/autopi/client.pem"
 
 //go:generate mockgen -source certificate.go -destination mocks/certificate_mock.go
 type Signer interface {
@@ -69,48 +65,35 @@ func (r CertFileWriter) IsNotExist(err error) bool {
 }
 
 type Service struct {
-	logger            zerolog.Logger
-	oauthURL          string
-	oauthClientID     string
-	oauthClientSecret string
-	caURL             string
-	caFingerprint     string
-	certificatePath   string
-	stepCa            Signer
-	fileSys           FileSystem
+	logger               zerolog.Logger
+	oauthURL             string
+	oauthClientID        string
+	oauthClientSecret    string
+	caURL                string
+	caFingerprint        string
+	certificatePath      string
+	privateKeyPath       string
+	generateChallengeURI string
+	submitChallengeURI   string
+	stepCa               Signer
+	fileSys              FileSystem
 }
 
-func NewCertificateService(logger zerolog.Logger, env gateways.Environment, client Signer, fileSys FileSystem) *Service {
-	// set the auth and ca urls based on the environment
-	var authURL string
-	var caURL string
-	var oauthClientID string
-	var oauthClientSecret string
-	var caFingerprint string
-	if env == gateways.Development {
-		authURL = "https://auth.dev.dimo.zone"
-		caURL = "https://ca.dev.dimo.zone"
-		oauthClientID = "step-ca"
-		oauthClientSecret = "KsQ7pruHob6D3NLFQEg9"
-		caFingerprint = "a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f"
-	} else {
-		authURL = "https://auth.dimo.zone"
-		caURL = "https://ca.dimo.zone"
-		oauthClientID = "step-ca"
-		oauthClientSecret = "mkoLsNAfiG2DM2DfqYsX"
-		caFingerprint = "9992e3ce6a87c5d8dc6a09daddd4365c9e0f50593f3e897dedc1b89c037270ed"
-	}
-
+func NewCertificateService(logger zerolog.Logger, conf config.Config, client Signer, fileSys FileSystem) *Service {
 	return &Service{
-		logger:            logger,
-		oauthURL:          authURL,
-		oauthClientID:     oauthClientID,
-		oauthClientSecret: oauthClientSecret,
-		caURL:             caURL,
-		caFingerprint:     caFingerprint,
-		certificatePath:   CertPath,
-		stepCa:            client,
-		fileSys:           fileSys,
+		logger:               logger,
+		oauthURL:             conf.Services.Auth.Host,
+		oauthClientID:        conf.Services.Auth.ClientID,
+		oauthClientSecret:    conf.Services.Auth.ClientSecret,
+		caURL:                conf.Services.Ca.Host,
+		caFingerprint:        conf.Services.Auth.CaFingerprint,
+		certificatePath:      conf.Services.Ca.CertPath,
+		privateKeyPath:       conf.Services.Ca.PrivateKeyPath,
+		generateChallengeURI: conf.Services.Auth.GenerateChallengeURI,
+		submitChallengeURI:   conf.Services.Auth.SubmitChallengeURI,
+		// the below are needed mostly for the testing
+		stepCa:  client,
+		fileSys: fileSys,
 	}
 }
 
@@ -214,7 +197,7 @@ func (cs *Service) SignWeb3Certificate(ethAddress string, confirm bool, unitID u
 	pemData := pem.EncodeToMemory(pemBlock)
 
 	// Write the PEM data to a file
-	err = cs.fileSys.WriteFile(PrivateKeyPath, pemData, 0644)
+	err = cs.fileSys.WriteFile(cs.privateKeyPath, pemData, 0644)
 	if err != nil {
 		return "", err
 	}
@@ -247,9 +230,9 @@ func (cs *Service) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, e
 	initParams.Set("scope", "openid email")
 	initParams.Set("address", ethAddress)
 
-	resp, err := http.PostForm(cs.oauthURL+generateChallenge, initParams)
+	resp, err := http.PostForm(cs.oauthURL+cs.generateChallengeURI, initParams)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error requesting challenge from oauth server: %+v\n", initParams))
 	}
 	defer resp.Body.Close()
 
@@ -283,21 +266,21 @@ func (cs *Service) GetOauthToken(ethAddress string, unitID uuid.UUID) (string, e
 	submitParams.Set("signature", signedChallenge)
 	submitParams.Set("client_secret", cs.oauthClientSecret)
 
-	resp, err = http.Post(cs.oauthURL+submitChallenge, "application/x-www-form-urlencoded", strings.NewReader(submitParams.Encode()))
+	resp, err = http.Post(cs.oauthURL+cs.submitChallengeURI, "application/x-www-form-urlencoded", strings.NewReader(submitParams.Encode()))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error submit challenge to oauth server: %+v\n", submitParams))
 	}
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error reading response body: %+v\n", resp.Body))
 	}
 
 	// Extract 'access_token' from the response body
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return "", err
+		return "", errors.Wrap(err, fmt.Sprintf("error unmarshalling response body: %s\n", body))
 	}
 
 	return tokenResp.AccessToken, nil

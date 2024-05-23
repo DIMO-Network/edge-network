@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/rs/zerolog"
-
 	"github.com/DIMO-Network/edge-network/commands"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type scanVINCmd struct {
@@ -39,7 +39,13 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	if err != nil {
 		p.logger.Fatal().Msgf("could not get eth address %s", err.Error())
 	}
-	ds := network.NewDataSender(p.unitID, *addr, p.logger, nil, true)
+	// read config file
+	conf, err := dimoConfig.ReadConfigFromPath("/opt/autopi/config.yaml")
+	if err != nil {
+		p.logger.Error().Msg("unable to read config file")
+		return subcommands.ExitFailure
+	}
+	ds := network.NewDataSender(p.unitID, *addr, p.logger, nil, *conf)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
 		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())

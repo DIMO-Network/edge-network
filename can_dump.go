@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
@@ -43,7 +44,7 @@ func (p *canDumpCmd) SetFlags(f *flag.FlagSet) {
 	f.IntVar(&p.chunkSize, "send", 0, "send result over mqtt to the s3 bucket using <chunk_size>")
 }
 
-func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	log := zerolog.New(os.Stdout).With().
 		Timestamp().
 		Str("app", "edge-network").
@@ -76,14 +77,20 @@ func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 		return subcommands.ExitFailure
 	}
 
+	// read config file
+	conf, ok := args[0].(config.Config)
+	if !ok {
+		log.Error().Msg("unable to read config file")
+		return subcommands.ExitFailure
+	}
 	if p.chunkSize > 0 && p.save {
-		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true)
+		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true, conf)
 		if mqttErr != nil {
 			log.Err(mqttErr).Send()
 			return subcommands.ExitFailure
 		}
 	} else if p.chunkSize > 0 {
-		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true)
+		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true, conf)
 		if mqttErr != nil {
 			log.Err(mqttErr).Send()
 			return subcommands.ExitFailure

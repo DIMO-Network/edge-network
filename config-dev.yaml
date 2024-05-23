@@ -1,0 +1,27 @@
+mqtt:
+  broker:
+    host: ssl://stream.dev.dimo.zone
+    port: 8884
+    tls:
+      enabled: true
+  topics:
+    status: devices/%s/status
+    network: devices/%s/network
+    logs: devices/%s/logs
+    fingerprint: devices/%s/fingerprint
+services:
+  auth:
+    host: https://auth.dev.dimo.zone
+    clientId: step-ca
+    clientSecret: replace-me
+    caFingerprint: replace-me
+    generateChallengeURI: /auth/web3/generate_challenge
+    submitChallengeURI: /auth/web3/submit_challenge
+  ca:
+    host: https://ca.dev.dimo.zone
+    certPath: /opt/autopi/client.crt
+    privateKeyPath: /opt/autopi/client.pem
+  identity:
+    host: https://identity-api.dev.dimo.zone/query
+  vehicle:
+    host: https://vehicle-signal-decoding.dev.dimo.zone

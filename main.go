@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/certificate"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
+	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
-
-	"github.com/DIMO-Network/edge-network/internal/gateways"
-	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal"
@@ -36,6 +38,9 @@ var unitID uuid.UUID
 var name string
 
 var btManager btmgmt.BtMgmt
+
+//go:embed config.yaml config-dev.yaml
+var configFiles embed.FS
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().
@@ -63,6 +68,26 @@ func main() {
 		return commands.GetEthereumAddress(unitID)
 	})
 
+	// define environment
+	var env gateways.Environment
+	var confFileName string
+	if ENV == "prod" {
+		env = gateways.Production
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		confFileName = "config.yaml"
+	} else {
+		env = gateways.Development
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		confFileName = "config-dev.yaml"
+	}
+
+	// read config file
+	config, confErr := dimoConfig.ReadConfig(configFiles, confFileName)
+	logger.Debug().Msgf("Config: %+v\n", config)
+	if confErr != nil {
+		logger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
+
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.CommandsCommand(), "")
@@ -79,16 +104,6 @@ func main() {
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
 
-	// define environment
-	var env gateways.Environment
-	if ENV == "prod" {
-		env = gateways.Production
-	} else {
-		env = gateways.Development
-	}
-	// temporary for us, for release want info level - todo make configurable via cli?
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
 	// check if we were able to get ethereum address, otherwise fail fast
@@ -102,16 +117,15 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	// TODO uncomment when we take over MQTT connection
-	// cs := certificate.NewCertificateService(logger, env, nil, certificate.CertFileWriter{})
-	// err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
+	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
+	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
-	// if err != nil {
-	//	logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
-	//}
+	if err != nil {
+		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+	}
 
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, true)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	logger = logger.Hook(&internal.LogHook{DataSender: ds})
 
@@ -146,7 +160,7 @@ func main() {
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
-	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, env)
+	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, *config)
 	if err != nil {
 		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
 	}
@@ -154,7 +168,7 @@ func main() {
 	// OBD / CAN Loggers
 	// set vehicle info here, so we can use it for status messages
 	ds.SetVehicleInfo(vehicleInfo)
-	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(env)
+	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(*config)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the template settings from remote, below method handles all the special logic
@@ -242,8 +256,8 @@ func setupBluez(name string) error {
 }
 
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
-func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, env gateways.Environment) (*models.VehicleInfo, error) {
-	identityAPIService := gateways.NewIdentityAPIService(logger, env)
+func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoConfig.Config) (*models.VehicleInfo, error) {
+	identityAPIService := gateways.NewIdentityAPIService(logger, conf)
 	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
@@ -262,9 +276,9 @@ func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, env gateways
 // If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
 // which would mean no pairing, then check the local cache since this is likely transient error.
 // If the vehicle info is not retrieved within the retries, a timeout error is returned.
-func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, env gateways.Environment) (*models.VehicleInfo, error) {
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	for i := 0; i < 60; i++ {
-		vehicleInfo, err := getVehicleInfo(logger, ethAddr, env)
+		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {
 			// todo future: send each err failure to logs mqtt topic
 			logger.Err(err).Msgf("failed to get vehicle info, will retry again in 60s")

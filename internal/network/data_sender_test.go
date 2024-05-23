@@ -6,9 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,6 +78,11 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 
 	mockClient := mock_network.NewMockClient(mockCtrl)
+
+	config, confErr := dimoConfig.ReadConfigFromPath("../../config-dev.yaml")
+	if confErr != nil {
+		testLogger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
 	ds := &dataSender{
 		client:  mockClient,
 		unitID:  uuid.New(),
@@ -89,6 +96,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 				Year:  2022,
 			},
 		},
+		mqtt: config.Mqtt,
 	}
 	deviceStatusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
@@ -113,7 +121,13 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	mockClient.EXPECT().Connect().Times(1).Return(&mockedToken{})
 	mockClient.EXPECT().IsConnected().Times(1).Return(true)
 	mockClient.EXPECT().Disconnect(gomock.Any())
-	mockClient.EXPECT().Publish("status", uint8(0), false, gomock.Any()).Times(1).Return(&mockedToken{})
+	status := ds.mqtt.Topics.Status
+	// if the status topic has a %s in it, replace it with the subject
+	// this is needed for backwards compatibility with the old topic format serving by mosquito
+	if strings.Contains(status, "%s") {
+		status = fmt.Sprintf(status, ds.ethAddr.Hex())
+	}
+	mockClient.EXPECT().Publish(status, uint8(0), false, gomock.Any()).Times(1).Return(&mockedToken{})
 
 	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,

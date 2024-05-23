@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/gateways"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	"github.com/rs/zerolog"
@@ -28,7 +28,7 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	const etherAddr = "b794f5"
-	var serial uuid.UUID = uuid.New()
+	var serial = uuid.New()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -38,7 +38,12 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	cs := NewCertificateService(logger, gateways.Development, nil, mockFileSystem())
+	// read config file
+	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
+	if confErr != nil {
+		logger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
+	cs := NewCertificateService(logger, *config, nil, mockFileSystem())
 
 	// when
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", serial.String())
@@ -46,10 +51,10 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"value": "0x064493aF03c949d58EE03Df0e771B6Eb19A1018A"}`))
 
 	// Set up the expectation for the PostForm call
-	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/generate_challenge",
+	httpmock.RegisterResponder(http.MethodPost, config.Services.Auth.Host+"/auth/web3/generate_challenge",
 		httpmock.NewStringResponder(200, `{"state": "oae7fkpeyxdatezkac5lzmo2p","challenge": "auth.dimo.zone wants you to sign in with your Ethereum account:\n0x064493aF03c949d58EE03Df0e771B6Eb19A1018A\n\n127.0.0.1 is asking you sign in.\n\nURI: https://auth.dimo.zone\nVersion: 1\nChain ID: 1\nNonce: zrIC3hmEvCsv8exZxjsMBYhEciu7oB\nIssued At: 2024-05-09T16:11:21Z"}`))
 	// set up the expectation for the Post call
-	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/submit_challenge",
+	httpmock.RegisterResponder(http.MethodPost, config.Services.Auth.Host+"/auth/web3/submit_challenge",
 		httpmock.NewStringResponder(200, `{"access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImMzZWVhNzJjNDFjMzJlMjg2YThhZTc3ZmE5OTA1NmQ2YjA3ZjAxMjUifQ.eyJpc3MiOiJodHRwczovL2F1dGguZGV2LmRpbW8uem9uZSIsInByb3ZpZGVyX2lkIjoid2ViMyIsInN1YiI6IkNpb3dlRGs0UkRjNFpEY3hNVU13WldNMU5EUkdObVppTldRMU5HWmpaalkxTlRsRFJqUXhOVFEyWVRrU0JIZGxZak0iLCJhdWQiOiJzdGVwLWNhIiwiZXhwIjoxNzE2NDg5MzgyLCJpYXQiOjE3MTUyNzk3ODIsImF0X2hhc2giOiJNeDNJc3F4T2xYN0w0WVlyMVFsWFN3IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJldGhlcmV1bV9hZGRyZXNzIjoiMHg5OEQ3OGQ3MTFDMGVjNTQ0RjZmYjVkNTRmY2Y2NTU5Q0Y0MTU0NmE5In0.nOgnxTtAHTX-HKaRet1yAKvIC91XehgS33MrdGUAWrdgmDWhfJykevMlnQxolDrykE8-foTDaB-ePpbr1vtcMfQ2cPhGZTJyI0nWEGNUK0qEYO4tMzgBwUGtTL6-CR3q_qTLu7DJ71_znbYxKgzVJHvsOJEju_vDKo9g2gtoaAUqUC_xN12jyhOsjn1ZVBEaXfkduoLtJgB5RdmoD8P-PGArkccBGwSKc6iCO8M2UH901WfdL8Zoh8D1-jqwaq-KdNAvyumj4viWPHys0mAXCnEqgmlfXcBaFSuNhLUck1G7Tjgs6KfYY6QkSGJapCo-RsuI5DD3jWTh396bR6o0iw"}`))
 
 	// then
@@ -78,7 +83,12 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 		Str("app", "edge-network").
 		Logger()
 
-	cs := NewCertificateService(logger, gateways.Development, mockSigner, mockFileSystem())
+	// read config file
+	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
+	if confErr != nil {
+		logger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
+	cs := NewCertificateService(logger, *config, mockSigner, mockFileSystem())
 
 	// when
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw", serial.String())
@@ -89,10 +99,10 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 	cert := generateCert()
 	mockSigner.EXPECT().Sign(gomock.Any()).Return(&api.SignResponse{ServerPEM: api.Certificate{Certificate: cert}}, nil)
 	// Set up the expectation for the PostForm call
-	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/generate_challenge",
+	httpmock.RegisterResponder(http.MethodPost, config.Services.Auth.Host+"/auth/web3/generate_challenge",
 		httpmock.NewStringResponder(200, `{"state": "oae7fkpeyxdatezkac5lzmo2p","challenge": "auth.dimo.zone wants you to sign in with your Ethereum account:\n0x064493aF03c949d58EE03Df0e771B6Eb19A1018A\n\n127.0.0.1 is asking you sign in.\n\nURI: https://auth.dimo.zone\nVersion: 1\nChain ID: 1\nNonce: zrIC3hmEvCsv8exZxjsMBYhEciu7oB\nIssued At: 2024-05-09T16:11:21Z"}`))
 	// set up the expectation for the Post call
-	httpmock.RegisterResponder(http.MethodPost, "https://auth.dev.dimo.zone/auth/web3/submit_challenge",
+	httpmock.RegisterResponder(http.MethodPost, config.Services.Auth.Host+"/auth/web3/submit_challenge",
 		httpmock.NewStringResponder(200, `{"access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImMzZWVhNzJjNDFjMzJlMjg2YThhZTc3ZmE5OTA1NmQ2YjA3ZjAxMjUifQ.eyJpc3MiOiJodHRwczovL2F1dGguZGV2LmRpbW8uem9uZSIsInByb3ZpZGVyX2lkIjoid2ViMyIsInN1YiI6IkNpb3dlRGs0UkRjNFpEY3hNVU13WldNMU5EUkdObVppTldRMU5HWmpaalkxTlRsRFJqUXhOVFEyWVRrU0JIZGxZak0iLCJhdWQiOiJzdGVwLWNhIiwiZXhwIjoxNzE2NDg5MzgyLCJpYXQiOjE3MTUyNzk3ODIsImF0X2hhc2giOiJNeDNJc3F4T2xYN0w0WVlyMVFsWFN3IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJldGhlcmV1bV9hZGRyZXNzIjoiMHg5OEQ3OGQ3MTFDMGVjNTQ0RjZmYjVkNTRmY2Y2NTU5Q0Y0MTU0NmE5In0.nOgnxTtAHTX-HKaRet1yAKvIC91XehgS33MrdGUAWrdgmDWhfJykevMlnQxolDrykE8-foTDaB-ePpbr1vtcMfQ2cPhGZTJyI0nWEGNUK0qEYO4tMzgBwUGtTL6-CR3q_qTLu7DJ71_znbYxKgzVJHvsOJEju_vDKo9g2gtoaAUqUC_xN12jyhOsjn1ZVBEaXfkduoLtJgB5RdmoD8P-PGArkccBGwSKc6iCO8M2UH901WfdL8Zoh8D1-jqwaq-KdNAvyumj4viWPHys0mAXCnEqgmlfXcBaFSuNhLUck1G7Tjgs6KfYY6QkSGJapCo-RsuI5DD3jWTh396bR6o0iw"}`))
 
 	// then
