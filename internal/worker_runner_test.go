@@ -527,9 +527,8 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 			// Match the request body
 			if strings.Contains(bodyString, "obd.query fuellevel") {
 				return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
-			} else {
-				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 		},
 	)
 
