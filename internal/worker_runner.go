@@ -311,7 +311,9 @@ func (wr *workerRunner) queryOBD() {
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
 			// if interval is 0, then we only query once at the device startup
 			if request.IntervalSeconds == 0 {
-				continue
+				if wr.signalsQueue.failureCount[request.Name] == 0 {
+					continue
+				}
 			}
 			if int(time.Since(lastEnqueuedTime).Seconds()) < request.IntervalSeconds {
 				continue
@@ -327,6 +329,7 @@ func (wr *workerRunner) queryOBD() {
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			wr.signalsQueue.IncrementFailureCount(request.Name)
+			wr.signalsQueue.lastTimeChecked[request.Name] = time.Now()
 			// if we failed too many times, we should send an error to the cloud
 			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
@@ -350,6 +353,8 @@ func (wr *workerRunner) queryOBD() {
 			continue
 		}
 
+		// reset the failure count
+		wr.signalsQueue.failureCount[request.Name] = 0
 		wr.signalsQueue.Enqueue(models.SignalData{
 			Timestamp: ts.UnixMilli(),
 			Name:      request.Name,

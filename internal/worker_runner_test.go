@@ -527,6 +527,8 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 			// Match the request body
 			if strings.Contains(bodyString, "obd.query fuellevel") {
 				return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
+			} else if strings.Contains(bodyString, "obd.query foo") {
+				return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
 			}
 			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 		},
@@ -539,6 +541,11 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 		{
 			Name:            "fuellevel",
 			IntervalSeconds: 1,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "foo",
+			IntervalSeconds: 0,
 			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
 		},
 	}
@@ -561,6 +568,103 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 	go wr.Run()
 	time.Sleep(25 * time.Second)
 	assert.Equal(t, 11, wr.signalsQueue.failureCount["fuellevel"])
+	assert.Equal(t, 11, wr.signalsQueue.failureCount["foo"])
+	wr.Stop()
+}
+
+func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock obd resp
+	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	var count int
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			// Match the request body
+			if strings.Contains(bodyString, "obd.query fuellevel") && count < 10 {
+				count++
+				return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
+			} else if strings.Contains(bodyString, "obd.query foo") && count < 10 {
+				count++
+				return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
+			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+		},
+	)
+
+	expectOnMocks(ts, vl, unitID, ds, 2)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 1,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+		{
+			Name:            "foo",
+			IntervalSeconds: 0,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
+
+	// assert data sender is called without fuel level signal
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 7, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 9, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 12, len(data.Vehicle.Signals))
+		found := false
+		for _, signal := range data.Vehicle.Signals {
+			if signal.Name == "foo" {
+				found = true
+				break
+			}
+		}
+		assert.Falsef(t, found, "foo signal should not be present in the signals")
+	}).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(3).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.Cell)
+	}).Return(nil)
+
+	// then the data sender should be called twice
+	go wr.Run()
+	time.Sleep(25 * time.Second)
+	// failure counter should be reset after success query
+	assert.Equal(t, 0, wr.signalsQueue.failureCount["fuellevel"])
+	assert.Equal(t, 0, wr.signalsQueue.failureCount["foo"])
 	wr.Stop()
 }
 
