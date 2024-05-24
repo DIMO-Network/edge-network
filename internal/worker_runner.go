@@ -53,6 +53,9 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
 }
 
+// Max failures allowed for a PID before sending an error to the cloud
+const maxPidFailures = 10
+
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
 // It also has a continuous loop that checks voltage compared to template settings to make sure ok to query OBD.
 // It will query the VIN once on startup and send a fingerprint payload (only once per Run).
@@ -315,7 +318,7 @@ func (wr *workerRunner) queryOBD() {
 			}
 		}
 		// check if we have failed to query this pid too many times
-		if wr.signalsQueue.failureCount[request.Name] > 10 {
+		if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 			continue
 		}
 
@@ -325,9 +328,9 @@ func (wr *workerRunner) queryOBD() {
 			wr.logger.Err(err).Msg("failed to query obd pid")
 			wr.signalsQueue.IncrementFailureCount(request.Name)
 			// if we failed too many times, we should send an error to the cloud
-			if wr.signalsQueue.failureCount[request.Name] > 10 {
-				wr.logger.Warn().Msgf("failed to query pid %s too many times, stopping requesting it", request.Name)
-				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).Msgf("Failed to query obd pid: %s", err)
+			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
+				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+					Msgf("failed to query pid too many times: %+v", request)
 			}
 			continue
 		}
