@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -45,7 +46,7 @@ type workerRunner struct {
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
-	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
+	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
@@ -313,10 +314,21 @@ func (wr *workerRunner) queryOBD() {
 				continue
 			}
 		}
+		// check if we have failed to query this pid too many times
+		if wr.signalsQueue.failureCount[request.Name] > 10 {
+			continue
+		}
+
 		// execute the pid
 		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
+			wr.signalsQueue.IncrementFailureCount(request.Name)
+			// if we failed too many times, we should send an error to the cloud
+			if wr.signalsQueue.failureCount[request.Name] > 10 {
+				wr.logger.Warn().Msgf("failed to query pid %s too many times, stopping requesting it", request.Name)
+				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).Msgf("Failed to query obd pid: %s", err)
+			}
 			continue
 		}
 		// future: new formula type that could work for proprietary PIDs and could support text, int or float
@@ -368,6 +380,7 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 type SignalsQueue struct {
 	signals         []models.SignalData
 	lastTimeChecked map[string]time.Time
+	failureCount    map[string]int
 	sync.RWMutex
 }
 
@@ -393,4 +406,10 @@ func (sq *SignalsQueue) Dequeue() []models.SignalData {
 	// empty the data after dequeue
 	sq.signals = []models.SignalData{}
 	return signals
+}
+
+func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
+	sq.Lock()
+	defer sq.Unlock()
+	sq.failureCount[requestName]++
 }
