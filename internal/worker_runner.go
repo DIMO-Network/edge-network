@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -45,12 +46,15 @@ type workerRunner struct {
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
-	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time)}
+	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
 }
+
+// Max failures allowed for a PID before sending an error to the cloud
+const maxPidFailures = 10
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
 // It also has a continuous loop that checks voltage compared to template settings to make sure ok to query OBD.
@@ -307,16 +311,30 @@ func (wr *workerRunner) queryOBD() {
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
 			// if interval is 0, then we only query once at the device startup
 			if request.IntervalSeconds == 0 {
-				continue
+				if wr.signalsQueue.failureCount[request.Name] == 0 {
+					continue
+				}
 			}
 			if int(time.Since(lastEnqueuedTime).Seconds()) < request.IntervalSeconds {
 				continue
 			}
 		}
+		// check if we have failed to query this pid too many times
+		if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
+			continue
+		}
+
 		// execute the pid
 		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 		if err != nil {
 			wr.logger.Err(err).Msg("failed to query obd pid")
+			wr.signalsQueue.IncrementFailureCount(request.Name)
+			wr.signalsQueue.lastTimeChecked[request.Name] = time.Now()
+			// if we failed too many times, we should send an error to the cloud
+			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
+				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+					Msgf("failed to query pid too many times: %+v", request)
+			}
 			continue
 		}
 		// future: new formula type that could work for proprietary PIDs and could support text, int or float
@@ -335,6 +353,8 @@ func (wr *workerRunner) queryOBD() {
 			continue
 		}
 
+		// reset the failure count
+		wr.signalsQueue.failureCount[request.Name] = 0
 		wr.signalsQueue.Enqueue(models.SignalData{
 			Timestamp: ts.UnixMilli(),
 			Name:      request.Name,
@@ -368,6 +388,7 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 type SignalsQueue struct {
 	signals         []models.SignalData
 	lastTimeChecked map[string]time.Time
+	failureCount    map[string]int
 	sync.RWMutex
 }
 
@@ -393,4 +414,10 @@ func (sq *SignalsQueue) Dequeue() []models.SignalData {
 	// empty the data after dequeue
 	sq.signals = []models.SignalData{}
 	return signals
+}
+
+func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
+	sq.Lock()
+	defer sq.Unlock()
+	sq.failureCount[requestName]++
 }
