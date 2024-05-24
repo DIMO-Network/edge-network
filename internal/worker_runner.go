@@ -327,13 +327,14 @@ func (wr *workerRunner) queryOBD() {
 		// execute the pid
 		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 		if err != nil {
-			wr.logger.Err(err).Msg("failed to query obd pid")
+			//wr.logger.Err(err).Msg("failed to query obd pid") // commenting out to reduce excessive logging on device
 			wr.signalsQueue.IncrementFailureCount(request.Name)
 			wr.signalsQueue.lastTimeChecked[request.Name] = time.Now()
 			// if we failed too many times, we should send an error to the cloud
 			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
-				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
-					Msgf("failed to query pid too many times: %+v", request)
+				// when exporting via mqtt, hook only grabs the message, not the error
+				wr.logger.Error().Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+					Msgf("failed to query pid name: %s too many times: %+v. error: %s", request.Name, request, err.Error())
 			}
 			continue
 		}
