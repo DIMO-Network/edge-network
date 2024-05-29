@@ -715,9 +715,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
 				}
 				return httpmock.NewStringResponse(200, resp), nil
-			} else {
-				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 		},
 	)
 
