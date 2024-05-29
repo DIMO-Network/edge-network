@@ -803,19 +803,16 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.4}}}`
 				}
 				return httpmock.NewStringResponse(200, resp), nil
-			} else {
-				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 		},
 	)
 
 	expectOnMocks(ts, vl, unitID, ds, 2)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Do(func(data models.DeviceStatusData) {
-	}).Return(nil)
-	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
-	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
