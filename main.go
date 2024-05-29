@@ -117,11 +117,13 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
-	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
+	if env == gateways.Development {
+		cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
+		err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
-	if err != nil {
-		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+		if err != nil {
+			logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+		}
 	}
 
 	// setup datasender here so we can send errors to it
