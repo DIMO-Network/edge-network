@@ -724,10 +724,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 2)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Do(func(data models.DeviceStatusData) {
-	}).Return(nil)
-	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
-	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
