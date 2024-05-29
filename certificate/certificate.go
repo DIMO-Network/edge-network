@@ -111,7 +111,7 @@ func (cs *Service) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID
 	// check if the certificate file exists
 	_, err := cs.fileSys.Stat(cs.certificatePath)
 	if cs.fileSys.IsNotExist(err) {
-		// TOD add retry
+		// TODO add retry
 		cert, err := cs.SignWeb3Certificate(ethAddr.String(), true, unitID)
 		if err != nil {
 			return fmt.Errorf("failed to request certificate: %w", err)

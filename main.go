@@ -117,17 +117,21 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
-	err := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
-
-	if err != nil {
-		logger.Err(err).Msgf("Error from SignWeb3Certificate : %v", err)
+	var certErr error
+	if env == gateways.Development {
+		cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
+		certErr = cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 	}
 
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	logger = logger.Hook(&internal.LogHook{DataSender: ds})
+
+	// log certificate errors
+	if certErr != nil {
+		logger.Error().Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
+	}
 
 	coldBoot, err := isColdBoot(logger, unitID)
 	if err != nil {
