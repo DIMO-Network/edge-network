@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -666,6 +667,180 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	assert.Equal(t, 0, wr.signalsQueue.failureCount["fuellevel"])
 	assert.Equal(t, 0, wr.signalsQueue.failureCount["foo"])
 	wr.Stop()
+}
+
+func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	var callCount = 0
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			if strings.Contains(bodyString, "power.status") {
+				callCount++
+				var resp string
+				switch callCount {
+				case 1:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				case 2:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				case 3:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 12.3}}}`
+				case 4:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 12.3}}}`
+				case 7:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				case 8:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				default:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
+				}
+				return httpmock.NewStringResponse(200, resp), nil
+			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+		},
+	)
+
+	expectOnMocks(ts, vl, unitID, ds, 2)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
+	var buf bytes.Buffer
+	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+
+	// verify
+	assert.Contains(t, buf.String(), "voltage not enough to query obd : 12.3")
+	count := strings.Count(buf.String(), "voltage not enough to query obd")
+	assert.Equal(t, 1, count)
+	count = strings.Count(buf.String(), "voltage is enough to query obd")
+	assert.Equal(t, 2, count)
+}
+
+func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	var callCount = 0
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			if strings.Contains(bodyString, "power.status") {
+				callCount++
+				var resp string
+				switch callCount {
+				case 1:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				case 2:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				case 3:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
+				case 4:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
+				case 7:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
+				case 8:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 11.3}}}`
+				default:
+					resp = `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.4}}}`
+				}
+				return httpmock.NewStringResponse(200, resp), nil
+			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+		},
+	)
+
+	expectOnMocks(ts, vl, unitID, ds, 2)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
+	var buf bytes.Buffer
+	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+
+	// verify
+	assert.Contains(t, buf.String(), "voltage not enough to query obd : 11.3")
+	count := strings.Count(buf.String(), "voltage not enough to query obd")
+	assert.Equal(t, 2, count)
+	count = strings.Count(buf.String(), "voltage is enough to query obd")
+	assert.Equal(t, 2, count)
 }
 
 func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, FingerprintRunner) {
