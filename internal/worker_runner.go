@@ -92,9 +92,11 @@ func (wr *workerRunner) Run() {
 				if !isLastVoltageOk {
 					wr.logger.Info().Msgf("voltage is enough to query obd : %1.f", powerStatus.VoltageFound)
 				}
-				// do fingerprint but only once
+				// do fingerprint but only once, until completed
 				if !fingerprintDone {
 					err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+					// todo: this will repeat forever until it is able to get the VIN, which for some cars may be too much b/c we can't get the vin.
+					// todo: problem is underlying method logs to edge-logs every time this is called.
 					if err != nil {
 						wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
 					} else {

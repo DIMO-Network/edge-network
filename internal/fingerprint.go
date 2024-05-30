@@ -70,6 +70,7 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 			ls.logger.Err(writeErr).Send()
 		}
 
+		// todo: how can we minimize this logging to edge-logs
 		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &powerStatus)
 	}
 	// save vin query name in settings if not set
@@ -103,6 +104,7 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 
 // Fingerprint checks if ok to start scanning the vehicle and then tries to get the VIN & Protocol via various methods.
 // Runs only once when successful.  Checks for saved VIN query from previous run.
+// Deprecated: Use FingerprintSimple instead. This one was trying to pack in more logic that is now handled by caller.
 func (ls *fingerprintRunner) Fingerprint() error {
 	// check if ok to start making obd calls etc
 	ls.logger.Info().Msg("fingerprint starting, checking if can start scanning")
