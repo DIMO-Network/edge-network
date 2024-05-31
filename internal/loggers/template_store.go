@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 )
@@ -33,11 +36,28 @@ type TemplateStore interface {
 
 	ReadVehicleInfo() (*models.VehicleInfo, error)
 	WriteVehicleInfo(settings models.VehicleInfo) error
+	DeleteAllSettings() error
 }
 
 // templateStore wraps reading and writing different configurations locally
 type templateStore struct {
 	mu sync.Mutex
+}
+
+func (ts *templateStore) DeleteAllSettings() error {
+	var errs []error
+	// Call each method and collect any errors
+	errs = append(errs, ts.deleteConfig(VINLoggerFile))
+	errs = append(errs, ts.deleteConfig(PIDConfigFile))
+	errs = append(errs, ts.deleteConfig(DeviceSettingsFile))
+	errs = append(errs, ts.deleteConfig(VehicleInfoFile))
+	errs = append(errs, ts.deleteConfig(TemplateURLsFile))
+
+	// Combine errors and print the result
+	if combinedErr := combineErrors(errs); combinedErr != nil {
+		return combinedErr
+	}
+	return nil
 }
 
 func (ts *templateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
@@ -203,4 +223,30 @@ func (ts *templateStore) writeConfig(filePath string, settings interface{}) erro
 		return fmt.Errorf("error writing file: %s", err)
 	}
 	return nil
+}
+
+func (ts *templateStore) deleteConfig(filePath string) error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	// Open the file for writing (create if it doesn't exist)
+	err := os.Remove(filePath)
+	if err != nil {
+		return fmt.Errorf("error deleting file: %s", err)
+	}
+
+	return nil
+}
+
+// CombineErrors combines multiple errors into a single error
+func combineErrors(errorList []error) error {
+	var errorMessages []string
+	for _, err := range errorList {
+		if err != nil {
+			errorMessages = append(errorMessages, err.Error())
+		}
+	}
+	if len(errorMessages) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errorMessages, "; "))
 }

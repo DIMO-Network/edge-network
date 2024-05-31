@@ -3,9 +3,10 @@ package config
 import (
 	"embed"
 	"fmt"
-	"github.com/DIMO-Network/shared"
 	"io/fs"
 	"os"
+
+	"github.com/DIMO-Network/shared"
 )
 
 // Config represents the configuration for the edge-network

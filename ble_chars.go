@@ -418,7 +418,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error retrieving VIN: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("error retrieving VIN via BLE: %s", err)
 			}
 		}()
 
@@ -427,25 +427,32 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 			logger.Info().Msgf("Returning cached VIN: %s", lastVIN)
 			return
 		}
+		// clear all settings since this is most likely a brand new pairing
+		errDel := lss.DeleteAllSettings()
+		if errDel != nil {
+			logger.Err(errDel).Msgf("there was one or more errors deleting settings from disk, continuing")
+		}
 
 		vinResp, err := vinLogger.GetVIN(unitID, nil)
 		if err != nil {
-			err = nil
 			logger.Err(err).Msgf("Unable to get VIN")
 			resp = []byte("00000000000000000")
 			return
 		}
 
-		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol) // need to do something with protocol to set right template
-		logger.Info().Msgf("Got VIN: %s", vinResp.VIN)
+		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol)                                                      // verify using protocol when requesting template
+		logger.Info().Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msg("Got VIN via BLE") //note we don't send the VIN to cloud logs for PII
+		logger.Info().Msgf(vinResp.VIN)
 		lastVIN = vinResp.VIN
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
 		// we want to do this each time in case the device is being paired to a different vehicle
-		err = lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
-		if err != nil {
-			logger.Err(err).Msgf("failed to save vin query name in settings: %s", err)
+		errSaveCfg := lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
+		if errSaveCfg != nil {
+			logger.Err(errSaveCfg).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).
+				Msgf("failed to save vin query name in settings: %s", err)
 		}
+		// todo restart the application?
 		return
 	})
 

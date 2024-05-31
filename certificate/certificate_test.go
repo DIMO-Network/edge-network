@@ -7,6 +7,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
+	"net/http"
+	"os"
+	"reflect"
+	"testing"
+	"time"
+
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
@@ -14,12 +21,6 @@ import (
 	"github.com/smallstep/certificates/api"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"math/big"
-	"net/http"
-	"os"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestCertificateService_GetOauthToken(t *testing.T) {

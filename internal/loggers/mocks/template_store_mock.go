@@ -38,6 +38,20 @@ func (m *MockTemplateStore) EXPECT() *MockTemplateStoreMockRecorder {
 	return m.recorder
 }
 
+// DeleteAllSettings mocks base method.
+func (m *MockTemplateStore) DeleteAllSettings() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAllSettings")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAllSettings indicates an expected call of DeleteAllSettings.
+func (mr *MockTemplateStoreMockRecorder) DeleteAllSettings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllSettings", reflect.TypeOf((*MockTemplateStore)(nil).DeleteAllSettings))
+}
+
 // ReadPIDsConfig mocks base method.
 func (m *MockTemplateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 	m.ctrl.T.Helper()
@@ -178,7 +192,7 @@ func (m *MockTemplateStore) WriteVehicleInfo(settings models.VehicleInfo) error 
 }
 
 // WriteVehicleInfo indicates an expected call of WriteVehicleInfo.
-func (mr *MockTemplateStoreMockRecorder) WriteVehicleInfo(settings interface{}) *gomock.Call {
+func (mr *MockTemplateStoreMockRecorder) WriteVehicleInfo(settings any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteVehicleInfo", reflect.TypeOf((*MockTemplateStore)(nil).WriteVehicleInfo), settings)
 }
