@@ -11,6 +11,13 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/config"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,12 +30,6 @@ import (
 	"github.com/smallstep/certificates/ca"
 	"go.step.sm/crypto/jose"
 	"go.step.sm/crypto/x509util"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"time"
 )
 
 const domain = "http://127.0.0.1:10000"

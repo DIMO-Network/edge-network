@@ -3,6 +3,11 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"testing"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/google/uuid"
@@ -10,10 +15,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"os"
-	"testing"
 )
 
 func Test_isValidHex(t *testing.T) {

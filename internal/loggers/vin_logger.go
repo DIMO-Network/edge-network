@@ -3,13 +3,14 @@ package loggers
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/commands"
-	"github.com/DIMO-Network/edge-network/internal/models"
 	"regexp"
 	"strconv"
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/rs/zerolog"
 

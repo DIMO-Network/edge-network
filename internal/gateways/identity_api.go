@@ -3,9 +3,10 @@ package gateways
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/config"
 	"io"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/config"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/shared"

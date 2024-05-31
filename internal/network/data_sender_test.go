@@ -6,13 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/stretchr/testify/assert"

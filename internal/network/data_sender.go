@@ -9,11 +9,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/config"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/config"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 

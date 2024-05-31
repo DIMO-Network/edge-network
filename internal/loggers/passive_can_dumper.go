@@ -7,10 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"os"
 	"strconv"
 	"time"
+
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 
