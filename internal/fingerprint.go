@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 type FingerprintRunner interface {
 	Fingerprint() error
 	FingerprintSimple(powerStatus api.PowerStatusResponse) error
+	CurrentFailureCount() int
+	IncrementFailuresReached() int
 }
 
 type fingerprintRunner struct {
@@ -29,26 +32,56 @@ type fingerprintRunner struct {
 	dataSender    network.DataSender
 	templateStore loggers.TemplateStore
 	logger        zerolog.Logger
+	// state tracking
+	failureCount int
+	// allTimeFailureCount is loaded from disk from last boot - used to determine edge-logging need. Increments by 1 per boot cycle even if retried many times in one boot
+	allTimeFailureCount int
+	// pastVINQueryName is loaded from disk from last boot - used to speedup VIN request if we already know the method that worked last
+	pastVINQueryName *string
 }
 
 func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, logger zerolog.Logger) FingerprintRunner {
-	return &fingerprintRunner{unitID: unitID, vinLog: vinLog, dataSender: dataSender, templateStore: templateStore, logger: logger}
+	fpr := &fingerprintRunner{unitID: unitID, vinLog: vinLog, dataSender: dataSender, templateStore: templateStore, logger: logger}
+	fpr.failureCount = 0
+	fpr.allTimeFailureCount = 0
+
+	pastVINInfo, err := fpr.templateStore.ReadVINConfig()
+	if err != nil {
+		fpr.logger.Info().Msgf("could not read settings, continuing: %s", err)
+	} else {
+		fpr.allTimeFailureCount = pastVINInfo.VINLoggerFailedAttempts
+
+		if pastVINInfo.VINQueryName != "" {
+			fpr.pastVINQueryName = &pastVINInfo.VINQueryName
+			fpr.logger.Debug().Msgf("found previous VIN query name: %s", pastVINInfo.VINQueryName)
+		}
+	}
+	return fpr
 }
 
 const maxFailureAttempts = 5
 
+func (ls *fingerprintRunner) CurrentFailureCount() int {
+	return ls.failureCount
+}
+
+// IncrementFailuresReached update the templateStore VIN info config with in incremented failure count and writes it to disk
+func (ls *fingerprintRunner) IncrementFailuresReached() int {
+	config := &models.VINLoggerSettings{
+		VINLoggerVersion:        loggers.VINLoggerVersion,
+		VINLoggerFailedAttempts: ls.allTimeFailureCount + 1,
+	}
+	writeErr := ls.templateStore.WriteVINConfig(*config)
+	if writeErr != nil {
+		ls.logger.Err(writeErr).Send()
+	}
+	return config.VINLoggerFailedAttempts
+}
+
 // FingerprintSimple does no voltage checks, just scans for the VIN, saves query used, and sends cloud event signed.
+// if failure getting vin, logs to console and updates the failure count on disk - wonder if this is necessary
 func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusResponse) error {
 	// no voltage check, assumption is this has already been checked before here.
-	config, err := ls.templateStore.ReadVINConfig()
-	if err != nil {
-		ls.logger.Info().Msgf("could not read settings, continuing: %s", err)
-	}
-	var vqn *string
-	if config != nil {
-		vqn = &config.VINQueryName
-		ls.logger.Info().Msgf("found VIN query name: %s", *vqn)
-	}
 	// scan for VIN
 	vinLogger := LoggerProperties{
 		SignalName: "vin",
@@ -56,31 +89,21 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 		ScanFunc:   ls.vinLog.GetVIN,
 	}
 	// assumption here is that the vin query name, if set, will work on this car. If the device has been moved to a different car without pairing again, this won't work
-	vinResp, err := vinLogger.ScanFunc(ls.unitID, vqn)
+	vinResp, err := vinLogger.ScanFunc(ls.unitID, ls.pastVINQueryName)
 	if err != nil {
-		if config == nil {
-			config = &models.VINLoggerSettings{}
-		}
-		ls.logger.Err(err).Msgf("failed to scan for vin. fail count: %d", config.VINLoggerFailedAttempts)
-		// update local settings to increment fail count
-		config.VINLoggerVersion = loggers.VINLoggerVersion
-		config.VINLoggerFailedAttempts++
-		writeErr := ls.templateStore.WriteVINConfig(*config)
-		if writeErr != nil {
-			ls.logger.Err(writeErr).Send()
-		}
-
-		// todo: how can we minimize this logging to edge-logs
-		_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to get VIN from vinLogger"), &powerStatus)
+		ls.failureCount++
+		// just return the error here and let the caller save to disk + log to edge etc
+		return errors.Wrap(err, fmt.Sprintf("failed to scan for vin. fail count since boot: %d", ls.failureCount))
 	}
-	// save vin query name in settings if not set
-	if config == nil || config.VINQueryName == "" {
-		config = &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
+	// save vin query name in settings & report to edge logs if not set - normally this should only happen once with a given car.
+	if ls.pastVINQueryName == nil {
+		config := &models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: vinResp.VIN}
 		err := ls.templateStore.WriteVINConfig(*config)
 		if err != nil {
 			ls.logger.Err(err).Send()
 			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &powerStatus)
 		}
+		ls.logger.Info().Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).Msgf("succesfully obtained VIN via fingerprint")
 	}
 
 	data := models.FingerprintData{
