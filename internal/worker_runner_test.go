@@ -192,7 +192,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	expectOnMocks(ts, vl, unitID, ds, 1)
+	expectOnMocks(ts, vl, unitID, ds, 0)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
@@ -245,7 +245,7 @@ func Test_workerRunner_Run(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -327,7 +327,7 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 		},
 	)
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -387,7 +387,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -446,7 +446,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
 		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called once with multiple fuel level signals
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -535,7 +535,7 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 		},
 	)
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
@@ -616,7 +616,7 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 		},
 	)
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
@@ -720,7 +720,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 		},
 	)
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
@@ -807,7 +807,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 		},
 	)
 
-	expectOnMocks(ts, vl, unitID, ds, 2)
+	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
@@ -852,6 +852,9 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 		Timestamp().
 		Str("app", "edge-network").
 		Logger()
+
+	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
+
 	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 	return vl, ds, ts, ls
 }

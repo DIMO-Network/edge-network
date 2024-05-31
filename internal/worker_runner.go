@@ -55,6 +55,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 
 // Max failures allowed for a PID before sending an error to the cloud
 const maxPidFailures = 10
+const maxFingerprintFailures = 5
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
 // It also has a continuous loop that checks voltage compared to template settings to make sure ok to query OBD.
@@ -92,13 +93,23 @@ func (wr *workerRunner) Run() {
 				if !isLastVoltageOk {
 					wr.logger.Info().Msgf("voltage is enough to query obd : %1.f", powerStatus.VoltageFound)
 				}
-				// do fingerprint but only once
-				if !fingerprintDone {
-					err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-					if err != nil {
-						wr.logger.Err(err).Msg("failed to do vehicle fingerprint")
+				// do fingerprint but only once, until max failure reached or completed
+				if !fingerprintDone && wr.fingerprintRunner.CurrentFailureCount() <= maxFingerprintFailures {
+					errFp := wr.fingerprintRunner.FingerprintSimple(powerStatus)
+					if errFp != nil {
+						if wr.fingerprintRunner.CurrentFailureCount() == maxFingerprintFailures {
+							wr.logger.Err(errFp).Msg("failed to do vehicle fingerprint - max failures reached")
+							// also write to disk with updated failures
+							allTimeFailures := wr.fingerprintRunner.IncrementFailuresReached()
+							if allTimeFailures < 2 {
+								// send to edge logs first time VIN failure happens
+								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+									Msgf("failed to do vehicle VIN fingerprint: %s", errFp.Error())
+							}
+						}
 					} else {
 						fingerprintDone = true
+						// note that FingerprintSimple stores success and reports to edge logs when first time success
 					}
 				}
 				// query OBD signals

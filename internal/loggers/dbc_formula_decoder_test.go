@@ -33,6 +33,8 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		{"7e803410581cccccccc", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 89, "degC", ""},
 		{"7e803410585aaaaaaaa", "5", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""},
 		{"7e803410585aaaaaaaa", "05", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""}, // 0 padded pid
+		// mache odoemteter
+		{"7e80662dd01003f5acc", "dd01", "39|24@0+ (1,0) [0|2150000] \"km\"", 16218, "km", ""},
 	}
 
 	for _, test := range tests {
