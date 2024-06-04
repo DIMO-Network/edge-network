@@ -370,6 +370,7 @@ func (wr *workerRunner) queryOBD() {
 		// future: new formula type that could work for proprietary PIDs and could support text, int or float
 		var value interface{}
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
+			//  todo  add log error rate limiting
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
 				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
@@ -450,40 +451,4 @@ func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
 	sq.Lock()
 	defer sq.Unlock()
 	sq.failureCount[requestName]++
-}
-
-type FunctionWithError[T any] func() (*T, error)
-
-// FunctionWithFailureHandler is a function that will log an error message only once and  if the failure threshold is reached
-type FunctionWithFailureHandler[T any] func(fn FunctionWithError[T]) (*T, error)
-
-// NewFailureHandler returns a function that will log an error message only once and  if the failure threshold is reached
-// it will send an error to mqtt
-func NewFailureHandler[T any](logger zerolog.Logger, failureThreshold int, errorMessage string) FunctionWithFailureHandler[T] {
-	var hasLoggedFailure bool
-	var failureCount int
-
-	return func(fn FunctionWithError[T]) (*T, error) {
-		result, err := fn()
-		if err != nil {
-			if !hasLoggedFailure {
-				logger.Err(err).Msg(errorMessage)
-				hasLoggedFailure = true
-			}
-
-			failureCount++
-			if failureCount >= failureThreshold {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
-					Msgf(errorMessage+" %d times in a row", failureCount)
-				failureCount = 0
-			}
-
-			return nil, err
-		}
-
-		hasLoggedFailure = false
-		failureCount = 0
-
-		return result, nil
-	}
 }
