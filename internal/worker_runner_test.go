@@ -48,7 +48,9 @@ func Test_workerRunner_NonObd(t *testing.T) {
 	wr := createWorkerRunner(ts, ds, ls, unitID)
 
 	// then
-	wifi, _, location, _, cellInfo, _ := wr.queryNonObd("ec2x")
+	wfh := NewFailureHandler[models.WiFi](wr.logger, 10, "failed to get signal strength")
+	lfh := NewFailureHandler[models.Location](wr.logger, 10, "failed to get gps location")
+	wifi, _, location, _, cellInfo, _ := wr.queryNonObd("ec2x", wfh, lfh)
 
 	// verify
 	assert.NotNil(t, cellInfo)
@@ -210,7 +212,9 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	_, powerStatus := wr.isOkToQueryOBD()
 	wr.queryOBD()
 	err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
-	wifi, wifiErr, location, locationErr, _, _ := wr.queryNonObd("ec2x")
+	wfh := NewFailureHandler[models.WiFi](wr.logger, 10, "failed to get signal strength")
+	lfh := NewFailureHandler[models.Location](wr.logger, 10, "failed to get gps location")
+	wifi, wifiErr, location, locationErr, _, _ := wr.queryNonObd("ec2x", wfh, lfh)
 	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
 	// verify

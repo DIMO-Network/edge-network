@@ -126,11 +126,15 @@ func (wr *workerRunner) Run() {
 		}
 	}()
 
+	// create failure handler for wifi and location
+	wfh := NewFailureHandler[models.WiFi](wr.logger, 10, "failed to get signal strength")
+	lfh := NewFailureHandler[models.Location](wr.logger, 10, "failed to get gps location")
+
 	// start the location query if the frequency is set
 	// float e.g. 0.5 would be 2x per second
 	// do not start the location query if the frequency is 0 or sendPayloadInterval (which is 20s)
 	if wr.deviceSettings.LocationFrequencySecs > 0 && wr.deviceSettings.LocationFrequencySecs != wr.sendPayloadInterval.Seconds() {
-		wr.startLocationQuery(modem)
+		wr.startLocationQuery(modem, lfh)
 	}
 
 	// Note: this delay required for the tests only, to make sure that queryOBD is executed before nonObd signals
@@ -145,7 +149,7 @@ func (wr *workerRunner) Run() {
 		default:
 			_, powerStatus := wr.isOkToQueryOBD()
 			// query non-obd signals even if voltage is not enough
-			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem)
+			wifi, wifiErr, location, locationErr, cellInfo, cellErr := wr.queryNonObd(modem, wfh, lfh)
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
@@ -187,11 +191,14 @@ func (wr *workerRunner) Run() {
 	}
 }
 
-func (wr *workerRunner) startLocationQuery(modem string) {
+func (wr *workerRunner) startLocationQuery(modem string, lfh FunctionWithFailureHandler[models.Location]) {
 	go func() {
 		wr.logger.Info().Msgf("Start query location data with every %.2f sec", wr.deviceSettings.LocationFrequencySecs)
 		for {
-			location, locationErr := wr.queryLocation(modem)
+			location, locationErr := lfh(func() (*models.Location, error) {
+				return wr.queryLocation(modem)
+			})
+
 			if locationErr == nil {
 
 				wr.signalsQueue.Enqueue(models.SignalData{
@@ -280,9 +287,14 @@ func appendSignalData(signals []models.SignalData, name string, value interface{
 	})
 }
 
-func (wr *workerRunner) queryNonObd(modem string) (*models.WiFi, error, *models.Location, error, api.QMICellInfoResponse, error) {
-	wifi, wifiErr := wr.queryWiFi()
-	location, locationErr := wr.queryLocation(modem)
+func (wr *workerRunner) queryNonObd(modem string, wfh FunctionWithFailureHandler[models.WiFi], lfh FunctionWithFailureHandler[models.Location]) (*models.WiFi, error, *models.Location, error, api.QMICellInfoResponse, error) {
+	wifi, wifiErr := wfh(func() (*models.WiFi, error) {
+		return wr.queryWiFi()
+	})
+	location, locationErr := lfh(func() (*models.Location, error) {
+		return wr.queryLocation(modem)
+	})
+
 	cellInfo, cellErr := commands.GetQMICellInfo(wr.device.UnitID)
 	if cellErr != nil {
 		wr.logger.Err(cellErr).Msg("failed to get qmi cell info")
@@ -294,7 +306,6 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
-		wr.logger.Err(err).Msg("failed to get signal strength")
 		return nil, err
 	}
 	wifi = models.WiFi{
@@ -309,7 +320,6 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		wr.logger.Err(err).Msg("failed to get gps location")
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -440,4 +450,40 @@ func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
 	sq.Lock()
 	defer sq.Unlock()
 	sq.failureCount[requestName]++
+}
+
+type FunctionWithError[T any] func() (*T, error)
+
+// FunctionWithFailureHandler is a function that will log an error message only once and  if the failure threshold is reached
+type FunctionWithFailureHandler[T any] func(fn FunctionWithError[T]) (*T, error)
+
+// NewFailureHandler returns a function that will log an error message only once and  if the failure threshold is reached
+// it will send an error to mqtt
+func NewFailureHandler[T any](logger zerolog.Logger, failureThreshold int, errorMessage string) FunctionWithFailureHandler[T] {
+	var hasLoggedFailure bool
+	var failureCount int
+
+	return func(fn FunctionWithError[T]) (*T, error) {
+		result, err := fn()
+		if err != nil {
+			if !hasLoggedFailure {
+				logger.Err(err).Msg(errorMessage)
+				hasLoggedFailure = true
+			}
+
+			failureCount++
+			if failureCount >= failureThreshold {
+				logger.Err(err).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+					Msgf(errorMessage+" %d times in a row", failureCount)
+				failureCount = 0
+			}
+
+			return nil, err
+		}
+
+		hasLoggedFailure = false
+		failureCount = 0
+
+		return result, nil
+	}
 }
