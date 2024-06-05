@@ -309,7 +309,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		wr.logger.Err(err).Msg("failed to get gps location")
+		wr.logger.Err(err).Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("failed to get gps location %s", err)
 		return nil, err
 	}
 	// location fields mapped to separate struct
