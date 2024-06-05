@@ -85,14 +85,10 @@ func (wr *workerRunner) Run() {
 	go func() {
 		fingerprintDone := false
 		// this flag is used to avoid excessive logging when voltage is not enough to query obd
-		isLastVoltageOk := false
 		for {
 			// we will need to check the voltage before we query obd, and then we can query obd if voltage is ok
 			queryOBD, powerStatus := wr.isOkToQueryOBD()
 			if queryOBD {
-				if !isLastVoltageOk {
-					wr.logger.Info().Msgf("voltage is enough to query obd : %1.f", powerStatus.VoltageFound)
-				}
 				// do fingerprint but only once, until max failure reached or completed
 				if !fingerprintDone && wr.fingerprintRunner.CurrentFailureCount() <= maxFingerprintFailures {
 					errFp := wr.fingerprintRunner.FingerprintSimple(powerStatus)
@@ -114,12 +110,8 @@ func (wr *workerRunner) Run() {
 				}
 				// query OBD signals
 				wr.queryOBD()
-				isLastVoltageOk = true
 			} else {
-				if isLastVoltageOk {
-					wr.logger.Info().Msgf("voltage not enough to query obd : %.1f", powerStatus.VoltageFound)
-					isLastVoltageOk = false
-				}
+				wr.logger.Info().Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("voltage not enough to query obd : %.1f", powerStatus.VoltageFound)
 			}
 
 			time.Sleep(2 * time.Second)

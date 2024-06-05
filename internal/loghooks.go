@@ -54,12 +54,13 @@ func NewFilterHook(dataSender network.DataSender) *FilterHook {
 //	Run gets the threshold from the context with e.GetCtx().Value("threshold").(int)
 //
 // It increments the count for the error message in the errorCounts map.
-// If the threshold is not set in the context, it uses a default value of 10.
+// If the threshold is not set in the context, we skip the filter.
 // If the count for the error message reaches the threshold, it sends the error payload to MQTT
 // and resets the count for the error message in the errorCounts map.
 func (h *FilterHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	// If the log level is error, increment the count for the error
-	if level == zerolog.ErrorLevel {
+	threshold, ok := e.GetCtx().Value("threshold").(int)
+	if ok && threshold > 0 {
 		h.mu.Lock()
 		h.errorCounts[msg]++
 		count := h.errorCounts[msg]
