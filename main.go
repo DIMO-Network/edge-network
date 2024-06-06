@@ -124,7 +124,7 @@ func main() {
 	}
 
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, *config)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	logger = logger.Hook(&internal.LogHook{DataSender: ds})
 
@@ -171,7 +171,6 @@ func main() {
 
 	// OBD / CAN Loggers
 	// set vehicle info here, so we can use it for status messages
-	ds.SetVehicleInfo(vehicleInfo)
 	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(*config)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
@@ -214,7 +213,7 @@ func main() {
 		IMEI:            imei,
 	}
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, deviceConf)
+	runnerSvc := internal.NewWorkerRunner(ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, deviceConf, vehicleInfo)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

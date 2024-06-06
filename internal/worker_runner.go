@@ -41,16 +41,17 @@ type workerRunner struct {
 	stop                chan bool
 	sendPayloadInterval time.Duration
 	device              Device
+	vehicleInfo         *models.VehicleInfo
 }
 
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -150,7 +151,7 @@ func (wr *workerRunner) Run() {
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
 			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(s)
+			err = wr.dataSender.SendDeviceStatusData(s, wr.vehicleInfo.TokenID)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to send device status in loop")
 			}
@@ -267,6 +268,12 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	if wifiErr == nil {
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID)
+	}
+	// add vehicle info if available
+	if wr.vehicleInfo != nil {
+		statusData.Vehicle.Make = wr.vehicleInfo.VehicleDefinition.Make
+		statusData.Vehicle.Model = wr.vehicleInfo.VehicleDefinition.Model
+		statusData.Vehicle.Year = wr.vehicleInfo.VehicleDefinition.Year
 	}
 
 	return statusData

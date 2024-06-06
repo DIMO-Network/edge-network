@@ -45,25 +45,21 @@ type DataSender interface {
 	SendCanDumpData(data models.CanDumpData) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api.
 	// The data can be gzip compressed or not
-	SendDeviceStatusData(data any) error
+	SendDeviceStatusData(data any, tokenID uint64) error
 	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
 	SendDeviceNetworkData(data models.DeviceNetworkData) error
-	// SetVehicleInfo sets the vehicle info for the data sender
-	// todo we need somehow to set VehicleInfo differently, we need better separation of concerns here
-	SetVehicleInfo(vehicleInfo *models.VehicleInfo)
 }
 
 type dataSender struct {
-	client      mqtt.Client
-	unitID      uuid.UUID
-	ethAddr     common.Address
-	logger      zerolog.Logger
-	vehicleInfo *models.VehicleInfo
-	mqtt        config.Mqtt
+	client  mqtt.Client
+	unitID  uuid.UUID
+	ethAddr common.Address
+	logger  zerolog.Logger
+	mqtt    config.Mqtt
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo *models.VehicleInfo, conf config.Config) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, conf config.Config) DataSender {
 	// Setup mqtt connection. Does not connect
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
@@ -102,17 +98,12 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	}
 
 	return &dataSender{
-		client:      client,
-		unitID:      unitID,
-		ethAddr:     addr,
-		logger:      logger,
-		vehicleInfo: vehicleInfo,
-		mqtt:        conf.Mqtt,
+		client:  client,
+		unitID:  unitID,
+		ethAddr: addr,
+		logger:  logger,
+		mqtt:    conf.Mqtt,
 	}
-}
-
-func (ds *dataSender) SetVehicleInfo(vehicleInfo *models.VehicleInfo) {
-	ds.vehicleInfo = vehicleInfo
 }
 
 func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
@@ -144,18 +135,15 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	return nil
 }
 
-func (ds *dataSender) SendDeviceStatusData(data any) error {
+func (ds *dataSender) SendDeviceStatusData(data any, tokenID uint64) error {
 	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "com.dimo.device.status.v2")
 	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
 
-	if ds.vehicleInfo != nil {
-		ce.TokenID = ds.vehicleInfo.TokenID
-		ce.Make = ds.vehicleInfo.VehicleDefinition.Make
-		ce.Model = ds.vehicleInfo.VehicleDefinition.Model
-		ce.Year = ds.vehicleInfo.VehicleDefinition.Year
+	if tokenID != 0 {
+		ce.TokenID = tokenID
 	}
 
 	payload, err := json.Marshal(ce)
