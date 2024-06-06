@@ -67,15 +67,8 @@ func (h *FilterHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 		h.mu.Unlock()
 
 		// If the error has occurred for the first time, log it
-		if count == 1 {
-			e.Msg(msg)
-		}
-
-		// Get the threshold from the context
-		threshold, ok := e.GetCtx().Value("threshold").(int)
-		if !ok {
-			// If the threshold is not set in the context, use a default value
-			threshold = 10
+		if count > 1 {
+			e.Discard()
 		}
 
 		// If the error has occurred a number of times equal to the threshold, send the error payload to MQTT and reset the count

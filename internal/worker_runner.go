@@ -354,7 +354,7 @@ func (wr *workerRunner) queryOBD() {
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				wr.logger.Err(err).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
 				continue
 			}
 		} else if !obdResp.IsHex {
