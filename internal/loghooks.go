@@ -11,8 +11,8 @@ import (
 type keyType string
 
 const LogToMqtt keyType = "mqtt_log"
-const StopLogAfter = "stopLogAfter"
-const ThresholdWhenLogMqtt = "threshold"
+const StopLogAfter keyType = "stopLogAfter"
+const ThresholdWhenLogMqtt keyType = "threshold"
 
 type LogHook struct {
 	DataSender network.DataSender
@@ -60,7 +60,7 @@ func NewLogRateLimiterHook(dataSender network.DataSender) *LogRateLimiterHook {
 // If "stopLogAfter" is set and the count for the error message exceeds this value, the log event is discarded.
 // If "threshold" is set and the count for the error message reaches this value, the function sends the error payload to MQTT and resets the count for the error message in the errorCounts map.
 // If neither "stopLogAfter" nor "threshold" is set in the context, the function will not filter the log event.
-func (h *LogRateLimiterHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) {
 	// If the log level is error, increment the count for the error
 	stopLogAfter, okStopLogAfter := e.GetCtx().Value(StopLogAfter).(int)
 	threshold, okThreshold := e.GetCtx().Value(ThresholdWhenLogMqtt).(int)
