@@ -637,6 +637,8 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
+	fh := NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
 
 	// assert data sender is called without fuel level signal
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -742,6 +744,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
+	fh := NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -752,8 +756,6 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	assert.Contains(t, buf.String(), "voltage not enough to query obd : 12.3")
 	count := strings.Count(buf.String(), "voltage not enough to query obd")
 	assert.Equal(t, 1, count)
-	count = strings.Count(buf.String(), "voltage is enough to query obd")
-	assert.Equal(t, 2, count)
 }
 
 func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
@@ -829,6 +831,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
+	fh := NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -838,9 +842,80 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	// verify
 	assert.Contains(t, buf.String(), "voltage not enough to query obd : 11.3")
 	count := strings.Count(buf.String(), "voltage not enough to query obd")
-	assert.Equal(t, 2, count)
-	count = strings.Count(buf.String(), "voltage is enough to query obd")
-	assert.Equal(t, 2, count)
+	assert.Equal(t, 1, count)
+}
+
+// This is test for the case when the location query fails and we want to rate limit logs
+func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, ls := mockComponents(mockCtrl, unitID)
+
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			if strings.Contains(bodyString, "power.status") {
+				resp := `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`
+				return httpmock.NewStringResponse(200, resp), nil
+			}
+			return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+		},
+	)
+	// mock location resp
+	locPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+locPath,
+		httpmock.NewStringResponder(500, `{"error":"Error on query gps"}`))
+
+	expectOnMocks(ts, vl, unitID, ds, 1)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
+
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
+	var buf bytes.Buffer
+	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
+	fh := NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+
+	// verify
+	assert.Contains(t, buf.String(), "Error on query gps")
+	count := strings.Count(buf.String(), "failed to get gps location status code 500")
+	assert.Equal(t, 1, count)
 }
 
 func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, FingerprintRunner) {

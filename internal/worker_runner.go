@@ -84,7 +84,6 @@ func (wr *workerRunner) Run() {
 	// battery-voltage also will be checked in non-obd clock because we want to send it with every status payload
 	go func() {
 		fingerprintDone := false
-		// this flag is used to avoid excessive logging when voltage is not enough to query obd
 		for {
 			// we will need to check the voltage before we query obd, and then we can query obd if voltage is ok
 			queryOBD, powerStatus := wr.isOkToQueryOBD()
@@ -111,7 +110,7 @@ func (wr *workerRunner) Run() {
 				// query OBD signals
 				wr.queryOBD()
 			} else {
-				wr.logger.Info().Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("voltage not enough to query obd : %.1f", powerStatus.VoltageFound)
+				wr.logger.Info().Ctx(context.WithValue(context.Background(), StopLogAfter, 1)).Msgf("voltage not enough to query obd : %.1f", powerStatus.VoltageFound)
 			}
 
 			time.Sleep(2 * time.Second)
@@ -286,7 +285,8 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
-		wr.logger.Err(err).Msg("failed to get signal strength")
+		c := context.Background()
+		wr.logger.Err(err).Ctx(context.WithValue(c, ThresholdWhenLogMqtt, 10)).Ctx(context.WithValue(c, StopLogAfter, 1)).Msg("failed to get signal strength")
 		return nil, err
 	}
 	wifi = models.WiFi{
@@ -301,7 +301,8 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		wr.logger.Err(err).Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("failed to get gps location %s", err)
+		c := context.Background()
+		wr.logger.Err(err).Ctx(context.WithValue(c, ThresholdWhenLogMqtt, 10)).Ctx(context.WithValue(c, StopLogAfter, 1)).Msgf("failed to get gps location %s", err)
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -354,7 +355,7 @@ func (wr *workerRunner) queryOBD() {
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), "threshold", 10)).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), ThresholdWhenLogMqtt, 10)).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
 				continue
 			}
 		} else if !obdResp.IsHex {

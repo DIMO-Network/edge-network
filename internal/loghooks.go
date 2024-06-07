@@ -4,12 +4,15 @@ import (
 	"errors"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/rs/zerolog"
+	"math"
 	"sync"
 )
 
 type keyType string
 
 const LogToMqtt keyType = "mqtt_log"
+const StopLogAfter = "stopLogAfter"
+const ThresholdWhenLogMqtt = "threshold"
 
 type LogHook struct {
 	DataSender network.DataSender
@@ -37,37 +40,49 @@ func (h *LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	}
 }
 
-// FilterHook is a log hook that filters error logs and sends them to MQTT
-type FilterHook struct {
+// LogRateLimiterHook is a log hook that filters log events based on the number of times an error message has occurred.
+// The hook keeps track of the number of times an error message has occurred and sends the error payload to MQTT when the count reaches a certain threshold.
+type LogRateLimiterHook struct {
 	errorCounts map[string]int
 	DataSender  network.DataSender
 	mu          sync.Mutex
 }
 
-func NewFilterHook(dataSender network.DataSender) *FilterHook {
-	return &FilterHook{
+func NewLogRateLimiterHook(dataSender network.DataSender) *LogRateLimiterHook {
+	return &LogRateLimiterHook{
 		errorCounts: make(map[string]int),
 		DataSender:  dataSender,
 	}
 }
 
-//	Run gets the threshold from the context with e.GetCtx().Value("threshold").(int)
-//
-// It increments the count for the error message in the errorCounts map.
-// If the threshold is not set in the context, we skip the filter.
-// If the count for the error message reaches the threshold, it sends the error payload to MQTT
-// and resets the count for the error message in the errorCounts map.
-func (h *FilterHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+// Run processes the log event based on the provided context values.
+// If the context contains a "stopLogAfter" or "threshold" value, the function will increment the count for the error message in the errorCounts map.
+// If "stopLogAfter" is set and the count for the error message exceeds this value, the log event is discarded.
+// If "threshold" is set and the count for the error message reaches this value, the function sends the error payload to MQTT and resets the count for the error message in the errorCounts map.
+// If neither "stopLogAfter" nor "threshold" is set in the context, the function will not filter the log event.
+func (h *LogRateLimiterHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	// If the log level is error, increment the count for the error
-	threshold, ok := e.GetCtx().Value("threshold").(int)
-	if ok && threshold > 0 {
+	stopLogAfter, okStopLogAfter := e.GetCtx().Value(StopLogAfter).(int)
+	threshold, okThreshold := e.GetCtx().Value(ThresholdWhenLogMqtt).(int)
+	if (okThreshold && threshold > 0) || (okStopLogAfter && stopLogAfter > 0) {
+
+		// If the threshold is less than or equal to 0, never send to MQTT
+		if threshold <= 0 {
+			threshold = math.MaxInt32
+		}
+
+		// If the stopLogAfter value is less than or equal to 0, set it to 5
+		if stopLogAfter <= 0 {
+			stopLogAfter = 5
+		}
+
 		h.mu.Lock()
 		h.errorCounts[msg]++
 		count := h.errorCounts[msg]
 		h.mu.Unlock()
 
-		// If the error has occurred for the first time, log it
-		if count > 1 {
+		// If the error has occurred a number of times equal to the stopLogAfter value, discard the log event
+		if count > stopLogAfter {
 			e.Discard()
 		}
 
