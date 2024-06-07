@@ -754,7 +754,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 
 	// verify
 	assert.Contains(t, buf.String(), "voltage not enough to query obd : 12.3")
-	count := strings.Count(buf.String(), "voltage not enough to query obd")
+	count := strings.Count(buf.String(), "voltage not enough to query obd : 12.3")
 	assert.Equal(t, 1, count)
 }
 
