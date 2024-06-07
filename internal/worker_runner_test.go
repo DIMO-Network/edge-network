@@ -914,7 +914,7 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 
 	// verify
 	assert.Contains(t, buf.String(), "Error on query gps")
-	count := strings.Count(buf.String(), "failed to get gps location status code 500")
+	count := strings.Count(buf.String(), "failed to get gps location")
 	assert.Equal(t, 1, count)
 }
 

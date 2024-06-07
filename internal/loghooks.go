@@ -132,19 +132,19 @@ func withPowerStatus(powerStatus api.PowerStatusResponse) logOption {
 
 // logError logs an error message with the provided options.
 func logError(logger zerolog.Logger, err error, message string, opts ...logOption) {
-	c := aplyOptions(opts)
+	c := applyOptions(opts)
 
 	logger.Err(err).Ctx(c).Msg(message)
 }
 
 // logInfo logs an info message with the provided options.
 func logInfo(logger zerolog.Logger, message string, opts ...logOption) {
-	c := aplyOptions(opts)
+	c := applyOptions(opts)
 
 	logger.Info().Ctx(c).Msg(message)
 }
 
-func aplyOptions(opts []logOption) context.Context {
+func applyOptions(opts []logOption) context.Context {
 	options := &logOptions{}
 	for _, opt := range opts {
 		opt(options)
