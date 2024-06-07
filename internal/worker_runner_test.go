@@ -104,7 +104,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 
 	// then
 	_, _ = wr.isOkToQueryOBD()
-	wr.queryOBD()
+	wr.queryOBD(nil)
 
 	// verify
 	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
@@ -160,7 +160,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	wr.pids.Requests = requests
 
 	// then
-	wr.queryOBD()
+	wr.queryOBD(nil)
 
 	// verify
 	assert.Equal(t, "foo", wr.signalsQueue.signals[0].Name)
@@ -208,7 +208,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 
 	// then
 	_, powerStatus := wr.isOkToQueryOBD()
-	wr.queryOBD()
+	wr.queryOBD(nil)
 	err := wr.fingerprintRunner.FingerprintSimple(powerStatus)
 	wifi, wifiErr, location, locationErr, _, _ := wr.queryNonObd("ec2x")
 	s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
@@ -753,8 +753,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	wr.Stop()
 
 	// verify
-	assert.Contains(t, buf.String(), "voltage not enough to query obd : 12.3")
-	count := strings.Count(buf.String(), "voltage not enough to query obd : 12.3")
+	assert.Contains(t, buf.String(), "voltage not enough to query obd: 12.3")
+	count := strings.Count(buf.String(), "voltage not enough to query obd: 12.3")
 	assert.Equal(t, 1, count)
 }
 
@@ -840,7 +840,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	wr.Stop()
 
 	// verify
-	assert.Contains(t, buf.String(), "voltage not enough to query obd : 11.3")
+	assert.Contains(t, buf.String(), "voltage not enough to query obd: 11.3")
 	count := strings.Count(buf.String(), "voltage not enough to query obd")
 	assert.Equal(t, 1, count)
 }

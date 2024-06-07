@@ -69,7 +69,8 @@ type SignalData struct {
 
 type ErrorsData struct {
 	CommonData
-	Device Device `json:"device,omitempty"`
+	Device  Device `json:"device,omitempty"`
+	TokenID uint64 `json:"vehicleTokenID"`
 	// deprecated
 	Errors  []string `json:"errors"`
 	Message string   `json:"message"`

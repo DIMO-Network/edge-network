@@ -108,9 +108,10 @@ func (wr *workerRunner) Run() {
 					}
 				}
 				// query OBD signals
-				wr.queryOBD()
+				wr.queryOBD(&powerStatus)
 			} else {
-				wr.logger.Info().Ctx(context.WithValue(context.Background(), StopLogAfter, 1)).Msgf("voltage not enough to query obd : %.1f", powerStatus.VoltageFound)
+				msg := fmt.Sprintf("voltage not enough to query obd: %.1f", powerStatus.VoltageFound)
+				logInfo(wr.logger, msg, withStopLogAfter(1))
 			}
 
 			time.Sleep(2 * time.Second)
@@ -285,8 +286,7 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
-		c := context.Background()
-		wr.logger.Err(err).Ctx(context.WithValue(c, ThresholdWhenLogMqtt, 10)).Ctx(context.WithValue(c, StopLogAfter, 1)).Msg("failed to get signal strength")
+		logError(wr.logger, err, "failed to get signal strength", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	wifi = models.WiFi{
@@ -301,8 +301,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		c := context.Background()
-		wr.logger.Err(err).Ctx(context.WithValue(c, ThresholdWhenLogMqtt, 10)).Ctx(context.WithValue(c, StopLogAfter, 1)).Msgf("failed to get gps location %s", err)
+		logError(wr.logger, err, "failed to get gps location", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -317,7 +316,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	return &location, nil
 }
 
-func (wr *workerRunner) queryOBD() {
+func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
@@ -345,8 +344,8 @@ func (wr *workerRunner) queryOBD() {
 			// if we failed too many times, we should send an error to the cloud
 			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 				// when exporting via mqtt, hook only grabs the message, not the error
-				wr.logger.Error().Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
-					Msgf("failed to query pid name: %s too many times: %+v. error: %s", request.Name, request, err.Error())
+				msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
+				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(1), withPowerStatus(*powerStatus))
 			}
 			continue
 		}
@@ -355,7 +354,8 @@ func (wr *workerRunner) queryOBD() {
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				wr.logger.Err(err).Ctx(context.WithValue(context.Background(), ThresholdWhenLogMqtt, 10)).Msgf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				msg := fmt.Sprintf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10))
 				continue
 			}
 		} else if !obdResp.IsHex {

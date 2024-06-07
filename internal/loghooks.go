@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"context"
 	"errors"
+	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/rs/zerolog"
 	"math"
@@ -13,6 +15,7 @@ type keyType string
 const LogToMqtt keyType = "mqtt_log"
 const StopLogAfter keyType = "stopLogAfter"
 const ThresholdWhenLogMqtt keyType = "threshold"
+const PowerStatus keyType = "powerStatus"
 
 type LogHook struct {
 	DataSender network.DataSender
@@ -64,7 +67,8 @@ func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) 
 	// If the log level is error, increment the count for the error
 	stopLogAfter, okStopLogAfter := e.GetCtx().Value(StopLogAfter).(int)
 	threshold, okThreshold := e.GetCtx().Value(ThresholdWhenLogMqtt).(int)
-	if (okThreshold && threshold > 0) || (okStopLogAfter && stopLogAfter > 0) {
+	powerStatus, okPowerStatus := e.GetCtx().Value(PowerStatus).(*api.PowerStatusResponse)
+	if (okThreshold && threshold > 0) || (okStopLogAfter && stopLogAfter > 0) || okPowerStatus {
 
 		// If the threshold is less than or equal to 0, never send to MQTT
 		if threshold <= 0 {
@@ -88,7 +92,7 @@ func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) 
 
 		// If the error has occurred a number of times equal to the threshold, send the error payload to MQTT and reset the count
 		if count >= threshold {
-			err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
+			err := h.DataSender.SendErrorPayload(errors.New(msg), powerStatus)
 			if err != nil {
 				return
 			}
@@ -97,4 +101,63 @@ func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) 
 			h.mu.Unlock()
 		}
 	}
+}
+
+type logOption func(*logOptions)
+
+// logOptions contains the options for the logError function.
+type logOptions struct {
+	stopLogAfter         *int
+	thresholdWhenLogMqtt *int
+	powerStatus          *api.PowerStatusResponse
+}
+
+func withStopLogAfter(stopLogAfter int) logOption {
+	return func(o *logOptions) {
+		o.stopLogAfter = &stopLogAfter
+	}
+}
+
+func withThresholdWhenLogMqtt(thresholdWhenLogMqtt int) logOption {
+	return func(o *logOptions) {
+		o.thresholdWhenLogMqtt = &thresholdWhenLogMqtt
+	}
+}
+
+func withPowerStatus(powerStatus api.PowerStatusResponse) logOption {
+	return func(o *logOptions) {
+		o.powerStatus = &powerStatus
+	}
+}
+
+// logError logs an error message with the provided options.
+func logError(logger zerolog.Logger, err error, message string, opts ...logOption) {
+	c := aplyOptions(opts)
+
+	logger.Err(err).Ctx(c).Msg(message)
+}
+
+// logInfo logs an info message with the provided options.
+func logInfo(logger zerolog.Logger, message string, opts ...logOption) {
+	c := aplyOptions(opts)
+
+	logger.Info().Ctx(c).Msg(message)
+}
+
+func aplyOptions(opts []logOption) context.Context {
+	options := &logOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	c := context.Background()
+	if options.stopLogAfter != nil {
+		c = context.WithValue(c, StopLogAfter, *options.stopLogAfter)
+	}
+	if options.thresholdWhenLogMqtt != nil {
+		c = context.WithValue(c, ThresholdWhenLogMqtt, *options.thresholdWhenLogMqtt)
+	}
+	if options.powerStatus != nil {
+		c = context.WithValue(c, PowerStatus, *options.powerStatus)
+	}
+	return c
 }
