@@ -126,7 +126,8 @@ func main() {
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, nil, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
-	logger = logger.Hook(&internal.LogHook{DataSender: ds})
+	fh := internal.NewLogRateLimiterHook(ds)
+	logger = logger.Hook(&internal.LogHook{DataSender: ds}).Hook(fh)
 
 	// log certificate errors
 	if certErr != nil {
