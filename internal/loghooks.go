@@ -67,7 +67,7 @@ func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) 
 	// If the log level is error, increment the count for the error
 	stopLogAfter, okStopLogAfter := e.GetCtx().Value(StopLogAfter).(int)
 	threshold, okThreshold := e.GetCtx().Value(ThresholdWhenLogMqtt).(int)
-	powerStatus, okPowerStatus := e.GetCtx().Value(PowerStatus).(*api.PowerStatusResponse)
+	powerStatus, okPowerStatus := e.GetCtx().Value(PowerStatus).(api.PowerStatusResponse)
 	if (okThreshold && threshold > 0) || (okStopLogAfter && stopLogAfter > 0) || okPowerStatus {
 
 		// If the threshold is less than or equal to 0, never send to MQTT
@@ -92,7 +92,7 @@ func (h *LogRateLimiterHook) Run(e *zerolog.Event, _ zerolog.Level, msg string) 
 
 		// If the error has occurred a number of times equal to the threshold, send the error payload to MQTT and reset the count
 		if count >= threshold {
-			err := h.DataSender.SendErrorPayload(errors.New(msg), powerStatus)
+			err := h.DataSender.SendErrorPayload(errors.New(msg), &powerStatus)
 			if err != nil {
 				return
 			}
