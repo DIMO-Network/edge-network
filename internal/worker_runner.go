@@ -361,7 +361,8 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				msg := fmt.Sprintf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
+					request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
 				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10))
 				continue
 			}
@@ -369,7 +370,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			value = obdResp.Value
 			// todo, check what other types conversion we should handle
 		} else {
-			wr.logger.Error().Msgf("no recognized formula type found: %s", request.Formula)
+			wr.logger.Error().Msgf("no recognized formula type found: %s. signal: %s. template: %s", request.Formula, request.Name, wr.pids.TemplateName)
 			continue
 		}
 
