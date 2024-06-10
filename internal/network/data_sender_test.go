@@ -126,7 +126,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
 		httpmock.NewStringResponder(200, `{"value": "b794f5ea0ba39494ce"}`))
 
-	err := ds.SendDeviceStatusData(deviceStatusData, 12345)
+	err := ds.SendDeviceStatusData(deviceStatusData)
 	require.NoError(t, err)
 }
 
