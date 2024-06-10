@@ -354,7 +354,8 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 		if request.FormulaType() == models.Dbc && obdResp.IsHex {
 			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
 			if err != nil {
-				msg := fmt.Sprintf("failed to convert hex response with formula. hex: %s", obdResp.ValueHex[0])
+				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s",
+					request.FormulaValue(), request.Name, obdResp.ValueHex[0])
 				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10))
 				continue
 			}
