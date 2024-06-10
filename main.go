@@ -124,7 +124,7 @@ func main() {
 	}
 
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, *config)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, -1, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	fh := internal.NewLogRateLimiterHook(ds)
 	logger = logger.Hook(&internal.LogHook{DataSender: ds}).Hook(fh)
@@ -172,6 +172,7 @@ func main() {
 
 	// OBD / CAN Loggers
 	// set vehicle info here, so we can use it for status messages
+	ds.SetVehicleTokenID(vehicleInfo.TokenID)
 	vehicleSignalDecodingAPI := gateways.NewVehicleSignalDecodingAPIService(*config)
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 

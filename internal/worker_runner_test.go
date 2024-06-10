@@ -248,11 +248,11 @@ func Test_workerRunner_Run(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
 		assert.Equal(t, 8, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 
@@ -330,10 +330,10 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.True(t, len(data.Vehicle.Signals) > 10)
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.True(t, len(data.Vehicle.Signals) > 40, "should have more signals after second data send")
 	}).Return(nil)
 
@@ -390,11 +390,11 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called once with multiple fuel level signals
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
 		assert.Equal(t, 8, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
 		assert.Equal(t, 9, len(data.Vehicle.Signals))
 	}).Return(nil)
@@ -449,10 +449,10 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called once with multiple fuel level signals
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 11, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 10, len(data.Vehicle.Signals))
 	}).Return(nil)
 
@@ -558,7 +558,7 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
 
 	// assert data sender is called without fuel level signal
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(3).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(3).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(3).Do(func(data models.DeviceNetworkData) {
@@ -641,13 +641,13 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
 
 	// assert data sender is called without fuel level signal
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 9, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(1).Do(func(data models.DeviceStatusData, _ uint64) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 12, len(data.Vehicle.Signals))
 		found := false
 		for _, signal := range data.Vehicle.Signals {
@@ -725,7 +725,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies
@@ -812,7 +812,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	expectOnMocks(ts, vl, unitID, ds, 1)
 
 	// assert data sender is called twice with expected payload
-	ds.EXPECT().SendDeviceStatusData(gomock.Any(), gomock.Any()).Times(2).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
 
 	// Initialize workerRunner here with mocked dependencies

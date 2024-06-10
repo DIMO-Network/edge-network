@@ -45,21 +45,28 @@ type DataSender interface {
 	SendCanDumpData(data models.CanDumpData) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api.
 	// The data can be gzip compressed or not
-	SendDeviceStatusData(data any, tokenID uint64) error
+	SendDeviceStatusData(data any) error
 	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
 	SendDeviceNetworkData(data models.DeviceNetworkData) error
+	// SetVehicleTokenID sets the vehicle token ID for the data sender
+	SetVehicleTokenID(tokenID uint64)
 }
 
 type dataSender struct {
-	client  mqtt.Client
-	unitID  uuid.UUID
-	ethAddr common.Address
-	logger  zerolog.Logger
-	mqtt    config.Mqtt
+	client         mqtt.Client
+	unitID         uuid.UUID
+	ethAddr        common.Address
+	logger         zerolog.Logger
+	mqtt           config.Mqtt
+	vehicleTokenID uint64
+}
+
+func (ds *dataSender) SetVehicleTokenID(tokenID uint64) {
+	ds.vehicleTokenID = tokenID
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, conf config.Config) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, VehicleTokenID uint64, conf config.Config) DataSender {
 	// Setup mqtt connection. Does not connect
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
@@ -98,11 +105,12 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	}
 
 	return &dataSender{
-		client:  client,
-		unitID:  unitID,
-		ethAddr: addr,
-		logger:  logger,
-		mqtt:    conf.Mqtt,
+		client:         client,
+		unitID:         unitID,
+		ethAddr:        addr,
+		logger:         logger,
+		mqtt:           conf.Mqtt,
+		vehicleTokenID: VehicleTokenID,
 	}
 }
 
@@ -135,15 +143,15 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	return nil
 }
 
-func (ds *dataSender) SendDeviceStatusData(data any, tokenID uint64) error {
+func (ds *dataSender) SendDeviceStatusData(data any) error {
 	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "com.dimo.device.status.v2")
 	ce := models.DeviceDataStatusCloudEvent{
 		CloudEventHeaders: ceh,
 		Data:              data,
 	}
 
-	if tokenID != 0 {
-		ce.TokenID = tokenID
+	if ds.vehicleTokenID != 0 {
+		ce.TokenID = ds.vehicleTokenID
 	}
 
 	payload, err := json.Marshal(ce)
@@ -224,7 +232,7 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	// sending the serial number of the device
 	if ds.unitID != uuid.Nil {
 		data.Device.UnitID = ds.unitID.String()
-		data.TokenID = ds.vehicleInfo.TokenID
+		data.TokenID = ds.vehicleTokenID
 		// todo think how to pass SoftwareVersion
 		//data.Device.SoftwareVersion = "ds.vehicleInfo.SoftwareVersion"
 	}
