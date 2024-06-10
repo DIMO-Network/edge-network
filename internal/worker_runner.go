@@ -363,7 +363,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			if err != nil {
 				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
 					request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10))
+				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10), withStopLogAfter(1))
 				continue
 			}
 		} else if !obdResp.IsHex {
