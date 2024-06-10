@@ -124,7 +124,7 @@ func main() {
 	}
 
 	// setup datasender here so we can send errors to it
-	ds := network.NewDataSender(unitID, *ethAddr, logger, -1, *config)
+	ds := network.NewDataSender(unitID, *ethAddr, logger, 0, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	fh := internal.NewLogRateLimiterHook(ds)
 	logger = logger.Hook(&internal.LogHook{DataSender: ds}).Hook(fh)
