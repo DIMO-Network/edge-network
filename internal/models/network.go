@@ -72,7 +72,8 @@ type SignalData struct {
 
 type ErrorsData struct {
 	CommonData
-	Device Device `json:"device,omitempty"`
+	Device  Device `json:"device,omitempty"`
+	TokenID uint64 `json:"vehicleTokenId"`
 	// deprecated
 	Errors  []string `json:"errors"`
 	Message string   `json:"message"`
@@ -138,7 +139,7 @@ type DeviceFingerprintCloudEvent struct {
 type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
 	Data    any    `json:"data"`
-	TokenID uint64 `json:"vehicleTokenID"`
+	TokenID uint64 `json:"vehicleTokenId"`
 }
 
 type DeviceDataNetworkCloudEvent struct {

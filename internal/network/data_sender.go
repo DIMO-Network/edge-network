@@ -224,6 +224,9 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	// sending the serial number of the device
 	if ds.unitID != uuid.Nil {
 		data.Device.UnitID = ds.unitID.String()
+		data.TokenID = ds.vehicleInfo.TokenID
+		// todo think how to pass SoftwareVersion
+		//data.Device.SoftwareVersion = "ds.vehicleInfo.SoftwareVersion"
 	}
 
 	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "zone.dimo.aftermarket.device.logs")
