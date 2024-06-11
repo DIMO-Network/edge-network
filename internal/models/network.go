@@ -44,6 +44,9 @@ type Device struct {
 }
 
 type Vehicle struct {
+	Make    string       `json:"make"`
+	Model   string       `json:"model"`
+	Year    int          `json:"year"`
 	Signals []SignalData `json:"signals,omitempty"`
 }
 
@@ -137,9 +140,6 @@ type DeviceDataStatusCloudEvent struct {
 	CloudEventHeaders
 	Data    any    `json:"data"`
 	TokenID uint64 `json:"vehicleTokenId"`
-	Make    string `json:"make"`
-	Model   string `json:"model"`
-	Year    int    `json:"year"`
 }
 
 type DeviceDataNetworkCloudEvent struct {

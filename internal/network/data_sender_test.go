@@ -89,15 +89,7 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 		unitID:  uuid.New(),
 		ethAddr: common.HexToAddress("0x694C9A19e3644A9BFe1008857aeEd155F27b078e"),
 		logger:  testLogger,
-		vehicleInfo: &models.VehicleInfo{
-			TokenID: 12345,
-			VehicleDefinition: models.VehicleDefinition{
-				Make:  "Toyota",
-				Model: "Corolla",
-				Year:  2022,
-			},
-		},
-		mqtt: config.Mqtt,
+		mqtt:    config.Mqtt,
 	}
 	deviceStatusData := models.DeviceStatusData{
 		CommonData: models.CommonData{

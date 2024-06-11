@@ -41,16 +41,17 @@ type workerRunner struct {
 	stop                chan bool
 	sendPayloadInterval time.Duration
 	device              Device
+	vehicleInfo         *models.VehicleInfo
 }
 
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -260,6 +261,12 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID)
 	}
+	// add vehicle info if available
+	if wr.vehicleInfo != nil {
+		statusData.Vehicle.Make = wr.vehicleInfo.VehicleDefinition.Make
+		statusData.Vehicle.Model = wr.vehicleInfo.VehicleDefinition.Model
+		statusData.Vehicle.Year = wr.vehicleInfo.VehicleDefinition.Year
+	}
 
 	return statusData
 }
@@ -356,7 +363,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			if err != nil {
 				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
 					request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10))
+				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10), withStopLogAfter(1))
 				continue
 			}
 		} else if !obdResp.IsHex {

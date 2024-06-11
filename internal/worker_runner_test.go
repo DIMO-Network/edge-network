@@ -953,6 +953,14 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 		},
 		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
 		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)},
+		vehicleInfo: &models.VehicleInfo{
+			TokenID: 12345,
+			VehicleDefinition: models.VehicleDefinition{
+				Make:  "Toyota",
+				Model: "Corolla",
+				Year:  2022,
+			},
+		},
 	}
 	return wr
 }
