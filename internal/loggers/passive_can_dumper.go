@@ -174,6 +174,7 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
 	println("socketcan.DialContext()")
 
 	recv := socketcan.NewReceiver(conn)
+
 	println("socketcan.NewReceiver(conn)")
 	var loopNumber = 0
 	for recv.Receive() {

@@ -4,6 +4,16 @@ This application is meant to run on an autopi, to get a variety of information f
 
 ## Building and deploying locally
 
+** For local dev: Note that go environment Architecture and OS must be set correctly:
+OS: linux
+arch: arm
+eg. `GOOS=linux GOARCH=arm go build`
+```sh
+export GOOS=linux
+export GOARCH=arm
+```
+This is so that the socket can library we use for dbc filtering works, but needed anyways for building for rpi.
+
 Compile for the AutoPi with
 ```
 brew install --build-from-source upx
