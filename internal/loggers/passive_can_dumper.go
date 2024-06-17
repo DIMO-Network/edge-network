@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 	"os"
 	"strconv"
 	"time"
@@ -161,9 +161,18 @@ func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 
 // ReadCanBus This function reads frames from the can bus and loads the data into memory. Data is populated to  *a.DetailedCanFrames[]
 func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
-	d, _ := candevice.New("can0")
-	_ = d.SetBitrate(uint32(bitrate))
-	_ = d.SetUp()
+	d, err := candevice.New("can0")
+	if err != nil {
+		return errors.Wrap(err, "failed to new a candevice on can0")
+	}
+	err = d.SetBitrate(uint32(bitrate))
+	if err != nil {
+		return errors.Wrap(err, "failed to set bitrate")
+	}
+	err = d.SetUp()
+	if err != nil {
+		return errors.Wrap(err, "failed to set bitrate")
+	}
 	// nolint
 	defer d.SetDown()
 

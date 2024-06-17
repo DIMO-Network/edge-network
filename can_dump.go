@@ -73,7 +73,7 @@ func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, args ...interfa
 
 	canErr := canDumperInstance.ReadCanBus(p.cycleCount, 500000)
 	if canErr != nil {
-		log.Err(canErr).Send()
+		log.Fatal().Err(canErr).Msg("canDumperInstance error")
 		return subcommands.ExitFailure
 	}
 
