@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/shared"
 	"os"
 	"strconv"
 	"strings"
@@ -144,10 +145,17 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 }
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
-	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "com.dimo.device.status.v2")
-	ce := models.DeviceDataStatusCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := models.DeviceDataStatusCloudEvent[any]{
+		CloudEvent: shared.CloudEvent[any]{
+			ID:          ksuid.New().String(),
+			Source:      "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk",
+			SpecVersion: "1.0",
+			Subject:     ds.ethAddr.Hex(),
+			Time:        time.Now().UTC(),
+			Type:        "com.dimo.device.status.v2",
+			DataSchema:  "dimo.zone.status/v2.0",
+			Data:        data,
+		},
 	}
 
 	if ds.vehicleTokenID != 0 {
@@ -163,7 +171,7 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 	// if the status topic has a %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(status, "%s") {
-		status = fmt.Sprintf(status, ceh.Subject)
+		status = fmt.Sprintf(status, ce.Subject)
 	}
 
 	err = ds.sendPayload(status, payload, true)

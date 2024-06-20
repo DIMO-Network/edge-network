@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/DIMO-Network/shared"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -127,22 +128,24 @@ type GraphQLRequest struct {
 }
 
 type CanDumpCloudEvent struct {
+	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
 	CloudEventHeaders
 	Data CanDumpData `json:"data"`
 }
 
 type DeviceFingerprintCloudEvent struct {
+	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
 	CloudEventHeaders
 	Data FingerprintData `json:"data"`
 }
 
-type DeviceDataStatusCloudEvent struct {
-	CloudEventHeaders
-	Data    any    `json:"data"`
+type DeviceDataStatusCloudEvent[A any] struct {
+	shared.CloudEvent[A]
 	TokenID uint64 `json:"vehicleTokenId"`
 }
 
 type DeviceDataNetworkCloudEvent struct {
+	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
 	CloudEventHeaders
 	Data DeviceNetworkData `json:"data"`
 }
