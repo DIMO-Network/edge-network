@@ -1,10 +1,8 @@
 package models
 
 import (
-	"github.com/DIMO-Network/shared"
-	"time"
-
 	"github.com/DIMO-Network/edge-network/internal/api"
+	"github.com/DIMO-Network/shared"
 )
 
 type CanDumpData struct {
@@ -81,11 +79,6 @@ type ErrorsData struct {
 	Level   string   `json:"level"`
 }
 
-type DeviceErrorsCloudEvent struct {
-	CloudEventHeaders
-	Data ErrorsData `json:"data"`
-}
-
 type FingerprintData struct {
 	CommonData
 	Device          Device  `json:"device,omitempty"`
@@ -98,18 +91,6 @@ type FingerprintData struct {
 type CellInfo struct {
 	Details api.IntrafrequencyLteInfo `json:"details,omitempty"`
 	IP      string                    `json:"ip,omitempty"`
-}
-
-// CloudEventHeaders contains the fields common to all CloudEvent messages. https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md
-type CloudEventHeaders struct {
-	ID          string    `json:"id"`
-	Source      string    `json:"source"`
-	SpecVersion string    `json:"specversion"`
-	Subject     string    `json:"subject"`
-	Time        time.Time `json:"time"`
-	Type        string    `json:"type"`
-	// Signature is an extension https://github.com/cloudevents/spec/blob/main/cloudevents/documented-extensions.md
-	Signature string `json:"signature"`
 }
 
 type VehicleInfo struct {
@@ -127,25 +108,7 @@ type GraphQLRequest struct {
 	Query string `json:"query"`
 }
 
-type CanDumpCloudEvent struct {
-	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
-	CloudEventHeaders
-	Data CanDumpData `json:"data"`
-}
-
-type DeviceFingerprintCloudEvent struct {
-	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
-	CloudEventHeaders
-	Data FingerprintData `json:"data"`
-}
-
 type DeviceDataStatusCloudEvent[A any] struct {
 	shared.CloudEvent[A]
 	TokenID uint64 `json:"vehicleTokenId"`
-}
-
-type DeviceDataNetworkCloudEvent struct {
-	// todo use CloudEvent similar to DeviceDataStatusCloudEvent
-	CloudEventHeaders
-	Data DeviceNetworkData `json:"data"`
 }
