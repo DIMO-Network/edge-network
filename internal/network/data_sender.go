@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/shared"
 	"os"
 	"strconv"
 	"strings"
@@ -118,10 +119,15 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/fingerprint", "zone.dimo.aftermarket.device.fingerprint")
-	ce := models.DeviceFingerprintCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := shared.CloudEvent[models.FingerprintData]{
+		ID:          ksuid.New().String(),
+		Source:      "aftermarket/device/fingerprint",
+		SpecVersion: "1.0",
+		Subject:     ds.ethAddr.Hex(),
+		Time:        time.Now().UTC(),
+		Type:        "zone.dimo.aftermarket.device.fingerprint",
+		DataSchema:  "dimo.zone.status/v2.0",
+		Data:        data,
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
@@ -130,10 +136,10 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 	}
 
 	fingerprint := ds.mqtt.Topics.Fingerprint
-	// if the fingerprint topic has a %s in it, replace it with the subject
+	// if the fingerprint topic has an %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(fingerprint, "%s") {
-		fingerprint = fmt.Sprintf(fingerprint, ceh.Subject)
+		fingerprint = fmt.Sprintf(fingerprint, ce.Subject)
 	}
 	err = ds.sendPayload(fingerprint, payload, false)
 	if err != nil {
@@ -144,10 +150,17 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 }
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
-	ceh := newCloudEventHeaders(ds.ethAddr, "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk", "com.dimo.device.status.v2")
-	ce := models.DeviceDataStatusCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := models.DeviceDataStatusCloudEvent[any]{
+		CloudEvent: shared.CloudEvent[any]{
+			ID:          ksuid.New().String(),
+			Source:      "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk",
+			SpecVersion: "1.0",
+			Subject:     ds.ethAddr.Hex(),
+			Time:        time.Now().UTC(),
+			Type:        "com.dimo.device.status.v2",
+			DataSchema:  "dimo.zone.status/v2.0",
+			Data:        data,
+		},
 	}
 
 	if ds.vehicleTokenID != 0 {
@@ -160,10 +173,10 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 	}
 
 	status := ds.mqtt.Topics.Status
-	// if the status topic has a %s in it, replace it with the subject
+	// if the status topic has an %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(status, "%s") {
-		status = fmt.Sprintf(status, ceh.Subject)
+		status = fmt.Sprintf(status, ce.Subject)
 	}
 
 	err = ds.sendPayload(status, payload, true)
@@ -178,10 +191,15 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/network", "com.dimo.device.network")
-	ce := models.DeviceDataNetworkCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := shared.CloudEvent[models.DeviceNetworkData]{
+		ID:          ksuid.New().String(),
+		Source:      "aftermarket/device/network",
+		SpecVersion: "1.0",
+		Subject:     ds.ethAddr.Hex(),
+		Time:        time.Now().UTC(),
+		Type:        "com.dimo.device.network",
+		DataSchema:  "dimo.zone.status/v2.0",
+		Data:        data,
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
@@ -189,10 +207,10 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 	}
 
 	network := ds.mqtt.Topics.Network
-	// if the network topic has a %s in it, replace it with the subject
+	// if the network topic has an %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(network, "%s") {
-		network = fmt.Sprintf(network, ceh.Subject)
+		network = fmt.Sprintf(network, ce.Subject)
 	}
 	err = ds.sendPayload(network, payload, true)
 	if err != nil {
@@ -205,10 +223,15 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/canbus/dump", "zone.dimo.aftermarket.canbus.dump")
-	ce := models.CanDumpCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := shared.CloudEvent[models.CanDumpData]{
+		ID:          ksuid.New().String(),
+		Source:      "aftermarket/device/canbus/dump",
+		SpecVersion: "1.0",
+		Subject:     ds.ethAddr.Hex(),
+		Time:        time.Now().UTC(),
+		Type:        "zone.dimo.aftermarket.canbus.dump",
+		DataSchema:  "dimo.zone.status/v2.0",
+		Data:        data,
 	}
 	println("Sending can dump data: (payload)")
 	payload, err := json.Marshal(ce)
@@ -237,10 +260,15 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		//data.Device.SoftwareVersion = "ds.vehicleInfo.SoftwareVersion"
 	}
 
-	ceh := newCloudEventHeaders(ds.ethAddr, "aftermarket/device/logs", "zone.dimo.aftermarket.device.logs")
-	ce := models.DeviceErrorsCloudEvent{
-		CloudEventHeaders: ceh,
-		Data:              data,
+	ce := shared.CloudEvent[models.ErrorsData]{
+		ID:          ksuid.New().String(),
+		Source:      "aftermarket/device/logs",
+		SpecVersion: "1.0",
+		Subject:     ds.ethAddr.Hex(),
+		Time:        time.Now().UTC(),
+		Type:        "zone.dimo.aftermarket.device.logs",
+		DataSchema:  "dimo.zone.status/v2.0",
+		Data:        data,
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
@@ -248,10 +276,10 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	}
 
 	logs := ds.mqtt.Topics.Logs
-	// if the network topic has a %s in it, replace it with the subject
+	// if the network topic has an %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(logs, "%s") {
-		logs = fmt.Sprintf(logs, ceh.Subject)
+		logs = fmt.Sprintf(logs, ce.Subject)
 	}
 	err = ds.sendPayload(logs, payload, true)
 	if err != nil {
@@ -360,16 +388,4 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	data.Errors = append(data.Errors, err.Error())
 
 	return ds.SendLogsData(data)
-}
-
-func newCloudEventHeaders(ethAddress common.Address, source string, eventType string) models.CloudEventHeaders {
-	ce := models.CloudEventHeaders{
-		ID:          ksuid.New().String(),
-		Source:      source,
-		SpecVersion: "1.0",
-		Subject:     ethAddress.Hex(),
-		Time:        time.Now().UTC(),
-		Type:        eventType,
-	}
-	return ce
 }
