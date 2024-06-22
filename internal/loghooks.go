@@ -3,11 +3,12 @@ package internal
 import (
 	"context"
 	"errors"
+	"math"
+	"sync"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/rs/zerolog"
-	"math"
-	"sync"
 )
 
 type keyType string

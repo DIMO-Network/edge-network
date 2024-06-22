@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/rs/zerolog"
 	"runtime/debug"
+
+	"github.com/rs/zerolog"
 
 	"github.com/google/subcommands"
 )

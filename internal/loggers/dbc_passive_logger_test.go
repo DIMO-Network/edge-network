@@ -2,10 +2,11 @@ package loggers
 
 import (
 	_ "embed"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 )
 
 //go:embed test_gm120.dbc

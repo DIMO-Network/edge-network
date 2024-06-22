@@ -6,10 +6,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/pkg/errors"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
 
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
 

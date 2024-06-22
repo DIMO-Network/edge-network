@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"os"
-	"strconv"
-	"time"
 )
 
 // - To scan can bus and save local copy on autopi:

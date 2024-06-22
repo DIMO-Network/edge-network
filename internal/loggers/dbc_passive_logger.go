@@ -2,11 +2,14 @@ package loggers
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers/canbus"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
-	"strconv"
-	"strings"
 )
 
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
@@ -20,8 +23,8 @@ type dbcPassiveLogger struct {
 
 func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
 	filters, err := dpl.parseDBCHeaders(dbcFile)
-	if len(filters) == 0 {
-		return fmt.Errorf("no dbc headers found in %s", dbcFile)
+	if err != nil {
+		return errors.Wrapf(err, "failed to pase dbc file: %s", dbcFile)
 	}
 
 	recv1, err := canbus.New()

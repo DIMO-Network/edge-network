@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/shared"
 )
