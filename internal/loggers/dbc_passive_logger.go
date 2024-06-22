@@ -5,6 +5,8 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/loggers/canbus"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
+	"strconv"
+	"strings"
 )
 
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
@@ -17,7 +19,7 @@ type dbcPassiveLogger struct {
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
-	filters := dpl.parseDBCHeaders(dbcFile)
+	filters, err := dpl.parseDBCHeaders(dbcFile)
 	if len(filters) == 0 {
 		return fmt.Errorf("no dbc headers found in %s", dbcFile)
 	}
@@ -39,11 +41,40 @@ func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
 	return nil
 }
 
-// todo implement, test
-func (dpl *dbcPassiveLogger) parseDBCHeaders(string) []dbcFilter {}
+func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error) {
+	var filters []dbcFilter
+	lines := strings.Split(dbcFile, "\n")
+
+	var header string
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		// Check if the line starts with "BO_" and if it has at least 2 fields
+		if fields[0] == "BO_" && len(fields) >= 2 {
+			// Extract the header. It is second word in string
+			header = fields[1]
+		}
+		// Check if the line starts with "SG_" and if it has at least 2 fields
+		if fields[0] == "SG_" && len(fields) >= 2 {
+			// Extract the formula, which is after the "SG_" keyword.
+			// We join the rest of the line to capture multi-word formulas too
+			formula := strings.Join(fields[1:], " ")
+			headerUint, err := strconv.ParseUint(header, 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("error converting header to uint32: %w", err)
+			}
+			filters = append(filters, dbcFilter{header: uint32(headerUint), formula: formula})
+			// Reset header for next header-formula pair
+			header = ""
+		}
+	}
+	// Return if no filters were found
+	if len(filters) == 0 {
+		return nil, fmt.Errorf("no header-formula pairs were found")
+	}
+	return filters, nil
+}
 
 type dbcFilter struct {
 	header  uint32
 	formula string
-	pid     string
 }
