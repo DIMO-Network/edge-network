@@ -25,8 +25,9 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 			dbcFile: testgm120dbc,
 			want: []dbcFilter{
 				{
-					header:  288,
-					formula: `7|32@0+ (0.015625,0) [0|67108863.984375] "km"  Vector_XXX`,
+					header:     288,
+					formula:    `7|32@0+ (0.015625,0) [0|67108863.984375] "km" Vector_XXX`,
+					signalName: "odometer",
 				},
 			},
 		},

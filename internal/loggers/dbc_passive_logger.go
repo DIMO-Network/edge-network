@@ -65,12 +65,18 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 		if fields[0] == "SG_" && len(fields) >= 2 {
 			// Extract the formula, which is after the "SG_" keyword.
 			// We join the rest of the line to capture multi-word formulas too
-			formula := strings.Join(fields[1:], " ")
+			sg := strings.Join(fields[1:], " ")
+			splitSg := strings.Split(sg, ":")
+			if len(splitSg) != 2 {
+				return nil, fmt.Errorf("invalid sg format: %s", sg)
+			}
+			signalName := strings.TrimSpace(splitSg[0])
+			formula := strings.TrimSpace(splitSg[1])
 			headerUint, err := strconv.ParseUint(header, 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("error converting header to uint32: %w", err)
 			}
-			filters = append(filters, dbcFilter{header: uint32(headerUint), formula: formula})
+			filters = append(filters, dbcFilter{header: uint32(headerUint), formula: formula, signalName: signalName})
 			// Reset header for next header-formula pair
 			header = ""
 		}
@@ -83,6 +89,7 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 }
 
 type dbcFilter struct {
-	header  uint32
-	formula string
+	header     uint32
+	formula    string
+	signalName string
 }
