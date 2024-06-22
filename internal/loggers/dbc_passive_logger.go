@@ -32,11 +32,13 @@ func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
 		return err
 	}
 	defer recv1.Close()
-	// todo loop
-	err = recv1.SetFilters([]unix.CanFilter{
-		// set the id's based on uint representation of hex, although DBC file i think is already in numeric form
-		{Id: filters[0].header, Mask: unix.CAN_SFF_MASK},
-	})
+	// set hardware filters
+	uf := make([]unix.CanFilter, len(filters))
+	for i, filter := range filters {
+		uf[i].Id = filter.header // wants decimal representation of header - not hex
+		uf[i].Mask = unix.CAN_SFF_MASK
+	}
+	err = recv1.SetFilters(uf)
 	if err != nil {
 		return fmt.Errorf("cannot set canbus filters: %w", err)
 	}
@@ -51,6 +53,9 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 	var header string
 	for _, line := range lines {
 		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
 		// Check if the line starts with "BO_" and if it has at least 2 fields
 		if fields[0] == "BO_" && len(fields) >= 2 {
 			// Extract the header. It is second word in string
