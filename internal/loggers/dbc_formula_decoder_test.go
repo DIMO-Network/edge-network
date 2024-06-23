@@ -35,6 +35,8 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 		{"7e803410585aaaaaaaa", "05", "31|8@0+ (1,-40) [-40|215] \"degC\"", 93, "degC", ""}, // 0 padded pid
 		// mache odoemteter
 		{"7e80662dd01003f5acc", "dd01", "39|24@0+ (1,0) [0|2150000] \"km\"", 16218, "km", ""},
+		// gm120 dbc passive odo - todo: need real example data
+		{"7e800000000dd3f5acc", "", "7|32@0+ (0.015625,0) [0|67108863.984375] \"km\" Vector_XXX", 884.984375, "km", ""},
 	}
 
 	for _, test := range tests {
