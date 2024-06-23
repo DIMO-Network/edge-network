@@ -14,7 +14,7 @@ import (
 
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
-	StartScanning(dbcFile string) error // todo: do we return a channel or have a channel passed in to communicate updates to?
+	StartScanning(dbcFile string, ch chan<- float64) error
 }
 
 type dbcPassiveLogger struct {
@@ -25,7 +25,7 @@ func NewDBCPassiveLogger(logger zerolog.Logger) DBCPassiveLogger {
 	return &dbcPassiveLogger{logger: logger}
 }
 
-func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
+func (dpl *dbcPassiveLogger) StartScanning(dbcFile string, ch chan<- float64) error {
 	filters, err := dpl.parseDBCHeaders(dbcFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed to pase dbc file: %s", dbcFile)
@@ -69,9 +69,8 @@ func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
 		if err != nil {
 			dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
 		}
-		fmt.Printf("value obtained: %f\n", floatValue)
-		// todo how can i send this to a channel
-
+		// send this to channel
+		ch <- floatValue
 	}
 }
 

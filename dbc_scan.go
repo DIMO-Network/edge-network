@@ -35,11 +35,18 @@ func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	if err != nil {
 		p.logger.Fatal().Err(err).Send()
 	}
+	fmt.Println(content)
 
 	dbcLogger := loggers.NewDBCPassiveLogger(p.logger)
-	err = dbcLogger.StartScanning(string(content))
-	if err != nil {
-		p.logger.Fatal().Err(err).Msg("failed to start scanning")
+	ch := make(chan float64)
+	go func() {
+		err := dbcLogger.StartScanning(string(content), ch)
+		if err != nil {
+			p.logger.Fatal().Err(err).Msg("failed to start scanning")
+		}
+	}()
+	for floatValue := range ch {
+		fmt.Printf("value obtained: %f\n", floatValue)
 	}
 	// if runs ok, this will never hit btw
 	return subcommands.ExitSuccess
