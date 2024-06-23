@@ -14,11 +14,15 @@ import (
 
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
-	StartScanning(dbcFile string) // todo: do we return a channel or have a channel passed in to communicate updates to?
+	StartScanning(dbcFile string) error // todo: do we return a channel or have a channel passed in to communicate updates to?
 }
 
 type dbcPassiveLogger struct {
 	logger zerolog.Logger
+}
+
+func NewDBCPassiveLogger(logger zerolog.Logger) DBCPassiveLogger {
+	return &dbcPassiveLogger{logger: logger}
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
@@ -27,22 +31,56 @@ func (dpl *dbcPassiveLogger) StartScanning(dbcFile string) error {
 		return errors.Wrapf(err, "failed to pase dbc file: %s", dbcFile)
 	}
 
-	recv1, err := canbus.New()
+	recv, err := canbus.New()
 	if err != nil {
 		return err
 	}
-	defer recv1.Close()
+	defer recv.Close()
+
 	// set hardware filters
 	uf := make([]unix.CanFilter, len(filters))
 	for i, filter := range filters {
 		uf[i].Id = filter.header // wants decimal representation of header - not hex
 		uf[i].Mask = unix.CAN_SFF_MASK
 	}
-	err = recv1.SetFilters(uf)
+	err = recv.SetFilters(uf)
 	if err != nil {
 		return fmt.Errorf("cannot set canbus filters: %w", err)
 	}
+	err = recv.Bind("can0")
+	if err != nil {
 
+		return errors.Wrap(err, "could not bind recv socket")
+	}
+
+	// loop
+	for {
+		frame, err := recv.Recv()
+		if err != nil {
+			dpl.logger.Err(err).Msg("failed to read frame")
+			continue
+		}
+		fmt.Printf("frame-%02d: (id=0x%x)\n", frame.Data, frame.ID)
+		// match the frame id to our filters so we can get the right formula
+		f := findFilter(filters, frame.ID)
+		hexStr := fmt.Sprintf("%02d", frame.Data)
+		// todo will this work with empty pid? do we need new decoder?
+		floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", f.formula)
+		if err != nil {
+			dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
+		}
+		fmt.Printf("value obtained: %f\n", floatValue)
+		// todo how can i send this to a channel
+
+	}
+}
+
+func findFilter(filters []dbcFilter, id uint32) *dbcFilter {
+	for i := range filters {
+		if filters[i].header == id {
+			return &filters[i]
+		}
+	}
 	return nil
 }
 
