@@ -96,6 +96,7 @@ func main() {
 	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
 	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
+	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
 
 	if len(os.Args) > 1 {
 		ctx := context.Background()
@@ -178,7 +179,7 @@ func main() {
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the template settings from remote, below method handles all the special logic
-	pids, deviceSettings, err := vehicleTemplates.GetTemplateSettings(ethAddr)
+	pids, deviceSettings, dbcFile, err := vehicleTemplates.GetTemplateSettings(ethAddr)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
 	}
@@ -195,12 +196,11 @@ func main() {
 		}
 	}
 
-	// todo v2: way to enable/disable our own logger engine - should be base on settings by eth addr that we pull from cloud
-
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
+	dbcScanner := loggers.NewDBCPassiveLogger(logger, dbcFile)
 
 	// query imei
 	imei, err := commands.GetIMEI(unitID)
@@ -216,7 +216,7 @@ func main() {
 		IMEI:            imei,
 	}
 	// Execute Worker in background.
-	runnerSvc := internal.NewWorkerRunner(ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, deviceConf, vehicleInfo)
+	runnerSvc := internal.NewWorkerRunner(ethAddr, lss, ds, logger, fingerprintRunner, pids, deviceSettings, deviceConf, vehicleInfo, dbcScanner)
 	runnerSvc.Run() // not sure if this will block always. if it does do we need to have a cancel when catch os.Interrupt, ie. stop tasks?
 
 	sig := <-sigChan

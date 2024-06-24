@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/pkg/errors"
 
@@ -14,21 +17,26 @@ import (
 
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
-	StartScanning(dbcFile string, ch chan<- float64) error
+	StartScanning(ch chan<- models.SignalData) error
+	HasDBCFile() bool
 }
 
 type dbcPassiveLogger struct {
-	logger zerolog.Logger
+	logger  zerolog.Logger
+	dbcFile *string
 }
 
-func NewDBCPassiveLogger(logger zerolog.Logger) DBCPassiveLogger {
-	return &dbcPassiveLogger{logger: logger}
+func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string) DBCPassiveLogger {
+	return &dbcPassiveLogger{logger: logger, dbcFile: dbcFile}
 }
 
-func (dpl *dbcPassiveLogger) StartScanning(dbcFile string, ch chan<- float64) error {
-	filters, err := dpl.parseDBCHeaders(dbcFile)
+func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
+	if dpl.dbcFile == nil {
+		return nil
+	}
+	filters, err := dpl.parseDBCHeaders(*dpl.dbcFile)
 	if err != nil {
-		return errors.Wrapf(err, "failed to pase dbc file: %s", dbcFile)
+		return errors.Wrapf(err, "failed to pase dbc file: %s", *dpl.dbcFile)
 	}
 
 	recv, err := canbus.New()
@@ -64,14 +72,22 @@ func (dpl *dbcPassiveLogger) StartScanning(dbcFile string, ch chan<- float64) er
 		// match the frame id to our filters so we can get the right formula
 		f := findFilter(filters, frame.ID)
 		hexStr := fmt.Sprintf("%02d", frame.Data)
-		// todo will this work with empty pid? do we need new decoder?
 		floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", f.formula)
 		if err != nil {
 			dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
 		}
-		// send this to channel
-		ch <- floatValue
+		s := models.SignalData{
+			Timestamp: time.Now().UnixMilli(),
+			Name:      f.signalName,
+			Value:     floatValue,
+		}
+		// push to channel
+		ch <- s
 	}
+}
+
+func (dpl *dbcPassiveLogger) HasDBCFile() bool {
+	return dpl.dbcFile != nil && *dpl.dbcFile != ""
 }
 
 func findFilter(filters []dbcFilter, id uint32) *dbcFilter {

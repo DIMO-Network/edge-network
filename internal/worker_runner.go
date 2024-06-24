@@ -42,16 +42,20 @@ type workerRunner struct {
 	sendPayloadInterval time.Duration
 	device              Device
 	vehicleInfo         *models.VehicleInfo
+	dbcScanner          loggers.DBCPassiveLogger
 }
 
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
-	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo) WorkerRunner {
+	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo,
+	dbcScanner loggers.DBCPassiveLogger) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
-		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings, signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo}
+		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
+		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
+		dbcScanner: dbcScanner}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -79,6 +83,22 @@ func (wr *workerRunner) Run() {
 		wr.logger.Err(err).Msg("unable to get modem type, defaulting to ec2x")
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
+
+	if wr.dbcScanner.HasDBCFile() {
+		// start dbc passive logger, pass through any messages on the channel
+		dbcCh := make(chan models.SignalData)
+		go func() {
+			err := wr.dbcScanner.StartScanning(dbcCh)
+			if err != nil {
+				wr.logger.Err(err).Msg("failed to start scanning")
+			}
+		}()
+		go func() {
+			for signal := range dbcCh {
+				wr.signalsQueue.Enqueue(signal)
+			}
+		}()
+	}
 
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
 	// battery-voltage will be checked in obd related clock to determine if it is ok to query obd

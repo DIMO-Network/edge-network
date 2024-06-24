@@ -52,6 +52,21 @@ func (mr *MockTemplateStoreMockRecorder) DeleteAllSettings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllSettings", reflect.TypeOf((*MockTemplateStore)(nil).DeleteAllSettings))
 }
 
+// ReadDBCFile mocks base method.
+func (m *MockTemplateStore) ReadDBCFile() (*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadDBCFile")
+	ret0, _ := ret[0].(*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadDBCFile indicates an expected call of ReadDBCFile.
+func (mr *MockTemplateStoreMockRecorder) ReadDBCFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadDBCFile", reflect.TypeOf((*MockTemplateStore)(nil).ReadDBCFile))
+}
+
 // ReadPIDsConfig mocks base method.
 func (m *MockTemplateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 	m.ctrl.T.Helper()
@@ -125,6 +140,20 @@ func (m *MockTemplateStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
 func (mr *MockTemplateStoreMockRecorder) ReadVehicleInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadVehicleInfo", reflect.TypeOf((*MockTemplateStore)(nil).ReadVehicleInfo))
+}
+
+// WriteDBCFile mocks base method.
+func (m *MockTemplateStore) WriteDBCFile(dbcFile *string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteDBCFile", dbcFile)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteDBCFile indicates an expected call of WriteDBCFile.
+func (mr *MockTemplateStoreMockRecorder) WriteDBCFile(dbcFile any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteDBCFile", reflect.TypeOf((*MockTemplateStore)(nil).WriteDBCFile), dbcFile)
 }
 
 // WritePIDsConfig mocks base method.

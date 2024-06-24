@@ -14,7 +14,7 @@ import (
 // VehicleTemplates idea is to be a layer on top of calling the gateway for VehicleSignalDecoding, that handles
 // caching of configs - checking if there is an updated version of the templates available
 type VehicleTemplates interface {
-	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error)
+	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error)
 }
 
 type vehicleTemplates struct {
@@ -29,10 +29,11 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
-func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error) {
 	// read any existing settings
 	var pidsConfig *models.TemplatePIDs
 	var deviceSettings *models.TemplateDeviceSettings
+	var dbcFile *string
 	templateURLsLocal, err := vt.lss.ReadTemplateURLs()
 	if err != nil {
 		vt.logger.Err(err).Msg("could not read local settings for template URLs, continuing")
@@ -44,6 +45,10 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		deviceSettings, err = vt.lss.ReadTemplateDeviceSettings()
 		if err != nil {
 			vt.logger.Err(err).Msg("could not read local settings for device settings, continuing")
+		}
+		dbcFile, err = vt.lss.ReadDBCFile()
+		if err != nil {
+			vt.logger.Err(err).Msg("could not read local settings for DBC file, continuing")
 		}
 	}
 
@@ -57,18 +62,19 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
 	if templateURLsLocal == nil && templateURLsRemote == nil {
 		// todo - this is exagerated, let's return default settings, and just pidsConfig variable
-		return nil, nil, fmt.Errorf("could not get template URL settings from remote, or from local store, cannot proceed")
+		return nil, nil, nil, fmt.Errorf("could not get template URL settings from remote, or from local store, cannot proceed")
 	}
 	// if can't get nothing from remote, just return what we got locally
 	if templateURLsRemote == nil {
-		return pidsConfig, deviceSettings, nil
+		return pidsConfig, deviceSettings, dbcFile, nil
 	}
 	// if no change, just return what we have
 	if templateURLsLocal != nil &&
 		templateURLsRemote.PidURL == templateURLsLocal.PidURL &&
-		templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL && deviceSettings != nil {
+		templateURLsRemote.DeviceSettingURL == templateURLsLocal.DeviceSettingURL && deviceSettings != nil &&
+		templateURLsRemote.DbcURL == templateURLsLocal.DbcURL {
 		vt.logger.Info().Msg("vehicle template configuration has not changed, keeping current.")
-		return pidsConfig, deviceSettings, nil
+		return pidsConfig, deviceSettings, dbcFile, nil
 	}
 	// if we get here, means version are different and we must retrieve and update, or we have nothing recent saved locally
 	saveUrlsErr := vt.lss.WriteTemplateURLs(*templateURLsRemote)
@@ -102,6 +108,15 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 			vt.logger.Err(devSetError).Msg("error writing device template settings to tmp cache")
 		}
 	}
+	// get dbc file
+	if templateURLsRemote.DbcURL != "" {
+		dbcFile, err = gateways.Retry[string](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+			return vt.vsd.GetDBC(templateURLsRemote.DbcURL)
+		})
+		if err != nil {
+			vt.logger.Err(err).Msgf("could not get dbc file from remote: %s", templateURLsRemote.DbcURL)
+		}
+	}
 
-	return pidsConfig, deviceSettings, nil
+	return pidsConfig, deviceSettings, dbcFile, nil
 }

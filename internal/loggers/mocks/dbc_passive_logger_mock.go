@@ -11,6 +11,7 @@ package mock_loggers
 import (
 	reflect "reflect"
 
+	models "github.com/DIMO-Network/edge-network/internal/models"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -38,15 +39,15 @@ func (m *MockDBCPassiveLogger) EXPECT() *MockDBCPassiveLoggerMockRecorder {
 }
 
 // StartScanning mocks base method.
-func (m *MockDBCPassiveLogger) StartScanning(dbcFile string, ch chan<- float64) error {
+func (m *MockDBCPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartScanning", dbcFile, ch)
+	ret := m.ctrl.Call(m, "StartScanning", ch)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StartScanning indicates an expected call of StartScanning.
-func (mr *MockDBCPassiveLoggerMockRecorder) StartScanning(dbcFile, ch any) *gomock.Call {
+func (mr *MockDBCPassiveLoggerMockRecorder) StartScanning(ch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartScanning", reflect.TypeOf((*MockDBCPassiveLogger)(nil).StartScanning), dbcFile, ch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartScanning", reflect.TypeOf((*MockDBCPassiveLogger)(nil).StartScanning), ch)
 }
