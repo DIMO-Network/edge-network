@@ -4,7 +4,27 @@ This application is meant to run on an autopi, to get a variety of information f
 
 ## Building and deploying locally
 
-Compile for the AutoPi with
+** For local dev: Note that go environment Architecture and OS must be set correctly:
+OS: linux
+arch: arm
+eg. `GOOS=linux GOARCH=arm go build`
+```sh
+export GOOS=linux
+export GOARCH=arm
+```
+This is so that the socket can library we use for dbc filtering works, but needed anyways for building for rpi.
+
+### Running tests locally
+
+Needs to run on an arm linux go image. I used: `arm32v7/golang:1.21-bookworm`.
+In goland, can "Edit Configurations" for build configs, and then choose a Docker target that uses the above image.
+Default settings after that seemed to be fine. 
+
+### Linter
+
+`GOOS=linux GOARCH=arm golangci-lint run`
+
+### Compile for the AutoPi with
 ```
 brew install --build-from-source upx
 GOARCH=arm GOOS=linux go build -ldflags="-s -w -X 'main.Version=v1.0.0'" -o edge-network && upx edge-network

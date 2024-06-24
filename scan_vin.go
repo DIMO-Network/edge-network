@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"

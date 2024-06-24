@@ -1,0 +1,4 @@
+BO_ 288 production_odometer_GM120: 5 Vector_XXX
+ SG_ odometer : 7|32@0+ (0.015625,0) [0|67108863.984375] "km"  Vector_XXX
+
+CM_ SG_ 288 odometer "GM 120 Odometer"

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -18,12 +19,16 @@ const (
 	TemplateURLsFile   = "/opt/autopi/template-urls.json"
 	DeviceSettingsFile = "/opt/autopi/device-settings.json"
 	VehicleInfoFile    = "/opt/autopi/vehicle-info.json"
+	DBCFile            = "/opt/autopi/dbc-settings.dbc"
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go
 type TemplateStore interface {
 	ReadVINConfig() (*models.VINLoggerSettings, error)
 	WriteVINConfig(settings models.VINLoggerSettings) error
+
+	ReadDBCFile() (*string, error)
+	WriteDBCFile(dbcFile *string) error
 
 	ReadPIDsConfig() (*models.TemplatePIDs, error)
 	WritePIDsConfig(settings models.TemplatePIDs) error
@@ -52,11 +57,35 @@ func (ts *templateStore) DeleteAllSettings() error {
 	errs = append(errs, ts.deleteConfig(DeviceSettingsFile))
 	errs = append(errs, ts.deleteConfig(VehicleInfoFile))
 	errs = append(errs, ts.deleteConfig(TemplateURLsFile))
+	errs = append(errs, ts.deleteConfig(DBCFile))
 
 	// Combine errors and print the result
 	if combinedErr := combineErrors(errs); combinedErr != nil {
 		return combinedErr
 	}
+	return nil
+}
+
+func (ts *templateStore) ReadDBCFile() (*string, error) {
+	data, err := ts.readConfig(DBCFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading dbc file: %s", err)
+	}
+
+	dbc := string(data)
+
+	return &dbc, nil
+}
+
+func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
+	if dbcFile == nil {
+		return fmt.Errorf("dbcFile is required")
+	}
+	err := ts.writeConfig(DBCFile, *dbcFile)
+	if err != nil {
+		return fmt.Errorf("error writing dbc file: %s", err)
+	}
+
 	return nil
 }
 
@@ -213,11 +242,17 @@ func (ts *templateStore) writeConfig(filePath string, settings interface{}) erro
 	}
 	defer file.Close()
 
-	// Write data to the file
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return err
+	var data []byte
+
+	if reflect.TypeOf(settings).Kind() == reflect.String {
+		data = []byte(settings.(string))
+	} else {
+		data, err = json.Marshal(settings)
+		if err != nil {
+			return err
+		}
 	}
+
 	_, err = file.Write(data)
 	if err != nil {
 		return fmt.Errorf("error writing file: %s", err)

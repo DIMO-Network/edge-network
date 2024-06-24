@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
+
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal"
@@ -17,7 +19,6 @@ import (
 	"github.com/muka/go-bluetooth/bluez/profile/gatt"
 	"github.com/muka/go-bluetooth/hw/linux/cmd"
 	"github.com/rs/zerolog"
-	"math"
 )
 
 // define the BLE characteristic codes under which they'll be discoverable
