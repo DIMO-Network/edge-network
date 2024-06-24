@@ -63,9 +63,12 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 	// loop
 	for {
+		// hold back the loop a little for perf
+		time.Sleep(time.Second)
+
 		frame, err := recv.Recv()
 		if err != nil {
-			dpl.logger.Err(err).Msg("failed to read frame")
+			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
 		fmt.Printf("frame-%02d: (id=0x%x)\n", frame.Data, frame.ID)

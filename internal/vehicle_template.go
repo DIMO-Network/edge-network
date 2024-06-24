@@ -105,7 +105,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	if deviceSettings != nil {
 		devSetError := vt.lss.WriteTemplateDeviceSettings(*deviceSettings)
 		if devSetError != nil {
-			vt.logger.Err(devSetError).Msg("error writing device template settings to tmp cache")
+			vt.logger.Err(devSetError).Msg("error writing device template settings locally")
 		}
 	}
 	// get dbc file
@@ -115,6 +115,12 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		})
 		if err != nil {
 			vt.logger.Err(err).Msgf("could not get dbc file from remote: %s", templateURLsRemote.DbcURL)
+		}
+		if dbcFile != nil {
+			saveDbcErr := vt.lss.WriteDBCFile(dbcFile)
+			if saveDbcErr != nil {
+				vt.logger.Err(saveDbcErr).Msg("error writing dbc file locally")
+			}
 		}
 	}
 
