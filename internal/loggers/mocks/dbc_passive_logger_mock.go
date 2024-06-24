@@ -38,6 +38,20 @@ func (m *MockDBCPassiveLogger) EXPECT() *MockDBCPassiveLoggerMockRecorder {
 	return m.recorder
 }
 
+// HasDBCFile mocks base method.
+func (m *MockDBCPassiveLogger) HasDBCFile() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasDBCFile")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasDBCFile indicates an expected call of HasDBCFile.
+func (mr *MockDBCPassiveLoggerMockRecorder) HasDBCFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasDBCFile", reflect.TypeOf((*MockDBCPassiveLogger)(nil).HasDBCFile))
+}
+
 // StartScanning mocks base method.
 func (m *MockDBCPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	m.ctrl.T.Helper()
