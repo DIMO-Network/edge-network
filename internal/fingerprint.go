@@ -99,6 +99,7 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 			ls.logger.Err(err).Send()
 			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &powerStatus)
 		}
+		// log to cloud only once during paired lifetime with this vehicle.
 		ls.logger.Info().Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).Msgf("succesfully obtained VIN via fingerprint")
 	}
 
