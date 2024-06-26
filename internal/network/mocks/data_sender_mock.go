@@ -119,14 +119,14 @@ func (mr *MockDataSenderMockRecorder) SendLogsData(data interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLogsData", reflect.TypeOf((*MockDataSender)(nil).SendLogsData), data)
 }
 
-// SetVehicleTokenID mocks base method.
-func (m *MockDataSender) SetVehicleTokenID(tokenID uint64) {
+// SetVehicleInfo mocks base method.
+func (m *MockDataSender) SetVehicleInfo(vehicleInfo models.VehicleInfo) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetVehicleTokenID", tokenID)
+	m.ctrl.Call(m, "SetVehicleInfo", vehicleInfo)
 }
 
-// SetVehicleTokenID indicates an expected call of SetVehicleTokenID.
-func (mr *MockDataSenderMockRecorder) SetVehicleTokenID(tokenID interface{}) *gomock.Call {
+// SetVehicleInfo indicates an expected call of SetVehicleInfo.
+func (mr *MockDataSenderMockRecorder) SetVehicleInfo(vehicleInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVehicleTokenID", reflect.TypeOf((*MockDataSender)(nil).SetVehicleTokenID), tokenID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVehicleInfo", reflect.TypeOf((*MockDataSender)(nil).SetVehicleInfo), vehicleInfo)
 }

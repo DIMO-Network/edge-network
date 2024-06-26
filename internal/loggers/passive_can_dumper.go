@@ -89,7 +89,7 @@ func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, Eth
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, log, 0, config)
+		ds := network.NewDataSender(UnitID, EthAddr, log, models.VehicleInfo{TokenID: 0}, config)
 		sendErr := ds.SendCanDumpData(models.CanDumpData{
 			CommonData: models.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),

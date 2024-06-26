@@ -50,25 +50,25 @@ type DataSender interface {
 	SendDeviceStatusData(data any) error
 	// SendDeviceNetworkData sends queried network data over mqtt to a separate network topic
 	SendDeviceNetworkData(data models.DeviceNetworkData) error
-	// SetVehicleTokenID sets the vehicle token ID for the data sender
-	SetVehicleTokenID(tokenID uint64)
+	// SetVehicleInfo sets the vehicle info for the data sender
+	SetVehicleInfo(vehicleInfo models.VehicleInfo)
 }
 
 type dataSender struct {
-	client         mqtt.Client
-	unitID         uuid.UUID
-	ethAddr        common.Address
-	logger         zerolog.Logger
-	mqtt           config.Mqtt
-	vehicleTokenID uint64
+	client      mqtt.Client
+	unitID      uuid.UUID
+	ethAddr     common.Address
+	logger      zerolog.Logger
+	mqtt        config.Mqtt
+	vehicleInfo models.VehicleInfo
 }
 
-func (ds *dataSender) SetVehicleTokenID(tokenID uint64) {
-	ds.vehicleTokenID = tokenID
+func (ds *dataSender) SetVehicleInfo(vehicleInfo models.VehicleInfo) {
+	ds.vehicleInfo = vehicleInfo
 }
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
-func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, VehicleTokenID uint64, conf config.Config) DataSender {
+func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo models.VehicleInfo, conf config.Config) DataSender {
 	// Setup mqtt connection. Does not connect
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
@@ -107,12 +107,12 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	}
 
 	return &dataSender{
-		client:         client,
-		unitID:         unitID,
-		ethAddr:        addr,
-		logger:         logger,
-		mqtt:           conf.Mqtt,
-		vehicleTokenID: VehicleTokenID,
+		client:      client,
+		unitID:      unitID,
+		ethAddr:     addr,
+		logger:      logger,
+		mqtt:        conf.Mqtt,
+		vehicleInfo: vehicleInfo,
 	}
 }
 
@@ -164,8 +164,8 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		},
 	}
 
-	if ds.vehicleTokenID != 0 {
-		ce.TokenID = ds.vehicleTokenID
+	if ds.vehicleInfo.TokenID != 0 {
+		ce.TokenID = ds.vehicleInfo.TokenID
 	}
 
 	payload, err := json.Marshal(ce)
@@ -256,7 +256,7 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 	// sending the serial number of the device
 	if ds.unitID != uuid.Nil {
 		data.Device.UnitID = ds.unitID.String()
-		data.TokenID = ds.vehicleTokenID
+		data.TokenID = ds.vehicleInfo.TokenID
 		// todo think how to pass SoftwareVersion
 		//data.Device.SoftwareVersion = "ds.vehicleInfo.SoftwareVersion"
 	}
@@ -385,6 +385,9 @@ func (ds *dataSender) SendErrorPayload(err error, powerStatus *api.PowerStatusRe
 	if powerStatus != nil {
 		data.Device.BatteryVoltage = powerStatus.Spm.Battery.Voltage
 		data.Device.RpiUptimeSecs = powerStatus.Rpi.Uptime.Seconds
+	}
+	if ds.vehicleInfo.VehicleDefinition.Model != "" {
+		data.ModelSlug = shared.SlugString(ds.vehicleInfo.VehicleDefinition.Model)
 	}
 	data.Errors = append(data.Errors, err.Error())
 

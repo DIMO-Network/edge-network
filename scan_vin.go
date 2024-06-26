@@ -46,7 +46,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 		p.logger.Error().Msg("unable to read config file")
 		return subcommands.ExitFailure
 	}
-	ds := network.NewDataSender(p.unitID, *addr, p.logger, 0, *conf)
+	ds := network.NewDataSender(p.unitID, *addr, p.logger, models.VehicleInfo{}, *conf)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
 		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())
