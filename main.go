@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/google/subcommands"
+	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"strings"
@@ -22,12 +24,9 @@ import (
 	"github.com/DIMO-Network/edge-network/internal"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/google/subcommands"
 	"github.com/google/uuid"
-	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
-	"github.com/sirupsen/logrus"
-
 	"github.com/muka/go-bluetooth/hw"
+	"github.com/muka/go-bluetooth/hw/linux/btmgmt"
 )
 
 var Version = "development"
@@ -60,6 +59,8 @@ func main() {
 			os.Exit(0)
 		}
 	}
+	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
+	logrus.SetLevel(logrus.InfoLevel)
 
 	name, unitID = commands.GetDeviceName(logger)
 	logger.Info().Msgf("SerialNumber Number: %s", unitID)
@@ -68,6 +69,21 @@ func main() {
 	ethAddr, ethErr := gateways.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
+
+	subcommands.Register(subcommands.HelpCommand(), "")
+	subcommands.Register(subcommands.FlagsCommand(), "")
+	subcommands.Register(subcommands.CommandsCommand(), "")
+
+	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
+	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
+	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
+	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
+
+	if len(os.Args) > 1 {
+		ctx := context.Background()
+		flag.Parse()
+		os.Exit(int(subcommands.Execute(ctx)))
+	}
 
 	// define environment
 	var env gateways.Environment
@@ -88,23 +104,6 @@ func main() {
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")
 	}
-
-	subcommands.Register(subcommands.HelpCommand(), "")
-	subcommands.Register(subcommands.FlagsCommand(), "")
-	subcommands.Register(subcommands.CommandsCommand(), "")
-
-	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
-	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
-	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
-	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
-
-	if len(os.Args) > 1 {
-		ctx := context.Background()
-		flag.Parse()
-		os.Exit(int(subcommands.Execute(ctx)))
-	}
-	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
-	logrus.SetLevel(logrus.InfoLevel)
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
@@ -200,7 +199,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
-	dbcScanner := loggers.NewDBCPassiveLogger(logger, dbcFile)
+	dbcScanner := loggers.NewDBCPassiveLogger(logger, dbcFile, hwRevision)
 
 	// query imei
 	imei, err := commands.GetIMEI(unitID)

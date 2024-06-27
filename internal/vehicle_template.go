@@ -48,7 +48,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 		}
 		dbcFile, err = vt.lss.ReadDBCFile()
 		if err != nil {
-			vt.logger.Err(err).Msg("could not read local settings for DBC file, continuing")
+			vt.logger.Err(err).Msg("did not find local settings for DBC file, continuing")
 		}
 	}
 

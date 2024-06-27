@@ -40,7 +40,7 @@ func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	fmt.Println(content)
 	d := string(content)
 
-	dbcLogger := loggers.NewDBCPassiveLogger(p.logger, &d)
+	dbcLogger := loggers.NewDBCPassiveLogger(p.logger, &d, "")
 	ch := make(chan models.SignalData)
 	go func() {
 		err := dbcLogger.StartScanning(ch)

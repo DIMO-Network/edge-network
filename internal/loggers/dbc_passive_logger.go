@@ -24,14 +24,26 @@ type DBCPassiveLogger interface {
 type dbcPassiveLogger struct {
 	logger  zerolog.Logger
 	dbcFile *string
+	// found that 5.2 hw did not work with this
+	hardwareSupport bool
 }
 
-func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string) DBCPassiveLogger {
-	return &dbcPassiveLogger{logger: logger, dbcFile: dbcFile}
+func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string) DBCPassiveLogger {
+	v, err := strconv.Atoi(hwVersion)
+	if err != nil {
+		logger.Err(err).Msgf("unable to parse hardware version: %s", hwVersion)
+	}
+
+	return &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 7}
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	if dpl.dbcFile == nil {
+		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
+		return nil
+	}
+	if dpl.hardwareSupport == false {
+		dpl.logger.Info().Msg("hardware support is not enabled due to old hw - not starting DBC passive logger")
 		return nil
 	}
 	filters, err := dpl.parseDBCHeaders(*dpl.dbcFile)
