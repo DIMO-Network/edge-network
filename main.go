@@ -194,6 +194,9 @@ func main() {
 			logger.Info().RawJSON("deviceSettings", ds).Msg("device settings pulled from config")
 		}
 	}
+	if dbcFile != nil {
+		logger.Info().Msgf("found dbc file: %s", *dbcFile)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

@@ -177,24 +177,24 @@ func (v *vehicleSignalDecodingAPIService) GetDeviceSettings(url string) (*models
 }
 
 func (v *vehicleSignalDecodingAPIService) GetDBC(url string) (*string, error) {
-	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
+	h := map[string]string{}
+	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, h, false)
+
+	res, err := hcw.ExecuteRequest(url, "GET", nil)
 	if err != nil {
-		if _, ok := err.(shared.HTTPResponseError); !ok {
-			return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get dbc from url %s", url)
-		}
+		return nil, errors.Wrapf(err, "error calling vehicle signal decoding api to get dbc from url %s", url)
 	}
 	defer res.Body.Close() // nolint
 	if res.StatusCode == 404 {
 		return nil, ErrNotFound
 	}
-
 	if res.StatusCode == 400 {
 		return nil, ErrBadRequest
 	}
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error get dbc from url %s", url)
+		return nil, errors.Wrapf(err, "failed to get dbc from url %s", url)
 	}
 	resp := string(bodyBytes)
 
