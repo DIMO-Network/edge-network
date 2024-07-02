@@ -1,6 +1,8 @@
 package loggers
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
 )
@@ -52,5 +54,32 @@ func TestExtractAndDecodeWithFormula(t *testing.T) {
 			t.Errorf("ExtractAndDecodeWithDBCFormula(%q, %q, %q): expected %v %v, actual %v %v",
 				test.hexData, test.pid, test.formula, test.expected, test.unit, decoded, unit)
 		}
+	}
+}
+
+func TestParseBytesWithDBCFormula(t *testing.T) {
+	type args struct {
+		frameData []byte
+		pid       uint32
+		formula   string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    float64
+		want1   string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := ParseBytesWithDBCFormula(tt.args.frameData, tt.args.pid, tt.args.formula)
+			if !tt.wantErr(t, err, fmt.Sprintf("ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
+			assert.Equalf(t, tt.want1, got1, "ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
+		})
 	}
 }

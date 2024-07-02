@@ -1,6 +1,7 @@
 package loggers
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,15 +27,21 @@ type dbcPassiveLogger struct {
 	dbcFile *string
 	// found that 5.2 hw did not work with this
 	hardwareSupport bool
+	// todo then we use this to map out?
+	pids []models.PIDRequest
 }
 
-func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string) DBCPassiveLogger {
+func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
 	v, err := strconv.Atoi(hwVersion)
 	if err != nil {
 		logger.Err(err).Msgf("unable to parse hardware version: %s", hwVersion)
 	}
+	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 7}
+	if pids != nil {
+		dpl.pids = pids.Requests
+	}
 
-	return &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 7}
+	return dpl
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
@@ -42,7 +49,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
 		return nil
 	}
-	if dpl.hardwareSupport == false {
+	if !dpl.hardwareSupport {
 		dpl.logger.Info().Msg("hardware support is not enabled due to old hw - not starting DBC passive logger")
 		return nil
 	}
@@ -50,6 +57,13 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to pase dbc file: %s", *dpl.dbcFile)
 	}
+
+	// experiment, add 7e8 header filter
+	filters = append(filters, dbcFilter{
+		header:     2024, //7e8
+		formula:    "",
+		signalName: "",
+	})
 
 	recv, err := canbus.New()
 	if err != nil {
@@ -72,21 +86,36 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 		return errors.Wrap(err, "could not bind recv socket")
 	}
-
+	var blank = strings.Repeat(" ", 24)
 	// loop
 	for {
-		// hold back the loop a little for perf
-		time.Sleep(time.Second)
-
 		frame, err := recv.Recv()
 		if err != nil {
 			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
-		fmt.Printf("frame-%02d: (id=0x%x)\n", frame.Data, frame.ID)
+
+		ascii := strings.ToUpper(hex.Dump(frame.Data))
+		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+		fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, ascii)
+		if frame.ID == 2024 && len(dpl.pids) > 0 {
+			pid := dpl.matchPID(frame)
+			if pid != nil {
+				fmt.Printf("found pid match: %+v\n\n", pid)
+				floatVal, _, errFormula := ParseBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
+				if errFormula != nil {
+					dpl.logger.Err(errFormula).Msgf("failed to extract data with formula: %s", pid.Formula)
+					continue
+				}
+				fmt.Printf("%s value: %f \n", pid.Name, floatVal)
+			}
+			continue
+			// todo - report out on channel.
+		}
 		// match the frame id to our filters so we can get the right formula
 		f := findFilter(filters, frame.ID)
 		hexStr := fmt.Sprintf("%02d", frame.Data)
+		// todo new version of this that just takes in bytes
 		floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", f.formula)
 		if err != nil {
 			dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
@@ -154,6 +183,21 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 		return nil, fmt.Errorf("no header-formula pairs were found")
 	}
 	return filters, nil
+}
+
+func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
+	for _, pid := range dpl.pids {
+		if pid.ResponseHeader == 0 {
+			pid.ResponseHeader = 2024 // set the default 7e8 if not set
+		}
+		if pid.ResponseHeader == frame.ID {
+			// todo there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
+			if pid.Pid == uint32(frame.Data[2]) {
+				return &pid
+			}
+		}
+	}
+	return &models.PIDRequest{}
 }
 
 type dbcFilter struct {

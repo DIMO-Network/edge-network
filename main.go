@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/google/subcommands"
-	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/google/subcommands"
+	"github.com/sirupsen/logrus"
 
 	"github.com/DIMO-Network/edge-network/certificate"
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
@@ -202,7 +203,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	fingerprintRunner := internal.NewFingerprintRunner(unitID, vinLogger, ds, lss, logger)
-	dbcScanner := loggers.NewDBCPassiveLogger(logger, dbcFile, hwRevision)
+	dbcScanner := loggers.NewDBCPassiveLogger(logger, dbcFile, hwRevision, pids)
 
 	// query imei
 	imei, err := commands.GetIMEI(unitID)
