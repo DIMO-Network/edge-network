@@ -86,7 +86,6 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 		return errors.Wrap(err, "could not bind recv socket")
 	}
-	var blank = strings.Repeat(" ", 24)
 	// loop
 	for {
 		frame, err := recv.Recv()
@@ -95,14 +94,12 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 			continue
 		}
 
-		ascii := strings.ToUpper(hex.Dump(frame.Data))
-		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
-		fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, ascii)
+		fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, printBytesAsHex(frame.Data))
 		if frame.ID == 2024 && len(dpl.pids) > 0 {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				fmt.Printf("found pid match: %+v\n\n", pid)
-				floatVal, _, errFormula := ParseBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
+				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
 					dpl.logger.Err(errFormula).Msgf("failed to extract data with formula: %s", pid.Formula)
 					continue
@@ -204,4 +201,11 @@ type dbcFilter struct {
 	header     uint32
 	formula    string
 	signalName string
+}
+
+func printBytesAsHex(data []byte) string {
+	var blank = strings.Repeat(" ", 24)
+	ascii := strings.ToUpper(hex.Dump(data))
+	ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+	return ascii
 }

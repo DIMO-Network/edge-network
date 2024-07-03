@@ -64,22 +64,54 @@ func TestParseBytesWithDBCFormula(t *testing.T) {
 		formula   string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    float64
-		want1   string
-		wantErr assert.ErrorAssertionFunc
+		name      string
+		args      args
+		wantValue float64
+		wantUnit  string
+		wantErr   assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
+		{
+			name: "rpm",
+			args: args{
+				frameData: hexToByteArray("04 41 0C 0F FE", t),
+				pid:       uint32(12),
+				formula:   `31|16@0+ (0.25,0) [0|16383.75] "rpm"`,
+			},
+			wantValue: 1023.5,
+			wantUnit:  "rpm",
+			wantErr:   assert.NoError,
+		},
+		{
+			name: "barometricPressure",
+			args: args{
+				frameData: hexToByteArray("03 41 33 65", t),
+				pid:       uint32(51), //x33
+				formula:   `31|8@0+ (1,0) [0|255] "kPa"`,
+			},
+			wantValue: 101,
+			wantUnit:  "kPa",
+			wantErr:   assert.NoError,
+		},
+		{
+			name: "longFuelTrim",
+			args: args{
+				frameData: hexToByteArray("03 41 07 A0", t),
+				pid:       uint32(7), //x07
+				formula:   `31|8@0+ (0.78125,-100) [-100|99.21875] "%"`,
+			},
+			wantValue: 25,
+			wantUnit:  "%",
+			wantErr:   assert.NoError,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := ParseBytesWithDBCFormula(tt.args.frameData, tt.args.pid, tt.args.formula)
-			if !tt.wantErr(t, err, fmt.Sprintf("ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)) {
+			value, unit, err := ParsePIDBytesWithDBCFormula(tt.args.frameData, tt.args.pid, tt.args.formula)
+			if !tt.wantErr(t, err, fmt.Sprintf("ParsePIDBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)) {
 				return
 			}
-			assert.Equalf(t, tt.want, got, "ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
-			assert.Equalf(t, tt.want1, got1, "ParseBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
+			assert.Equalf(t, tt.wantValue, value, "ParsePIDBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
+			assert.Equalf(t, tt.wantUnit, unit, "ParsePIDBytesWithDBCFormula(%v, %v, %v)", tt.args.frameData, tt.args.pid, tt.args.formula)
 		})
 	}
 }
