@@ -154,19 +154,28 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 	lines := strings.Split(dbcFile, "\n")
 
 	var header string
+	headerSignals := make([]dbcSignal, 0)
+
 	for _, line := range lines {
+		var err error
+
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}
 		// Check if the line starts with "BO_" and if it has at least 2 fields
 		if fields[0] == "BO_" && len(fields) >= 2 {
+			// we've hit a new header, add all the accumulated signals to a new dbcFilter with the last header
+			filters, err = addPrevFilter(header, headerSignals, filters)
+			if err != nil {
+				return nil, err
+			}
 			// Extract the header. It is second word in string
 			header = fields[1]
+			headerSignals = []dbcSignal{} // reset the signals since we're at a new header now
 		}
-		// there could be multiple SG_
-		signal := dbcSignal{}
-		// Check if the line starts with "SG_" and if it has at least 2 fields
+
+		// Check if the line starts with "SG_" and if it has at least 2 fields, could be multiple SG per header
 		if fields[0] == "SG_" && len(fields) >= 2 {
 			// Extract the formula, which is after the "SG_" keyword.
 			// We join the rest of the line to capture multi-word formulas too
@@ -177,24 +186,37 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 			}
 			signalName := strings.TrimSpace(splitSg[0])
 			formula := strings.TrimSpace(splitSg[1])
-			headerUint, err := strconv.ParseUint(header, 10, 32)
-			if err != nil {
-				return nil, fmt.Errorf("error converting header to uint32: %w", err)
-			}
 
-			signal.signalName = signalName
-			signal.formula = formula
-			filters = append(filters, dbcFilter{
-				header:  uint32(headerUint),
-				signals: []dbcSignal{signal},
+			headerSignals = append(headerSignals, dbcSignal{
+				signalName: signalName,
+				formula:    formula,
 			})
-			// Reset header for next header-formula pair
-			header = ""
 		}
 	}
+	// check if signals still need to be drained to add them
+	filters, err := addPrevFilter(header, headerSignals, filters)
+	if err != nil {
+		return nil, err
+	}
+
 	// Return if no filters were found
 	if len(filters) == 0 {
 		return nil, fmt.Errorf("no header-formula pairs were found")
+	}
+	return filters, nil
+}
+
+func addPrevFilter(header string, headerSignals []dbcSignal, filters []dbcFilter) ([]dbcFilter, error) {
+	if header != "" && len(headerSignals) > 0 {
+		headerUint, err := strconv.ParseUint(header, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("error converting header to uint32: %w", err)
+		}
+		filter := dbcFilter{
+			header:  uint32(headerUint),
+			signals: headerSignals,
+		}
+		filters = append(filters, filter)
 	}
 	return filters, nil
 }
