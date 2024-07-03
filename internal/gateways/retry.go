@@ -1,9 +1,10 @@
 package gateways
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"time"
 )
 
 // PointerType Define a type constraint that allows only pointer types.

@@ -4,11 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"io"
-	"time"
 
 	"github.com/DIMO-Network/edge-network/config"
 
