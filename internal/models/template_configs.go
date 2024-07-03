@@ -84,3 +84,9 @@ type VINLoggerSettings struct {
 	VINLoggerVersion        int    `json:"vin_logger_version"`
 	VINLoggerFailedAttempts int    `json:"vin_logger_failed_attempts"`
 }
+
+// UpdateDeviceConfig is the request to update the device config
+type UpdateDeviceConfig struct {
+	TemplateURLs
+	FirmwareVersionApplied string `json:"firmwareVersionApplied"`
+}
