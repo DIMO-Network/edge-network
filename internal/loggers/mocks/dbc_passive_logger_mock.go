@@ -52,6 +52,20 @@ func (mr *MockDBCPassiveLoggerMockRecorder) HasDBCFile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasDBCFile", reflect.TypeOf((*MockDBCPassiveLogger)(nil).HasDBCFile))
 }
 
+// SendCANQuery mocks base method.
+func (m *MockDBCPassiveLogger) SendCANQuery(header, mode, pid uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendCANQuery", header, mode, pid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendCANQuery indicates an expected call of SendCANQuery.
+func (mr *MockDBCPassiveLoggerMockRecorder) SendCANQuery(header, mode, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCANQuery", reflect.TypeOf((*MockDBCPassiveLogger)(nil).SendCANQuery), header, mode, pid)
+}
+
 // StartScanning mocks base method.
 func (m *MockDBCPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	m.ctrl.T.Helper()
@@ -64,4 +78,18 @@ func (m *MockDBCPassiveLogger) StartScanning(ch chan<- models.SignalData) error 
 func (mr *MockDBCPassiveLoggerMockRecorder) StartScanning(ch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartScanning", reflect.TypeOf((*MockDBCPassiveLogger)(nil).StartScanning), ch)
+}
+
+// StopScanning mocks base method.
+func (m *MockDBCPassiveLogger) StopScanning() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StopScanning")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StopScanning indicates an expected call of StopScanning.
+func (mr *MockDBCPassiveLoggerMockRecorder) StopScanning() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopScanning", reflect.TypeOf((*MockDBCPassiveLogger)(nil).StopScanning))
 }

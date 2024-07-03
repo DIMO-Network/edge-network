@@ -20,6 +20,8 @@ import (
 type DBCPassiveLogger interface {
 	StartScanning(ch chan<- models.SignalData) error
 	HasDBCFile() bool
+	SendCANQuery(header uint32, mode uint32, pid uint32) error
+	StopScanning() error
 }
 
 type dbcPassiveLogger struct {
@@ -27,8 +29,9 @@ type dbcPassiveLogger struct {
 	dbcFile *string
 	// found that 5.2 hw did not work with this
 	hardwareSupport bool
-	// todo then we use this to map out?
-	pids []models.PIDRequest
+	pids            []models.PIDRequest
+	recv            *canbus.Socket
+	send            *canbus.Socket
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -58,16 +61,15 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		return errors.Wrapf(err, "failed to pase dbc file: %s", *dpl.dbcFile)
 	}
 
-	// experiment, add 7e8 header filter
+	// manually add 7e8 header filter. We could also iterate over pids and pull out unique response headers
 	filters = append(filters, dbcFilter{
 		header: 2024, //7e8
 	})
 
-	recv, err := canbus.New()
+	dpl.recv, err = canbus.New()
 	if err != nil {
 		return err
 	}
-	defer recv.Close()
 
 	// set hardware filters
 	uf := make([]unix.CanFilter, len(filters))
@@ -75,19 +77,20 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		uf[i].Id = filter.header // wants decimal representation of header - not hex
 		uf[i].Mask = unix.CAN_SFF_MASK
 	}
-	err = recv.SetFilters(uf)
+	err = dpl.recv.SetFilters(uf)
 	if err != nil {
 		return fmt.Errorf("cannot set canbus filters: %w", err)
 	}
-	err = recv.Bind("can0")
+	err = dpl.recv.Bind("can0")
 	if err != nil {
 
 		return errors.Wrap(err, "could not bind recv socket")
 	}
 	// loop
 	for {
-		frame, err := recv.Recv()
+		frame, err := dpl.recv.Recv()
 		if err != nil {
+			// improvement - accumulate on this error and if happens too much report up to edge-logs
 			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
@@ -138,6 +141,66 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 func (dpl *dbcPassiveLogger) HasDBCFile() bool {
 	return dpl.dbcFile != nil && *dpl.dbcFile != ""
+}
+
+func (dpl *dbcPassiveLogger) StopScanning() error {
+	if dpl.recv != nil {
+		errR := dpl.recv.Close()
+		if errR != nil {
+			return errR
+		}
+	}
+	if dpl.send != nil {
+		errS := dpl.send.Close()
+		if errS != nil {
+			return errS
+		}
+	}
+	return nil
+}
+
+// SendCANQuery calls SendCANFrame, just builds up the raw frame with some standards. fire and forget. Responses come in StartScanning filters.
+func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32) error {
+	//02 01 33 00 00 00 00 00
+	// calculate length, either 02 or 03 for PIDs/DIDs, longer if extended frame
+	// mode just direct
+	// pid just direct
+	// but need right formatting
+	// todo: let's start by building string, just like we do for autopi uint -> hex, pad the 00's at end
+	// then convert the hex to bytes
+
+	data := []byte{}
+	return dpl.SendCANFrame(header, data)
+}
+
+// SendCANFrame sends a raw frame on the can bus. Initializes socket if it is nil.
+// if the header is bigger that x0fff, sets frame type as extended frame format. Fire and forget.
+func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
+	// init if not set
+	if dpl.send == nil {
+		var err error
+		dpl.send, err = canbus.New()
+		if err != nil {
+			return errors.Wrap(err, "cannot create canbus socket")
+		}
+		err = dpl.send.Bind("can0")
+		if err != nil {
+			return errors.Wrap(err, "cannot bind canbus socket")
+		}
+	}
+	k := canbus.SFF
+	if header > 4095 {
+		k = canbus.EFF
+	}
+	_, err := dpl.send.Send(canbus.Frame{
+		ID:   header,
+		Data: data,
+		Kind: k,
+	})
+	if err != nil {
+		return errors.Wrap(err, "cannot send canbus frame")
+	}
+	return nil
 }
 
 func findFilter(filters []dbcFilter, id uint32) *dbcFilter {
@@ -206,21 +269,6 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 	return filters, nil
 }
 
-func addPrevFilter(header string, headerSignals []dbcSignal, filters []dbcFilter) ([]dbcFilter, error) {
-	if header != "" && len(headerSignals) > 0 {
-		headerUint, err := strconv.ParseUint(header, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("error converting header to uint32: %w", err)
-		}
-		filter := dbcFilter{
-			header:  uint32(headerUint),
-			signals: headerSignals,
-		}
-		filters = append(filters, filter)
-	}
-	return filters, nil
-}
-
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
 		if pid.ResponseHeader == 0 {
@@ -236,6 +284,28 @@ func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	return &models.PIDRequest{}
 }
 
+func addPrevFilter(header string, headerSignals []dbcSignal, filters []dbcFilter) ([]dbcFilter, error) {
+	if header != "" && len(headerSignals) > 0 {
+		headerUint, err := strconv.ParseUint(header, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("error converting header to uint32: %w", err)
+		}
+		filter := dbcFilter{
+			header:  uint32(headerUint),
+			signals: headerSignals,
+		}
+		filters = append(filters, filter)
+	}
+	return filters, nil
+}
+
+func printBytesAsHex(data []byte) string {
+	var blank = strings.Repeat(" ", 24)
+	ascii := strings.ToUpper(hex.Dump(data))
+	ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+	return ascii
+}
+
 type dbcFilter struct {
 	header  uint32
 	signals []dbcSignal
@@ -244,11 +314,4 @@ type dbcFilter struct {
 type dbcSignal struct {
 	formula    string
 	signalName string
-}
-
-func printBytesAsHex(data []byte) string {
-	var blank = strings.Repeat(" ", 24)
-	ascii := strings.ToUpper(hex.Dump(data))
-	ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
-	return ascii
 }
