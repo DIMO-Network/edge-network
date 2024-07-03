@@ -60,9 +60,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 	// experiment, add 7e8 header filter
 	filters = append(filters, dbcFilter{
-		header:     2024, //7e8
-		formula:    "",
-		signalName: "",
+		header: 2024, //7e8
 	})
 
 	recv, err := canbus.New()
@@ -93,37 +91,48 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
-
-		fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, printBytesAsHex(frame.Data))
+		//fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, printBytesAsHex(frame.Data)) //debug
+		// handle standard PID responses
 		if frame.ID == 2024 && len(dpl.pids) > 0 {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
-				fmt.Printf("found pid match: %+v\n\n", pid)
+				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Msgf("failed to extract data with formula: %s", pid.Formula)
+					dpl.logger.Err(errFormula).Msgf("failed to extract PID data with formula: %s", pid.Formula)
 					continue
 				}
-				fmt.Printf("%s value: %f \n", pid.Name, floatVal)
+				dpl.logger.Debug().Msgf("%s value: %f", pid.Name, floatVal)
+				// push to channel
+				s := models.SignalData{
+					Timestamp: time.Now().UnixMilli(),
+					Name:      pid.Name,
+					Value:     floatVal,
+				}
+				ch <- s
+			} else {
+				dpl.logger.Warn().Msgf("did not find pid match for data frame: %s", printBytesAsHex(frame.Data))
 			}
+			// this frame won't be processed by the DBC filter
 			continue
-			// todo - report out on channel.
 		}
-		// match the frame id to our filters so we can get the right formula
+		// handle DBC file - match the frame id to our filters so we can get the right formula
 		f := findFilter(filters, frame.ID)
 		hexStr := fmt.Sprintf("%02d", frame.Data)
-		// todo new version of this that just takes in bytes
-		floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", f.formula)
-		if err != nil {
-			dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
+		for _, signal := range f.signals {
+			// todo new version of this that just takes in bytes
+			floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", signal.formula)
+			if err != nil {
+				dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
+			}
+			s := models.SignalData{
+				Timestamp: time.Now().UnixMilli(),
+				Name:      signal.signalName,
+				Value:     floatValue,
+			}
+			// push to channel
+			ch <- s
 		}
-		s := models.SignalData{
-			Timestamp: time.Now().UnixMilli(),
-			Name:      f.signalName,
-			Value:     floatValue,
-		}
-		// push to channel
-		ch <- s
 	}
 }
 
@@ -155,6 +164,8 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 			// Extract the header. It is second word in string
 			header = fields[1]
 		}
+		// there could be multiple SG_
+		signal := dbcSignal{}
 		// Check if the line starts with "SG_" and if it has at least 2 fields
 		if fields[0] == "SG_" && len(fields) >= 2 {
 			// Extract the formula, which is after the "SG_" keyword.
@@ -170,7 +181,13 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 			if err != nil {
 				return nil, fmt.Errorf("error converting header to uint32: %w", err)
 			}
-			filters = append(filters, dbcFilter{header: uint32(headerUint), formula: formula, signalName: signalName})
+
+			signal.signalName = signalName
+			signal.formula = formula
+			filters = append(filters, dbcFilter{
+				header:  uint32(headerUint),
+				signals: []dbcSignal{signal},
+			})
 			// Reset header for next header-formula pair
 			header = ""
 		}
@@ -198,7 +215,11 @@ func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 }
 
 type dbcFilter struct {
-	header     uint32
+	header  uint32
+	signals []dbcSignal
+}
+
+type dbcSignal struct {
 	formula    string
 	signalName string
 }

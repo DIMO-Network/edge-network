@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
 	"testing"
@@ -18,6 +19,9 @@ import (
 //go:embed test_gm120.dbc
 var testgm120dbc string
 
+//go:embed test_acura_ilx.dbc
+var testacurailxdbc string
+
 func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
@@ -27,13 +31,74 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 		want    []dbcFilter
 	}{
 		{
-			name:    "gm odometer",
+			name:    "gm odometer -single header",
 			dbcFile: testgm120dbc,
 			want: []dbcFilter{
 				{
-					header:     288,
-					formula:    `7|32@0+ (0.015625,0) [0|67108863.984375] "km" Vector_XXX`,
-					signalName: "odometer",
+					header: 288,
+					signals: []dbcSignal{
+						{
+							formula:    `7|32@0+ (0.015625,0) [0|67108863.984375] "km" Vector_XXX`,
+							signalName: "odometer",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "acura ilx - multiple headers",
+			dbcFile: testacurailxdbc,
+			want: []dbcFilter{
+				{
+					header: 304,
+					signals: []dbcSignal{
+						{
+							formula:    `7|16@0- (1,0) [-1000|1000] "Nm" EON`,
+							signalName: "ENGINE_TORQUE_ESTIMATE",
+						},
+						{
+							formula:    `23|16@0- (1,0) [-1000|1000] "Nm" EON`,
+							signalName: "ENGINE_TORQUE_REQUEST",
+						},
+						{
+							formula:    `39|8@0+ (1,0) [0|255] "" EON`,
+							signalName: "CAR_GAS",
+						},
+					},
+				},
+				{
+					header: 316,
+					signals: []dbcSignal{
+						{
+							formula:    `39|8@0+ (1,0) [0|255] "" EON`,
+							signalName: "CAR_GAS",
+						},
+						{
+							formula:    `61|2@0+ (1,0) [0|3] "" EON`,
+							signalName: "COUNTER",
+						},
+					},
+				},
+				{
+					header: 344,
+					signals: []dbcSignal{
+						{
+							formula:    `7|16@0+ (0.01,0) [0|250] "kph" EON`,
+							signalName: "XMISSION_SPEED",
+						},
+						{
+							formula:    `23|16@0+ (1,0) [0|15000] "rpm" EON`,
+							signalName: "ENGINE_RPM",
+						},
+						{
+							formula:    `39|16@0+ (0.01,0) [0|250] "kph" EON`,
+							signalName: "XMISSION_SPEED2",
+						},
+						{
+							formula:    `55|8@0+ (10,0) [0|2550] "m" XXX`,
+							signalName: "ODOMETER",
+						},
+					},
 				},
 			},
 		},
@@ -44,8 +109,12 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 				logger: testLogger,
 			}
 			parsed, err := dpl.parseDBCHeaders(tt.dbcFile)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.want[0], parsed[0])
+			require.NoError(t, err)
+			require.Len(t, parsed, len(tt.want))
+
+			for i := range tt.want {
+				assert.Equal(t, tt.want[i], parsed[i])
+			}
 		})
 	}
 }

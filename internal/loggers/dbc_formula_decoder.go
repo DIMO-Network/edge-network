@@ -81,8 +81,8 @@ func ExtractAndDecodeWithDBCFormula(hexData, pid, formula string) (float64, stri
 	return decodedValue, unit, nil
 }
 
-// ParsePIDBytesWithDBCFormula same as above but only parses out float values and uses native bytes for data and uint for pid
-// hexData does not include header / frame ID, if pid is -1 it is not considered
+// ParsePIDBytesWithDBCFormula same as above but meant for parsing PID or DID responses.
+// hexData does not include header / frame ID, pid is the expected pid we're looking for in response
 func ParsePIDBytesWithDBCFormula(frameData []byte, pid uint32, formula string) (float64, string, error) {
 	formula = strings.TrimPrefix(formula, "dbc:")
 	// Parse formula
@@ -92,14 +92,6 @@ func ParsePIDBytesWithDBCFormula(frameData []byte, pid uint32, formula string) (
 	if len(matches) != 9 {
 		return 0, "", fmt.Errorf("invalid formula format: %s", formula)
 	}
-	fmt.Printf("\nframe data: %s\n", printBytesAsHex(frameData)) // debug
-
-	// not sure if need this since the response contains the data length
-	//lengthBits, err := strconv.Atoi(matches[2])
-	//if err != nil {
-	//	return 0, "", err
-	//}
-	//numBytes := lengthBits / 8
 
 	// Find the index of PID in the byte array
 	pidIndex := uint32(0)
@@ -112,16 +104,20 @@ func ParsePIDBytesWithDBCFormula(frameData []byte, pid uint32, formula string) (
 			}
 		}
 	}
+	if pidIndex == 0 {
+		return 0, "", fmt.Errorf("PID %d not found in response frameData: %s", pid, printBytesAsHex(frameData))
+	}
+	// get the length based off the pid response, instead of the formula (like we do in other dbc formula function)
 	dataLength := frameData[0]
 	dataEndPos := pidIndex + uint32(dataLength) - 1
 	if len(frameData) < int(dataLength) {
 		dataEndPos = uint32(len(frameData))
-		fmt.Printf("used the frame data length: %d \n", dataEndPos) // debug
+		// fmt.Printf("used the frame data length: %d \n", dataEndPos) // debug
 	}
 
 	// Extract the relevant portion of the hex data
 	valueBytes := frameData[pidIndex+1 : dataEndPos]
-	fmt.Printf("value bytes: %s\n", printBytesAsHex(valueBytes)) // debug
+	//fmt.Printf("value bytes: %s\n", printBytesAsHex(valueBytes)) // debug
 
 	// ideally here we'd used binary.LittleEnding.Uint64 or BigEndian per formula, pad the array prior
 	valueHex := hex.EncodeToString(valueBytes)
