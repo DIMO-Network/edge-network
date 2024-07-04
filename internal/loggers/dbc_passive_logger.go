@@ -3,6 +3,7 @@ package loggers
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/util"
 	"strconv"
 	"strings"
 	"time"
@@ -161,15 +162,23 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 
 // SendCANQuery calls SendCANFrame, just builds up the raw frame with some standards. fire and forget. Responses come in StartScanning filters.
 func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32) error {
-	//02 01 33 00 00 00 00 00
-	// calculate length, either 02 or 03 for PIDs/DIDs, longer if extended frame
-	// mode just direct
-	// pid just direct
-	// but need right formatting
-	// todo: let's start by building string, just like we do for autopi uint -> hex, pad the 00's at end
-	// then convert the hex to bytes
+	//02 01 33 00 00 00 00 00 // length mode pid
+	// build a hex string and then convert it to byte representation
+	pidHex := util.UintToHexStr(pid)
+	modeHex := util.UintToHexStr(mode)
+	length := "02"
+	if len(pidHex) == 4 {
+		length = "03"
+	}
+	payload := length + modeHex + pidHex
+	padded := fmt.Sprintf("%-16s", payload)
+	paddedWithZeros := strings.Replace(padded, " ", "0", -1)
 
-	data := []byte{}
+	data, err := hex.DecodeString(paddedWithZeros)
+	if err != nil {
+		return errors.Wrap(err, "cannot decode hex string")
+	}
+
 	return dpl.SendCANFrame(header, data)
 }
 

@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"regexp"
+	"github.com/DIMO-Network/edge-network/internal/util"
 	"strconv"
 	"strings"
 	"time"
@@ -80,17 +80,17 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 	if errProtocol != nil {
 		protocol = 6
 	}
-	pidHex := uintToHexStr(request.Pid)
+	pidHex := util.UintToHexStr(request.Pid)
 	headerHex := fmt.Sprintf("%X", request.Header)
-	modeHex := uintToHexStr(request.Mode)
+	modeHex := util.UintToHexStr(request.Mode)
 
-	if !isValidHex(headerHex) {
+	if !util.IsValidHex(headerHex) {
 		err = fmt.Errorf("header invalid %s", headerHex)
 	}
-	if !isValidHex(modeHex) {
+	if !util.IsValidHex(modeHex) {
 		err = fmt.Errorf("mode invalid %s", modeHex)
 	}
-	if !isValidHex(pidHex) {
+	if !util.IsValidHex(pidHex) {
 		err = fmt.Errorf("pid invalid %s", pidHex)
 	}
 	if err != nil {
@@ -133,7 +133,7 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 			}
 			obdResp.IsHex = false
 			obdResp.Value = v
-		} else if isHexFrames(v) {
+		} else if util.IsHexFrames(v) {
 			obdResp.IsHex = true
 			// clean autopi multiframe start characters
 			frames := strings.Split(v, "\n")
@@ -163,37 +163,6 @@ func RequestPIDRaw(logger *zerolog.Logger, unitID uuid.UUID, request models.PIDR
 	}
 
 	return
-}
-
-// isValidHex checks if the input string is a valid hexadecimal.
-func isValidHex(s string) bool {
-	// Regex to match a valid hexadecimal string.
-	// It starts with an optional "0x" or "0X", followed by one or more hexadecimal characters (0-9, a-f, A-F).
-	re := regexp.MustCompile(`^(0x|0X)?[0-9a-fA-F]+$`)
-	return re.MatchString(s)
-}
-
-// isHexFrames checks if the input string consists of valid hexadecimal strings separated by newline characters.
-func isHexFrames(s string) bool {
-	frames := strings.Split(s, "\n")
-	for _, frame := range frames {
-		if frame == "|-" { // autopi specific resp thing for multiframes
-			continue
-		}
-		if !isValidHex(frame) {
-			return false
-		}
-	}
-	return true
-}
-
-// uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
-func uintToHexStr(val uint32) string {
-	hexStr := fmt.Sprintf("%X", val)
-	if len(hexStr)%2 != 0 {
-		return "0" + hexStr // Prepend a "0" if the length is odd
-	}
-	return hexStr
 }
 
 /*
