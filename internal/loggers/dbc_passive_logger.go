@@ -49,6 +49,8 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
+	// todo switch here for when we add filters only for pid querying but no DBC file
+	// note currently this is not possible since we only do native querying and pids when there is a dbc file
 	if dpl.dbcFile == nil {
 		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
 		return nil
@@ -59,12 +61,12 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	}
 	filters, err := dpl.parseDBCHeaders(*dpl.dbcFile)
 	if err != nil {
-		return errors.Wrapf(err, "failed to pase dbc file: %s", *dpl.dbcFile)
+		return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
 	}
 
 	// manually add 7e8 header filter. We could also iterate over pids and pull out unique response headers
 	filters = append(filters, dbcFilter{
-		header: 2024, //7e8
+		header: 2024, //7e8 // todo handle filters for extended frame
 	})
 
 	dpl.recv, err = canbus.New()
@@ -141,6 +143,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 }
 
 func (dpl *dbcPassiveLogger) HasDBCFile() bool {
+	// todo feel like this should also check for hardware compat
 	return dpl.dbcFile != nil && *dpl.dbcFile != ""
 }
 
@@ -197,6 +200,7 @@ func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
 			return errors.Wrap(err, "cannot bind canbus socket")
 		}
 	}
+	// switch to extended frame if bigger header
 	k := canbus.SFF
 	if header > 4095 {
 		k = canbus.EFF
