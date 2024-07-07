@@ -2,10 +2,11 @@ package commands
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/util"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 

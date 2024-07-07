@@ -3,9 +3,10 @@ package internal
 import (
 	"context"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/util"
 	"sync"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -90,7 +91,7 @@ func (wr *workerRunner) Run() {
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
 		go func() {
-			defer wr.dbcScanner.StopScanning()
+			defer wr.dbcScanner.StopScanning() //nolint
 			err := wr.dbcScanner.StartScanning(dbcCh)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to start scanning")

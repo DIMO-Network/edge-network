@@ -2,9 +2,10 @@ package loggers
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func almostEqual(a, b, tolerance float64) bool {

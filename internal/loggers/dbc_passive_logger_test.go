@@ -4,10 +4,11 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers/canbus"
 	"github.com/DIMO-Network/edge-network/internal/models"
