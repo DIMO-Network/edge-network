@@ -5,8 +5,8 @@ import "strings"
 // TemplateURLs holds the urls that point to different settings, version is in url
 type TemplateURLs struct {
 	DbcURL           string `json:"dbcUrl"`
-	DeviceSettingURL string `json:"deviceSettingUrl"`
-	PidURL           string `json:"pidUrl"`
+	DeviceSettingURL string `json:"settingsUrl"`
+	PidURL           string `json:"pidsUrl"`
 }
 
 // TemplatePIDs holds the pid requests we want to make to the vehicle

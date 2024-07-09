@@ -232,7 +232,7 @@ func (v *vehicleSignalDecodingAPIService) UpdateDeviceConfigStatus(ethAddr *comm
 	}
 
 	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, headers, true)
-	url := fmt.Sprintf("%s/v1/device-config/eth-addr/%s/status", v.apiURL, ethAddr.String())
+	url := fmt.Sprintf("%s/v1/device-config/eth-addr/%s/hw/status", v.apiURL, ethAddr.String())
 	res, err := hcw.ExecuteRequest(url, "PATCH", jsonBody)
 
 	if err != nil {
