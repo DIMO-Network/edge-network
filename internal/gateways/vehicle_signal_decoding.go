@@ -1,14 +1,17 @@
 package gateways
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/config"
+	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 
-	"github.com/rs/zerolog"
+	"github.com/DIMO-Network/edge-network/config"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 
@@ -29,6 +32,7 @@ type VehicleSignalDecoding interface {
 	GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error)
 	GetDeviceSettings(url string) (*models.TemplateDeviceSettings, error)
 	GetDBC(url string) (*string, error)
+	UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *models.TemplateURLs) error
 }
 
 type vehicleSignalDecodingAPIService struct {
@@ -201,40 +205,51 @@ func (v *vehicleSignalDecodingAPIService) GetDBC(url string) (*string, error) {
 	return &resp, nil
 }
 
-// Define a type constraint that allows only pointer types.
-type PointerType[T any] interface {
-	*T // | // T can be any type as long as it's a pointer
-	//*[]T | // T can be a slice pointer
-	//*map[string]T // T can be a map pointer
-}
-
-// This is the function type that we will retry
-type RetryableFunc func() (interface{}, error)
-
-func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFunc) (*T, error) {
-	var err error
-	var result interface{}
-	for i := 0; i < attempts; i++ {
-		if result, err = fn(); err != nil {
-			if _, ok := err.(Stop); ok {
-				// Return the original error for later checking
-				return nil, err
-			}
-			// Add some sleep here
-			time.Sleep(sleep)
-			sleep *= 2
-		} else {
-			if value, ok := result.(*T); ok {
-				return value, nil
-			}
-			return nil, errors.New("type assertion failed")
-		}
+func (v *vehicleSignalDecodingAPIService) UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *models.TemplateURLs) error {
+	// Construct the body using TemplateURLs
+	body := &models.UpdateDeviceConfig{
+		TemplateURLs:           *templateUrls,
+		FirmwareVersionApplied: fwVersion,
 	}
-	logger.Err(err).Msgf("Max retries reached for function")
-	return nil, err
-}
 
-// Stop is an error that wraps an error and is used to indicate that we should not retry
-type Stop struct {
-	error
+	// Convert the body to JSON
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal body into JSON")
+	}
+
+	// sign  payload and add to headers
+	hash := crypto.Keccak256(jsonBody)
+	sig, err := commands.SignHash(unitID, hash)
+	if err != nil {
+		return errors.Wrap(err, "failed to sign the UpdateDeviceConfig")
+	}
+	signature := "0x" + hex.EncodeToString(sig)
+
+	// Create headers for the request
+	headers := map[string]string{
+		"Signature": signature,
+	}
+
+	hcw, _ := shared.NewHTTPClientWrapper("", "", 10*time.Second, headers, true)
+	url := fmt.Sprintf("%s/v1/device-config/eth-addr/%s/hw/status", v.apiURL, ethAddr.String())
+	res, err := hcw.ExecuteRequest(url, "PATCH", jsonBody)
+
+	if err != nil {
+		return errors.Wrapf(err, "error calling vehicle signal decoding api to update device config settings at url %s", url)
+	}
+
+	// Close the response body when the function returns
+	defer res.Body.Close() // nolint
+
+	// Handle the response status codes
+	if res.StatusCode == 404 {
+		return ErrNotFound
+	}
+
+	if res.StatusCode == 400 {
+		return ErrBadRequest
+	}
+
+	return nil
 }

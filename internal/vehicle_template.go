@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
@@ -14,7 +15,7 @@ import (
 // VehicleTemplates idea is to be a layer on top of calling the gateway for VehicleSignalDecoding, that handles
 // caching of configs - checking if there is an updated version of the templates available
 type VehicleTemplates interface {
-	GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error)
+	GetTemplateSettings(addr *common.Address, fwVersion string, unitID uuid.UUID) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error)
 }
 
 type vehicleTemplates struct {
@@ -29,7 +30,7 @@ func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecodi
 
 // GetTemplateSettings checks for any new template settings and if so updates the local settings, returning the latest
 // settings. Logs if encounters errors along the way. Continues and gets local settings if can't get anything from remote. Errors if can't get anything useful.
-func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error) {
+func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion string, unitID uuid.UUID) (*models.TemplatePIDs, *models.TemplateDeviceSettings, *string, error) {
 	// read any existing settings
 	var pidsConfig *models.TemplatePIDs
 	var deviceSettings *models.TemplateDeviceSettings
@@ -81,6 +82,15 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address) (*models.T
 	if saveUrlsErr != nil {
 		vt.logger.Err(saveUrlsErr).Msgf("failed to save template urls %+v", *templateURLsRemote)
 	}
+
+	//  if we downloaded new template from remote, we need to update device config status by calling vehicle-signal-decoding-api
+	updateDeviceStatusErr := gateways.RetryErrorOnly(3, 1*time.Second, vt.logger, func() error {
+		return vt.vsd.UpdateDeviceConfigStatus(addr, fwVersion, unitID, templateURLsRemote)
+	})
+	if updateDeviceStatusErr != nil {
+		vt.logger.Err(updateDeviceStatusErr).Msg(fmt.Sprintf("failed to update device config status using ethAddr %s", addr.String()))
+	}
+
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
 	remotePids, err := gateways.Retry[models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetPIDs(templateURLsRemote.PidURL)

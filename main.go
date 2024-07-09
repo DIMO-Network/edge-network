@@ -178,7 +178,7 @@ func main() {
 	vehicleTemplates := internal.NewVehicleTemplates(logger, vehicleSignalDecodingAPI, lss)
 
 	// get the template settings from remote, below method handles all the special logic
-	pids, deviceSettings, dbcFile, err := vehicleTemplates.GetTemplateSettings(ethAddr)
+	pids, deviceSettings, dbcFile, err := vehicleTemplates.GetTemplateSettings(ethAddr, Version, unitID)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
 	}

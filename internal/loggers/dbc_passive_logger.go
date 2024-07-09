@@ -42,7 +42,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
 		return nil
 	}
-	if dpl.hardwareSupport == false {
+	if !dpl.hardwareSupport {
 		dpl.logger.Info().Msg("hardware support is not enabled due to old hw - not starting DBC passive logger")
 		return nil
 	}

@@ -5,8 +5,8 @@ import "strings"
 // TemplateURLs holds the urls that point to different settings, version is in url
 type TemplateURLs struct {
 	DbcURL           string `json:"dbcUrl"`
-	DeviceSettingURL string `json:"deviceSettingUrl"`
-	PidURL           string `json:"pidUrl"`
+	DeviceSettingURL string `json:"settingsUrl"`
+	PidURL           string `json:"pidsUrl"`
 }
 
 // TemplatePIDs holds the pid requests we want to make to the vehicle
@@ -83,4 +83,10 @@ type VINLoggerSettings struct {
 	VINQueryName            string `json:"vin_query_name"`
 	VINLoggerVersion        int    `json:"vin_logger_version"`
 	VINLoggerFailedAttempts int    `json:"vin_logger_failed_attempts"`
+}
+
+// UpdateDeviceConfig is the request to update the device config
+type UpdateDeviceConfig struct {
+	TemplateURLs
+	FirmwareVersionApplied string `json:"firmwareVersionApplied"`
 }
