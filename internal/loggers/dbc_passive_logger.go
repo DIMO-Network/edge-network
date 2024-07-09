@@ -1,8 +1,10 @@
 package loggers
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +35,6 @@ type dbcPassiveLogger struct {
 	hardwareSupport bool
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
-	send            *canbus.Socket
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -94,19 +95,21 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	for {
 		frame, err := dpl.recv.Recv()
 		if err != nil {
-			// improvement - accumulate on this error and if happens too much report up to edge-logs
+			// todo improvement - accumulate on this error and if happens too much report up to edge-logs
 			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
 		//fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, printBytesAsHex(frame.Data)) //debug
-		// handle standard PID responses
+		// handle standard PID responses // todo refactor this part out
 		if frame.ID == 2024 && len(dpl.pids) > 0 {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Msgf("failed to extract PID data with formula: %s", pid.Formula)
+					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).
+						Msgf("failed to extract PID data with formula: %s, resp data: %s, name: %s",
+							pid.Formula, printBytesAsHex(frame.Data), pid.Name)
 					continue
 				}
 				dpl.logger.Debug().Msgf("%s value: %f", pid.Name, floatVal)
@@ -155,12 +158,6 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 			return errR
 		}
 	}
-	if dpl.send != nil {
-		errS := dpl.send.Close()
-		if errS != nil {
-			return errS
-		}
-	}
 	return nil
 }
 
@@ -180,7 +177,7 @@ func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32
 
 	data, err := hex.DecodeString(paddedWithZeros)
 	if err != nil {
-		return errors.Wrap(err, "cannot decode hex string")
+		return errors.Wrapf(err, "cannot decode hex string: %s", paddedWithZeros)
 	}
 
 	return dpl.SendCANFrame(header, data)
@@ -189,30 +186,28 @@ func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32
 // SendCANFrame sends a raw frame on the can bus. Initializes socket if it is nil.
 // if the header is bigger that x0fff, sets frame type as extended frame format. Fire and forget.
 func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
-	// init if not set
-	if dpl.send == nil {
-		var err error
-		dpl.send, err = canbus.New()
-		if err != nil {
-			return errors.Wrap(err, "cannot create canbus socket")
-		}
-		err = dpl.send.Bind("can0")
-		if err != nil {
-			return errors.Wrap(err, "cannot bind canbus socket")
-		}
+	send, err := canbus.New()
+	if err != nil {
+		return errors.Wrap(err, "cannot create canbus socket")
 	}
+	defer send.Close()
+	err = send.Bind("can0")
+	if err != nil {
+		return errors.Wrap(err, "cannot bind canbus socket")
+	}
+
 	// switch to extended frame if bigger header
 	k := canbus.SFF
 	if header > 4095 {
 		k = canbus.EFF
 	}
-	_, err := dpl.send.Send(canbus.Frame{
+	_, err = send.Send(canbus.Frame{
 		ID:   header,
 		Data: data,
 		Kind: k,
 	})
 	if err != nil {
-		return errors.Wrap(err, "cannot send canbus frame")
+		return errors.Wrapf(err, "cannot send canbus frame: hdr %d data: %X kind: %s", header, data, k)
 	}
 	return nil
 }
@@ -286,10 +281,10 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
 		if pid.ResponseHeader == 0 {
-			pid.ResponseHeader = 2024 // set the default 7e8 if not set
+			pid.ResponseHeader = 2024 // set the default 7e8 if not set, we'll need a way to know if this vehicle is EFF
 		}
 		if pid.ResponseHeader == frame.ID {
-			// todo there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
+			// todo UDS there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
 			if pid.Pid == uint32(frame.Data[2]) {
 				return &pid
 			}

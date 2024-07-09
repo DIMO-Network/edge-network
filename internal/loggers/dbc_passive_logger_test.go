@@ -161,6 +161,7 @@ func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 			},
 			wantPIDName: "coolantTemp",
 		},
+		// todo test for extended frame
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
