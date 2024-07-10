@@ -1,4 +1,4 @@
-package internal
+package util
 
 import (
 	"context"
@@ -113,33 +113,33 @@ type logOptions struct {
 	powerStatus          *api.PowerStatusResponse
 }
 
-func withStopLogAfter(stopLogAfter int) logOption {
+func WithStopLogAfter(stopLogAfter int) logOption {
 	return func(o *logOptions) {
 		o.stopLogAfter = &stopLogAfter
 	}
 }
 
-func withThresholdWhenLogMqtt(thresholdWhenLogMqtt int) logOption {
+func WithThresholdWhenLogMqtt(thresholdWhenLogMqtt int) logOption {
 	return func(o *logOptions) {
 		o.thresholdWhenLogMqtt = &thresholdWhenLogMqtt
 	}
 }
 
-func withPowerStatus(powerStatus api.PowerStatusResponse) logOption {
+func WithPowerStatus(powerStatus api.PowerStatusResponse) logOption {
 	return func(o *logOptions) {
 		o.powerStatus = &powerStatus
 	}
 }
 
-// logError logs an error message with the provided options.
-func logError(logger zerolog.Logger, err error, message string, opts ...logOption) {
+// LogError logs an error message with the provided options.
+func LogError(logger zerolog.Logger, err error, message string, opts ...logOption) {
 	c := applyOptions(opts)
 
 	logger.Err(err).Ctx(c).Msg(message)
 }
 
-// logInfo logs an info message with the provided options.
-func logInfo(logger zerolog.Logger, message string, opts ...logOption) {
+// LogInfo logs an info message with the provided options.
+func LogInfo(logger zerolog.Logger, message string, opts ...logOption) {
 	c := applyOptions(opts)
 
 	logger.Info().Ctx(c).Msg(message)

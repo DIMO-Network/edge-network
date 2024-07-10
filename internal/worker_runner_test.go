@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/util"
 	"io"
 	"net/http"
 	"os"
@@ -638,8 +639,8 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := util.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&util.LogHook{DataSender: ds}).Hook(fh)
 
 	// assert data sender is called without fuel level signal
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -745,8 +746,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := util.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&util.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -832,8 +833,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := util.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&util.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -905,8 +906,8 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := util.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&util.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()

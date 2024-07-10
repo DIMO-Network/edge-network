@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/DIMO-Network/edge-network/internal/loggers/canbus"
+	"github.com/DIMO-Network/edge-network/internal/canbus"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
@@ -35,6 +34,8 @@ type dbcPassiveLogger struct {
 	hardwareSupport bool
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
+	// used for filtering for PIDs
+	respHeaders map[uint32]struct{}
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -45,6 +46,7 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 7}
 	if pids != nil {
 		dpl.pids = pids.Requests
+		dpl.respHeaders = parseUniqueResponseHeaders(dpl.pids)
 	}
 
 	return dpl
@@ -65,11 +67,12 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
 	}
-
-	// manually add 7e8 header filter. We could also iterate over pids and pull out unique response headers
-	filters = append(filters, dbcFilter{
-		header: 2024, //7e8 // todo handle filters for extended frame
-	})
+	// add any PID or DID filters
+	for rh := range dpl.respHeaders {
+		filters = append(filters, dbcFilter{
+			header: rh,
+		})
+	}
 
 	dpl.recv, err = canbus.New()
 	if err != nil {
@@ -80,7 +83,11 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	uf := make([]unix.CanFilter, len(filters))
 	for i, filter := range filters {
 		uf[i].Id = filter.header // wants decimal representation of header - not hex
-		uf[i].Mask = unix.CAN_SFF_MASK
+		if filter.header > 4095 {
+			uf[i].Mask = unix.CAN_EFF_MASK // extended frame
+		} else {
+			uf[i].Mask = unix.CAN_SFF_MASK // standard frame
+		}
 	}
 	err = dpl.recv.SetFilters(uf)
 	if err != nil {
@@ -95,19 +102,19 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	for {
 		frame, err := dpl.recv.Recv()
 		if err != nil {
-			// todo improvement - accumulate on this error and if happens too much report up to edge-logs
+			// todo improvement- dmytro - accumulate on this error and if happens too much report up to edge-logs
 			dpl.logger.Debug().Err(err).Msg("failed to read frame")
 			continue
 		}
-		//fmt.Printf("%7s  %03x %s\n", recv.Name(), frame.ID, printBytesAsHex(frame.Data)) //debug
-		// handle standard PID responses // todo refactor this part out
-		if frame.ID == 2024 && len(dpl.pids) > 0 {
+
+		// handle standard PID responses
+		if _, ok := dpl.respHeaders[frame.ID]; ok {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).
+					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).
 						Msgf("failed to extract PID data with formula: %s, resp data: %s, name: %s",
 							pid.Formula, printBytesAsHex(frame.Data), pid.Name)
 					continue
@@ -161,6 +168,15 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 	return nil
 }
 
+// todo test
+func parseUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
+	hdrs := make(map[uint32]struct{})
+	for _, pid := range pids {
+		hdrs[pid.ResponseHeader] = struct{}{}
+	}
+	return hdrs
+}
+
 // SendCANQuery calls SendCANFrame, just builds up the raw frame with some standards. fire and forget. Responses come in StartScanning filters.
 func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32) error {
 	//02 01 33 00 00 00 00 00 // length mode pid
@@ -207,7 +223,7 @@ func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
 		Kind: k,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "cannot send canbus frame: hdr %d data: %X kind: %s", header, data, k)
+		return errors.Wrapf(err, "cannot send canbus frame: hdr %d data: %s kind: %s", header, printBytesAsHex(data), k)
 	}
 	return nil
 }
@@ -280,6 +296,7 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
+		// todo remove this if after put resp headers logic in the template getter in gateway
 		if pid.ResponseHeader == 0 {
 			pid.ResponseHeader = 2024 // set the default 7e8 if not set, we'll need a way to know if this vehicle is EFF
 		}

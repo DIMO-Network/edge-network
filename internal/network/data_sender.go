@@ -9,30 +9,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/DIMO-Network/shared"
-
-	"github.com/DIMO-Network/edge-network/config"
-
-	"github.com/DIMO-Network/edge-network/internal/models"
-
-	"github.com/rs/zerolog"
-
-	"github.com/DIMO-Network/edge-network/internal/api"
-	"github.com/segmentio/ksuid"
-	"github.com/tidwall/gjson"
-
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/config"
+	"github.com/DIMO-Network/edge-network/internal/api"
+	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/DIMO-Network/shared"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/segmentio/ksuid"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // it is the responsibility of the DataSender to determine what topic to use

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 
@@ -100,7 +101,7 @@ func (ls *fingerprintRunner) FingerprintSimple(powerStatus api.PowerStatusRespon
 			_ = ls.dataSender.SendErrorPayload(errors.Wrap(err, "failed to write vinLogger settings"), &powerStatus)
 		}
 		// log to cloud only once during paired lifetime with this vehicle.
-		ls.logger.Info().Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).Msgf("succesfully obtained VIN via fingerprint")
+		ls.logger.Info().Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).Msgf("succesfully obtained VIN via fingerprint")
 	}
 
 	data := models.FingerprintData{

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DIMO-Network/edge-network/internal/loggers/canbus"
+	"github.com/DIMO-Network/edge-network/internal/canbus"
 	"github.com/DIMO-Network/edge-network/internal/models"
 
 	"github.com/rs/zerolog"
@@ -126,7 +126,6 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 // - 41: Response to service 01
 // - 05: coolant temp PID
 // - 53: coolant data - 83 - 40 = 43
-
 func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	pids := []models.PIDRequest{
@@ -184,4 +183,87 @@ func hexToByteArray(hexString string, t *testing.T) []byte {
 	}
 
 	return byteArray
+}
+
+func TestParseUniqueResponseHeaders(t *testing.T) {
+	tests := []struct {
+		name string
+		pids []models.PIDRequest
+		want map[uint32]struct{}
+	}{
+		{
+			name: "No PID",
+			pids: []models.PIDRequest{},
+			want: map[uint32]struct{}{},
+		},
+		{
+			name: "Single PID",
+			pids: []models.PIDRequest{
+				{
+					ResponseHeader: 0x123,
+				},
+			},
+			want: map[uint32]struct{}{
+				0x123: {},
+			},
+		},
+		{
+			name: "Multiple Unique PIDs",
+			pids: []models.PIDRequest{
+				{
+					ResponseHeader: 0x123,
+				},
+				{
+					ResponseHeader: 0x456,
+				},
+				{
+					ResponseHeader: 0x789,
+				},
+			},
+			want: map[uint32]struct{}{
+				0x123: {},
+				0x456: {},
+				0x789: {},
+			},
+		},
+		{
+			name: "Multiple Duplicate PIDs",
+			pids: []models.PIDRequest{
+				{
+					ResponseHeader: 0x123,
+				},
+				{
+					ResponseHeader: 0x123,
+				},
+				{
+					ResponseHeader: 0x123,
+				},
+			},
+			want: map[uint32]struct{}{
+				0x123: {},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := parseUniqueResponseHeaders(tc.pids); !compareMaps(got, tc.want) {
+				t.Errorf("parseUniqueResponseHeaders() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func compareMaps(a, b map[uint32]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for key := range a {
+		if _, found := b[key]; !found {
+			return false
+		}
+	}
+
+	return true
 }

@@ -6,26 +6,23 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
+	"github.com/DIMO-Network/edge-network/internal/models"
+	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/jarcoal/httpmock"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
+	"go.uber.org/mock/gomock"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
-
-	dimoConfig "github.com/DIMO-Network/edge-network/config"
-
-	"github.com/DIMO-Network/edge-network/internal/models"
-	"github.com/stretchr/testify/assert"
-
-	mock_network "github.com/DIMO-Network/edge-network/internal/network/mocks"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"github.com/jarcoal/httpmock"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/sjson"
-	"go.uber.org/mock/gomock"
 )
 
 //go:generate mockgen -destination=mocks/mqtt_mock.go -package=mock_network github.com/eclipse/paho.mqtt.golang Client
