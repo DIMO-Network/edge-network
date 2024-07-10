@@ -300,10 +300,7 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
-		// todo remove this if after put resp headers logic in the template getter in gateway
-		if pid.ResponseHeader == 0 {
-			pid.ResponseHeader = 2024 // set the default 7e8 if not set, we'll need a way to know if this vehicle is EFF
-		}
+
 		if pid.ResponseHeader == frame.ID {
 			// todo UDS there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
 			if pid.Pid == uint32(frame.Data[2]) {
