@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/utils"
 	"sync"
 	"time"
 
@@ -122,7 +123,7 @@ func (wr *workerRunner) Run() {
 							allTimeFailures := wr.fingerprintRunner.IncrementFailuresReached()
 							if allTimeFailures < 2 {
 								// send to edge logs first time VIN failure happens
-								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), utils.LogToMqtt, "true")).
 									Msgf("failed to do vehicle VIN fingerprint: %s", errFp.Error())
 							}
 						}
@@ -135,7 +136,7 @@ func (wr *workerRunner) Run() {
 				wr.queryOBD(&powerStatus)
 			} else {
 				msg := fmt.Sprintf("voltage not enough to query obd: %.1f", powerStatus.VoltageFound)
-				logInfo(wr.logger, msg, withStopLogAfter(1))
+				utils.LogInfo(wr.logger, msg, utils.WithStopLogAfter(1))
 			}
 
 			time.Sleep(2 * time.Second)
@@ -316,7 +317,7 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
-		logError(wr.logger, err, "failed to get signal strength", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
+		utils.LogError(wr.logger, err, "failed to get signal strength", utils.WithStopLogAfter(1), utils.WithThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	wifi = models.WiFi{
@@ -331,7 +332,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		logError(wr.logger, err, "failed to get gps location", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
+		utils.LogError(wr.logger, err, "failed to get gps location", utils.WithStopLogAfter(1), utils.WithThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -375,7 +376,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 				// when exporting via mqtt, hook only grabs the message, not the error
 				msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(1), withPowerStatus(*powerStatus))
+				utils.LogError(wr.logger, err, msg, utils.WithThresholdWhenLogMqtt(1), utils.WithPowerStatus(*powerStatus))
 			}
 			continue
 		}
@@ -386,7 +387,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			if err != nil {
 				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
 					request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10), withStopLogAfter(1))
+				utils.LogError(wr.logger, err, msg, utils.WithThresholdWhenLogMqtt(10), utils.WithStopLogAfter(1))
 				continue
 			}
 		} else if !obdResp.IsHex {

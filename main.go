@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/utils"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 	"os"
@@ -127,12 +128,12 @@ func main() {
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, models.VehicleInfo{}, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
-	fh := internal.NewLogRateLimiterHook(ds)
-	logger = logger.Hook(&internal.LogHook{DataSender: ds}).Hook(fh)
+	fh := utils.NewLogRateLimiterHook(ds)
+	logger = logger.Hook(&utils.LogHook{DataSender: ds}).Hook(fh)
 
 	// log certificate errors
 	if certErr != nil {
-		logger.Error().Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
+		logger.Error().Ctx(context.WithValue(context.Background(), utils.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
 	}
 
 	coldBoot, err := isColdBoot(logger, unitID)
