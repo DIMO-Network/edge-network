@@ -9,6 +9,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/api"
@@ -23,10 +28,6 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // it is the responsibility of the DataSender to determine what topic to use
