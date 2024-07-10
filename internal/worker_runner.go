@@ -3,9 +3,10 @@ package internal
 import (
 	"context"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"sync"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 
 	"github.com/DIMO-Network/edge-network/internal/util"
 
@@ -87,7 +88,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	if wr.dbcScanner.HasDBCFile() {
+	if wr.dbcScanner.UseNativeScanLogger() {
 		wr.logger.Info().Msg("found DBC file, starting DBC passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
@@ -351,7 +352,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 }
 
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
-	useNativeQuery := wr.dbcScanner.HasDBCFile()
+	useNativeQuery := wr.dbcScanner.UseNativeScanLogger()
 
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid

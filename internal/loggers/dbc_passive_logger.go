@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 
 	"github.com/DIMO-Network/edge-network/internal/util"
 
@@ -23,7 +24,8 @@ import (
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
 	StartScanning(ch chan<- models.SignalData) error
-	HasDBCFile() bool
+	// UseNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native scanning (they go hand in hand)
+	UseNativeScanLogger() bool
 	SendCANQuery(header uint32, mode uint32, pid uint32) error
 	StopScanning() error
 }
@@ -44,7 +46,7 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	if err != nil {
 		logger.Err(err).Msgf("unable to parse hardware version: %s", hwVersion)
 	}
-	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 7}
+	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 6} // have only tested in 7+ working, for sure 5.2 nogo
 	if pids != nil {
 		dpl.pids = pids.Requests
 		dpl.respHeaders = parseUniqueResponseHeaders(dpl.pids)
@@ -154,9 +156,10 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	}
 }
 
-func (dpl *dbcPassiveLogger) HasDBCFile() bool {
-	// todo feel like this should also check for hardware compat
-	return dpl.dbcFile != nil && *dpl.dbcFile != ""
+// UseNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
+func (dpl *dbcPassiveLogger) UseNativeScanLogger() bool {
+	// in next revision this could just be on hw support and if template pids are supported
+	return dpl.hardwareSupport && dpl.dbcFile != nil && *dpl.dbcFile != ""
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {

@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"math"
+
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 
 	"github.com/DIMO-Network/edge-network/agent"
 	"github.com/DIMO-Network/edge-network/commands"

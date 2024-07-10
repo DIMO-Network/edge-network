@@ -38,20 +38,6 @@ func (m *MockDBCPassiveLogger) EXPECT() *MockDBCPassiveLoggerMockRecorder {
 	return m.recorder
 }
 
-// HasDBCFile mocks base method.
-func (m *MockDBCPassiveLogger) HasDBCFile() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasDBCFile")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// HasDBCFile indicates an expected call of HasDBCFile.
-func (mr *MockDBCPassiveLoggerMockRecorder) HasDBCFile() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasDBCFile", reflect.TypeOf((*MockDBCPassiveLogger)(nil).HasDBCFile))
-}
-
 // SendCANQuery mocks base method.
 func (m *MockDBCPassiveLogger) SendCANQuery(header, mode, pid uint32) error {
 	m.ctrl.T.Helper()
@@ -92,4 +78,18 @@ func (m *MockDBCPassiveLogger) StopScanning() error {
 func (mr *MockDBCPassiveLoggerMockRecorder) StopScanning() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopScanning", reflect.TypeOf((*MockDBCPassiveLogger)(nil).StopScanning))
+}
+
+// UseNativeScanLogger mocks base method.
+func (m *MockDBCPassiveLogger) UseNativeScanLogger() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UseNativeScanLogger")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// UseNativeScanLogger indicates an expected call of UseNativeScanLogger.
+func (mr *MockDBCPassiveLoggerMockRecorder) UseNativeScanLogger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseNativeScanLogger", reflect.TypeOf((*MockDBCPassiveLogger)(nil).UseNativeScanLogger))
 }

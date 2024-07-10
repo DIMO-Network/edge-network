@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"github.com/DIMO-Network/edge-network/internal/models"
 
