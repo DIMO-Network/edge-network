@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/util"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"math"
 
 	"github.com/DIMO-Network/edge-network/agent"
@@ -419,7 +419,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).Msgf("error retrieving VIN via BLE: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("error retrieving VIN via BLE: %s", err)
 			}
 		}()
 
@@ -441,8 +441,8 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 			return
 		}
 
-		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol)                                                  // verify using protocol when requesting template
-		logger.Info().Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).Msg("Got VIN via BLE") //note we don't send the VIN to cloud logs for PII
+		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol)                                                   // verify using protocol when requesting template
+		logger.Info().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msg("Got VIN via BLE") //note we don't send the VIN to cloud logs for PII
 		logger.Info().Msgf(vinResp.VIN)
 		lastVIN = vinResp.VIN
 		lastProtocol = vinResp.Protocol
@@ -450,7 +450,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		// we want to do this each time in case the device is being paired to a different vehicle
 		errSaveCfg := lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
 		if errSaveCfg != nil {
-			logger.Err(errSaveCfg).Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).
+			logger.Err(errSaveCfg).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
 				Msgf("failed to save vin query name in settings: %s", err)
 		}
 		// todo restart the application?
@@ -472,7 +472,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	protocolChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).Msgf("Error retrieving Protocol: %s", err)
+				logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error retrieving Protocol: %s", err)
 			}
 		}()
 		if lastProtocol != "" {

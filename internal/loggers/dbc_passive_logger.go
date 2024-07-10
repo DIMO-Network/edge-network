@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"strconv"
 	"strings"
 	"time"
@@ -114,7 +115,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), util.LogToMqtt, "true")).
+					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
 						Msgf("failed to extract PID data with formula: %s, resp data: %s, name: %s",
 							pid.Formula, printBytesAsHex(frame.Data), pid.Name)
 					continue
