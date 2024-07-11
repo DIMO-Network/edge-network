@@ -137,6 +137,7 @@ func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 			Name:            "coolantTemp",
 			Pid:             5, // 05
 			Protocol:        "CAN11_500",
+			ResponseHeader:  2024,
 		},
 	}
 
