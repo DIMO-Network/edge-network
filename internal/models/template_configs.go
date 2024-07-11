@@ -19,6 +19,7 @@ type TemplatePIDs struct {
 type PIDRequest struct {
 	Formula              string `json:"formula"`
 	Header               uint32 `json:"header"`
+	ResponseHeader       uint32 `json:"response_header"`
 	IntervalSeconds      int    `json:"interval_seconds"`
 	Mode                 uint32 `json:"mode"`
 	Name                 string `json:"name"`

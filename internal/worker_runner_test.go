@@ -11,6 +11,8 @@ import (
 	"time"
 	_ "time"
 
+	"github.com/DIMO-Network/edge-network/internal/hooks"
+
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	mock_loggers "github.com/DIMO-Network/edge-network/internal/loggers/mocks"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -69,6 +71,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	_, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	// mock powerstatus resp
@@ -123,6 +126,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	_, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	// mock obd resp
@@ -181,6 +185,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	// mock powerstatus resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -234,6 +239,7 @@ func Test_workerRunner_Run(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -260,7 +266,6 @@ func Test_workerRunner_Run(t *testing.T) {
 		assert.NotNil(t, data.Cell)
 		assert.NotNil(t, data.Longitude)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -294,6 +299,7 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -341,7 +347,6 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 		assert.NotNil(t, data.Cell)
 		assert.NotNil(t, data.Longitude)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -376,6 +381,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -402,7 +408,6 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.Cell)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -435,7 +440,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
-
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
@@ -459,7 +464,6 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.Cell)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 
 	requests := []models.PIDRequest{
 		{
@@ -508,6 +512,7 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -565,7 +570,6 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(3).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.Cell)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// then the data sender should be called twice
 	go wr.Run()
 	time.Sleep(25 * time.Second)
@@ -586,6 +590,7 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -638,8 +643,8 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := hooks.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
 
 	// assert data sender is called without fuel level signal
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -662,7 +667,6 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(3).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.Cell)
 	}).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// then the data sender should be called twice
 	go wr.Run()
 	time.Sleep(25 * time.Second)
@@ -684,6 +688,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -728,7 +733,6 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -745,8 +749,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := hooks.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -771,6 +775,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -815,7 +820,6 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -832,8 +836,8 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := hooks.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()
@@ -859,6 +863,7 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
@@ -888,7 +893,6 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	// assert data sender is called twice with expected payload
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(2).Return(nil)
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Return(nil)
-	dbcS.EXPECT().HasDBCFile().Return(false)
 	// Initialize workerRunner here with mocked dependencies
 	requests := []models.PIDRequest{
 		{
@@ -905,8 +909,8 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	wr.deviceSettings.MinVoltageOBDLoggers = 13.3
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
-	fh := NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&LogHook{DataSender: ds}).Hook(fh)
+	fh := hooks.NewLogRateLimiterHook(ds)
+	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
 
 	// then
 	go wr.Run()

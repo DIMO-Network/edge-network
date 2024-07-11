@@ -6,6 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DIMO-Network/edge-network/internal/hooks"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -84,11 +88,12 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	if wr.dbcScanner.HasDBCFile() {
+	if wr.dbcScanner.UseNativeScanLogger() {
 		wr.logger.Info().Msg("found DBC file, starting DBC passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
 		go func() {
+			defer wr.dbcScanner.StopScanning() //nolint
 			err := wr.dbcScanner.StartScanning(dbcCh)
 			if err != nil {
 				wr.logger.Err(err).Msg("failed to start scanning")
@@ -122,7 +127,7 @@ func (wr *workerRunner) Run() {
 							allTimeFailures := wr.fingerprintRunner.IncrementFailuresReached()
 							if allTimeFailures < 2 {
 								// send to edge logs first time VIN failure happens
-								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), LogToMqtt, "true")).
+								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
 									Msgf("failed to do vehicle VIN fingerprint: %s", errFp.Error())
 							}
 						}
@@ -135,7 +140,7 @@ func (wr *workerRunner) Run() {
 				wr.queryOBD(&powerStatus)
 			} else {
 				msg := fmt.Sprintf("voltage not enough to query obd: %.1f", powerStatus.VoltageFound)
-				logInfo(wr.logger, msg, withStopLogAfter(1))
+				hooks.LogInfo(wr.logger, msg, hooks.WithStopLogAfter(1))
 			}
 
 			time.Sleep(2 * time.Second)
@@ -316,7 +321,7 @@ func (wr *workerRunner) queryWiFi() (*models.WiFi, error) {
 	wifiStatus, err := commands.GetWifiStatus(wr.device.UnitID)
 	wifi := models.WiFi{}
 	if err != nil {
-		logError(wr.logger, err, "failed to get signal strength", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
+		hooks.LogError(wr.logger, err, "failed to get signal strength", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	wifi = models.WiFi{
@@ -331,7 +336,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		logError(wr.logger, err, "failed to get gps location", withStopLogAfter(1), withThresholdWhenLogMqtt(10))
+		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(10))
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -347,6 +352,8 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 }
 
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
+	useNativeQuery := wr.dbcScanner.UseNativeScanLogger()
+
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
 		if lastEnqueuedTime, ok := wr.signalsQueue.lastEnqueuedTime(request.Name); ok {
@@ -366,54 +373,60 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 		}
 
 		// execute the pid
-		obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
-		if err != nil {
-			//wr.logger.Err(err).Msg("failed to query obd pid") // commenting out to reduce excessive logging on device
-			wr.signalsQueue.IncrementFailureCount(request.Name)
-			wr.signalsQueue.lastTimeChecked[request.Name] = time.Now()
-			// if we failed too many times, we should send an error to the cloud
-			if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
-				// when exporting via mqtt, hook only grabs the message, not the error
-				msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(1), withPowerStatus(*powerStatus))
-			}
-			continue
-		}
-		// future: new formula type that could work for proprietary PIDs and could support text, int or float
-		var value interface{}
-		if request.FormulaType() == models.Dbc && obdResp.IsHex {
-			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], uintToHexStr(request.Pid), request.FormulaValue())
+		if useNativeQuery {
+			// just fire and forget, will get caught by pid response listener
+			err := wr.dbcScanner.SendCANQuery(request.Header, request.Mode, request.Pid)
 			if err != nil {
-				msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
-					request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
-				logError(wr.logger, err, msg, withThresholdWhenLogMqtt(10), withStopLogAfter(1))
-				continue
+				hooks.LogError(wr.logger, err, "failed to send CAN query", hooks.WithThresholdWhenLogMqtt(5), hooks.WithPowerStatus(*powerStatus))
 			}
-		} else if !obdResp.IsHex {
-			value = obdResp.Value
-			// todo, check what other types conversion we should handle
 		} else {
-			wr.logger.Error().Msgf("no recognized formula type found: %s. signal: %s. template: %s", request.Formula, request.Name, wr.pids.TemplateName)
-			continue
+			wr.queryOBDWithAP(request, powerStatus)
 		}
 
-		// reset the failure count
-		wr.signalsQueue.failureCount[request.Name] = 0
-		wr.signalsQueue.Enqueue(models.SignalData{
-			Timestamp: ts.UnixMilli(),
-			Name:      request.Name,
-			Value:     value,
-		})
 	}
 }
 
-// uintToHexStr converts the uint32 into a 0 padded hex representation, always assuming must be even length.
-func uintToHexStr(val uint32) string {
-	hexStr := fmt.Sprintf("%X", val)
-	if len(hexStr)%2 != 0 {
-		return "0" + hexStr // Prepend a "0" if the length is odd
+// queryOBDWithAP calls autopi obd.query, waits for response and enques the resp value if any
+func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *api.PowerStatusResponse) {
+	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+	// anywhere we call return it is b/c we intend to stop processing any additional code
+	if err != nil {
+		//wr.logger.Err(err).Msg("failed to query obd pid") // commenting out to reduce excessive logging on device
+		wr.signalsQueue.IncrementFailureCount(request.Name)
+		wr.signalsQueue.lastTimeChecked[request.Name] = time.Now()
+		// if we failed too many times, we should send an error to the cloud
+		if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
+			// when exporting via mqtt, hook only grabs the message, not the error
+			msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
+			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(1), hooks.WithPowerStatus(*powerStatus))
+		}
+		return
 	}
-	return hexStr
+	// future: new formula type that could work for proprietary PIDs and could support text, int or float
+	var value interface{}
+	if request.FormulaType() == models.Dbc && obdResp.IsHex {
+		value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], util.UintToHexStr(request.Pid), request.FormulaValue())
+		if err != nil {
+			msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
+				request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
+			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(10), hooks.WithStopLogAfter(1))
+			return
+		}
+	} else if !obdResp.IsHex {
+		value = obdResp.Value
+		// future todo, check what other types conversion we should handle
+	} else {
+		wr.logger.Error().Msgf("no recognized formula type found: %s. signal: %s. template: %s", request.Formula, request.Name, wr.pids.TemplateName)
+		return
+	}
+
+	// reset the failure count
+	wr.signalsQueue.failureCount[request.Name] = 0
+	wr.signalsQueue.Enqueue(models.SignalData{
+		Timestamp: ts.UnixMilli(),
+		Name:      request.Name,
+		Value:     value,
+	})
 }
 
 // isOkToQueryOBD checks once to see if voltage rules pass to issue PID requests

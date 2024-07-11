@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/DIMO-Network/edge-network/internal/util"
+
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/google/uuid"
@@ -54,7 +56,7 @@ func Test_isValidHex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.hex, func(t *testing.T) {
-			if got := isValidHex(tt.hex); got != tt.want {
+			if got := util.IsValidHex(tt.hex); got != tt.want {
 				t.Errorf("isValidHex() = %v, want %v", got, tt.want)
 			}
 		})
@@ -85,7 +87,7 @@ func Test_isHexFrames(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, isHexFrames(tt.hexMultiLine), "isHexFrames(%v)", tt.hexMultiLine)
+			assert.Equalf(t, tt.want, util.IsHexFrames(tt.hexMultiLine), "isHexFrames(%v)", tt.hexMultiLine)
 		})
 	}
 }
