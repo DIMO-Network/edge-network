@@ -49,7 +49,7 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 6} // have only tested in 7+ working, for sure 5.2 nogo
 	if pids != nil {
 		dpl.pids = pids.Requests
-		dpl.respHeaders = parseUniqueResponseHeaders(dpl.pids)
+		dpl.respHeaders = getUniqueResponseHeaders(dpl.pids)
 	}
 
 	return dpl
@@ -172,8 +172,8 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 	return nil
 }
 
-// todo test
-func parseUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
+// getUniqueResponseHeaders returns only the unique response headers in the pids
+func getUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
 	hdrs := make(map[uint32]struct{})
 	for _, pid := range pids {
 		hdrs[pid.ResponseHeader] = struct{}{}
@@ -300,7 +300,6 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
-
 		if pid.ResponseHeader == frame.ID {
 			// todo UDS there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
 			if pid.Pid == uint32(frame.Data[2]) {
@@ -308,7 +307,7 @@ func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 			}
 		}
 	}
-	return &models.PIDRequest{}
+	return nil
 }
 
 func addPrevFilter(header string, headerSignals []dbcSignal, filters []dbcFilter) ([]dbcFilter, error) {

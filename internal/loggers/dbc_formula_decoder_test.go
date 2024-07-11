@@ -104,6 +104,17 @@ func TestParseBytesWithDBCFormula(t *testing.T) {
 			wantUnit:  "%",
 			wantErr:   assert.NoError,
 		},
+		{
+			name: "warmupsSinceDtccCear",
+			args: args{
+				frameData: hexToByteArray("22 33 30 32 35 33 31 31", t),
+				pid:       uint32(48), //0x30
+				formula:   `31|8@0+ (1,0) [0|255] "count"`,
+			},
+			wantValue: 50,
+			wantUnit:  "count",
+			wantErr:   assert.NoError,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

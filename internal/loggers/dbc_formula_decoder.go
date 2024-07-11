@@ -107,12 +107,18 @@ func ParsePIDBytesWithDBCFormula(frameData []byte, pid uint32, formula string) (
 	if pidIndex == 0 {
 		return 0, "", fmt.Errorf("PID %d not found in response frameData: %s", pid, printBytesAsHex(frameData))
 	}
-	// get the length based off the pid response, instead of the formula (like we do in other dbc formula function)
-	dataLength := frameData[0]
-	dataEndPos := pidIndex + uint32(dataLength) - 1
-	if len(frameData) < int(dataLength) {
+
+	lengthBits, err := strconv.Atoi(matches[2]) // eg. get the 8 in `31|8 ...`
+	if err != nil {
+		return 0, "", err
+	}
+	numBytes := lengthBits / 8
+
+	//dataLength := frameData[0] // if we wanted to get length based off the pid response, instead of the formula
+	dataEndPos := pidIndex + uint32(numBytes) + 1 // use the length from formula
+	if len(frameData) < int(dataEndPos) {
+		// control for formula data length being longer than available bytes
 		dataEndPos = uint32(len(frameData))
-		// fmt.Printf("used the frame data length: %d \n", dataEndPos) // debug
 	}
 
 	// Extract the relevant portion of the hex data

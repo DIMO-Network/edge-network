@@ -139,6 +139,16 @@ func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 			Protocol:        "CAN11_500",
 			ResponseHeader:  2024,
 		},
+		{
+			Formula:         "dbc: 31|8@0+ (1,-40) [-40|215]",
+			Header:          417018865, // 7df
+			IntervalSeconds: 60,
+			Mode:            1, // 01
+			Name:            "coolantTemp",
+			Pid:             5, // 05
+			Protocol:        "CAN29_500",
+			ResponseHeader:  417001744,
+		},
 	}
 
 	dpl := &dbcPassiveLogger{
@@ -161,7 +171,22 @@ func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 			},
 			wantPIDName: "coolantTemp",
 		},
-		// todo test for extended frame
+		{
+			name: "match coolant temp EFF",
+			frame: canbus.Frame{
+				ID:   417001744,
+				Data: hexToByteArray("03 41 05 53", t),
+			},
+			wantPIDName: "coolantTemp",
+		},
+		{
+			name: "no match unregistered pid",
+			frame: canbus.Frame{
+				ID:   2024,
+				Data: hexToByteArray("10 14 49 02 01 4C 46 56", t),
+			},
+			wantPIDName: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -174,16 +199,6 @@ func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 			}
 		})
 	}
-}
-
-func hexToByteArray(hexString string, t *testing.T) []byte {
-	cleanHex := strings.Replace(hexString, " ", "", -1)
-	byteArray, err := hex.DecodeString(cleanHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return byteArray
 }
 
 func TestParseUniqueResponseHeaders(t *testing.T) {
@@ -248,11 +263,21 @@ func TestParseUniqueResponseHeaders(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := parseUniqueResponseHeaders(tc.pids); !compareMaps(got, tc.want) {
-				t.Errorf("parseUniqueResponseHeaders() = %v, want %v", got, tc.want)
+			if got := getUniqueResponseHeaders(tc.pids); !compareMaps(got, tc.want) {
+				t.Errorf("getUniqueResponseHeaders() = %v, want %v", got, tc.want)
 			}
 		})
 	}
+}
+
+func hexToByteArray(hexString string, t *testing.T) []byte {
+	cleanHex := strings.Replace(hexString, " ", "", -1)
+	byteArray, err := hex.DecodeString(cleanHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return byteArray
 }
 
 func compareMaps(a, b map[uint32]struct{}) bool {
