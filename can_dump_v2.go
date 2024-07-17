@@ -36,7 +36,8 @@ func (p *canDumpV2Cmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	// print something about starting
+	fmt.Println("Starting can-dump-v2...")
+
 	sck, err := canbus.New()
 	if err != nil {
 		p.logger.Fatal().Err(err).Msg("failed to connect to CAN")

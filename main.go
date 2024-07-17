@@ -68,6 +68,12 @@ func main() {
 	name, unitID = commands.GetDeviceName(logger)
 	logger.Info().Msgf("SerialNumber Number: %s", unitID)
 
+	hwRevision, err := commands.GetHardwareRevision(unitID)
+	if err != nil {
+		logger.Err(err).Msg("error getting hardware rev")
+	}
+	logger.Info().Msgf("hardware version found: %s", hwRevision)
+
 	// retry logic for getting ethereum address
 	ethAddr, ethErr := gateways.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
@@ -147,12 +153,6 @@ func main() {
 	logger.Info().Msgf("Bluetooth name: %s", name)
 	logger.Info().Msgf("Version: %s", Version)
 	logger.Info().Msgf("Environment: %s", env)
-
-	hwRevision, err := commands.GetHardwareRevision(unitID)
-	if err != nil {
-		logger.Err(err).Msg("error getting hardware rev")
-	}
-	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	lss := loggers.NewTemplateStore()
 	vinLogger := loggers.NewVINLogger(logger)
