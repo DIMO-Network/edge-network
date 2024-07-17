@@ -36,7 +36,7 @@ func (p *canDumpV2Cmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	fmt.Println("Starting can-dump-v2...")
+	fmt.Println("Starting can-dump-v2... all outputs will be in hex, including header:")
 
 	sck, err := canbus.New()
 	if err != nil {
