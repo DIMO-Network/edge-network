@@ -145,6 +145,9 @@ func TestDecodePassiveFrame(t *testing.T) {
 		want1   string
 		wantErr assert.ErrorAssertionFunc
 	}{
+		{name: "fail if formula length doesn't match",
+			args: args{frameData: hexToByteArray("01 42", t), dbcFormula: "7|32@0+ (0.015625,0) [0|67108863.984375] \"km\" Vector_XXX"},
+			want: 0, want1: "", wantErr: assert.Error},
 		{name: "gm120 dbc",
 			args: args{frameData: hexToByteArray("01 42 BC 09 00", t), dbcFormula: "7|32@0+ (0.015625,0) [0|67108863.984375] \"km\" Vector_XXX"},
 			want: 330480.14, want1: "km", wantErr: assert.NoError},

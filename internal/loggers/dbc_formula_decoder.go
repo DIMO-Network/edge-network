@@ -174,19 +174,17 @@ func DecodePassiveFrame(frameData []byte, dbcFormula string) (float64, string, e
 		return 0, "", fmt.Errorf("invalid formula format: %s", dbcFormula)
 	}
 
-	lengthBits, err := strconv.Atoi(matches[2]) // eg. get the 8 in `31|8 ...`
+	lengthBits, err := strconv.Atoi(matches[2]) // eg. get the 24 in `7|24 ...`
 	if err != nil {
 		return 0, "", err
 	}
 	numBytes := lengthBits / 8
-	fmt.Printf("length: %d\n", lengthBits) // check
 
 	startPosBits, err := strconv.Atoi(matches[1]) // eg. get the 7 in `7|24 ...`
 	if err != nil {
 		return 0, "", err
 	}
-	fmt.Printf("startPosBits: %d\n", startPosBits) // check
-	// part i don't get, starting on pos bit 7 is like starting at the beginning of the data frame as the socket library gets it.
+	// this part I don't get, starting on pos bit 7 is like starting at the beginning of the data frame as the socket library gets it.
 	if startPosBits >= 7 {
 		startPosBits = startPosBits - 7
 	}
@@ -198,12 +196,15 @@ func DecodePassiveFrame(frameData []byte, dbcFormula string) (float64, string, e
 	startBytes := startPosBits / 8
 
 	dataEndPos := startBytes + numBytes // +1
-	// todo check that data end pos doesn't exceed len of bytes
-	fmt.Printf("dataEndPos: %d\n", dataEndPos)
 
-	valueBytes := frameData[startBytes:dataEndPos] // not sure on the plus 1 here
+	if len(frameData) < dataEndPos {
+		// control for formula data length being longer than available bytes
+		return 0, "", fmt.Errorf("formula length longer than frame data length: %d vs. %d", dataEndPos, len(frameData))
+	}
+
+	valueBytes := frameData[startBytes:dataEndPos]
 	valueHex := hex.EncodeToString(valueBytes)
-	fmt.Printf("value in hex: %s\n", valueHex)
+	//fmt.Printf("value in hex: %s\n", valueHex) // for debugging
 	value, err := strconv.ParseUint(valueHex, 16, 64)
 	if err != nil {
 		return 0, "", err
@@ -213,7 +214,6 @@ func DecodePassiveFrame(frameData []byte, dbcFormula string) (float64, string, e
 	if err != nil {
 		return 0, "", err
 	}
-	fmt.Printf("scaleFactor: %.2f\n", scaleFactor)
 
 	offsetAdjustment, err := strconv.ParseFloat(matches[5], 64)
 	if err != nil {
