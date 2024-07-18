@@ -133,7 +133,6 @@ func TestDecodePassiveFrame(t *testing.T) {
 	}
 	// todo: pending example real data needed
 	// ford 0x218: 31|24@1+ (1,0) [0|16777215] "km" Vector__XXX
-	// ford 0x430: 15|24@0+ (1,0) [0|16777214] "km"  Vector_XXX
 	// honda 516:   7|24@0+ (1,0) [0|16777215] "km" EON
 	// hyundaikia 2012-17:  40|24@1+ (0.1,0) [0|1677720] "km" xxx
 	// nissan: 15|24@0+ (1,0) [0|16777215] "km" Vector__XXX
@@ -154,6 +153,9 @@ func TestDecodePassiveFrame(t *testing.T) {
 		{name: "chrysler 784 2012-17 dbc",
 			args: args{frameData: hexToByteArray("00 15 20 00 1A BE A3 07", t), dbcFormula: "39|24@0+ (0.1,0) [0|1677721.4] \"km\" Vector_XXX"},
 			want: 175273.90, want1: "km", wantErr: assert.NoError},
+		{name: "ford 1072 fusion 2018",
+			args: args{frameData: hexToByteArray("07 01 97 0F 91 01 16 90", t), dbcFormula: "15|24@0+ (1,0) [0|16777214] \"km\"  Vector_XXX"},
+			want: 104207, want1: "km", wantErr: assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
