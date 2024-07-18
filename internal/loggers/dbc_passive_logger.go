@@ -136,12 +136,12 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 			// this frame won't be processed by the DBC filter
 			continue
 		}
+		// todo can we get a test around this?
 		// handle DBC file - match the frame id to our filters so we can get the right formula
 		f := findFilter(filters, frame.ID)
 		hexStr := fmt.Sprintf("%02d", frame.Data)
 		for _, signal := range f.signals {
-			// todo new version of this that just takes in bytes
-			floatValue, _, err := ExtractAndDecodeWithDBCFormula(hexStr, "", signal.formula)
+			floatValue, _, err := DecodePassiveFrame(frame.Data, signal.formula)
 			if err != nil {
 				dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
 			}
