@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -160,4 +161,85 @@ func ParsePIDBytesWithDBCFormula(frameData []byte, pid uint32, formula string) (
 	}
 
 	return decodedValue, unit, nil
+}
+
+// DecodePassiveFrame takes in passively captured frame via DBC file that is meant to be decoded with a DBC formula.
+// Used for DBC passive scanning decoding values.
+func DecodePassiveFrame(frameData []byte, dbcFormula string) (float64, string, error) {
+	// Parse formula
+	re := regexp.MustCompile(`(\d+)\|(\d+)@(\d+)\+ \(([^,]+),([^)]+)\) \[([^|]+)\|([^]]+)] "([^"]+)"`)
+	matches := re.FindStringSubmatch(dbcFormula)
+
+	if len(matches) != 9 {
+		return 0, "", fmt.Errorf("invalid formula format: %s", dbcFormula)
+	}
+
+	lengthBits, err := strconv.Atoi(matches[2]) // eg. get the 24 in `7|24 ...`
+	if err != nil {
+		return 0, "", err
+	}
+	numBytes := lengthBits / 8
+
+	startPosBits, err := strconv.Atoi(matches[1]) // eg. get the 7 in `7|24 ...`
+	if err != nil {
+		return 0, "", err
+	}
+	// this part I don't get, starting on pos bit 7 is like starting at the beginning of the data frame as the socket library gets it.
+	if startPosBits >= 7 {
+		startPosBits = startPosBits - 7
+	}
+	// is odd, not sure if need this
+	if startPosBits%2 != 0 {
+		startPosBits++
+	}
+
+	startBytes := startPosBits / 8
+
+	dataEndPos := startBytes + numBytes // +1
+
+	if len(frameData) < dataEndPos {
+		// control for formula data length being longer than available bytes
+		return 0, "", fmt.Errorf("formula length longer than frame data length: %d vs. %d", dataEndPos, len(frameData))
+	}
+
+	valueBytes := frameData[startBytes:dataEndPos]
+	valueHex := hex.EncodeToString(valueBytes)
+	//fmt.Printf("value in hex: %s\n", valueHex) // for debugging
+	value, err := strconv.ParseUint(valueHex, 16, 64)
+	if err != nil {
+		return 0, "", err
+	}
+	// Parse the formula parameters
+	scaleFactor, err := strconv.ParseFloat(matches[4], 64)
+	if err != nil {
+		return 0, "", err
+	}
+
+	offsetAdjustment, err := strconv.ParseFloat(matches[5], 64)
+	if err != nil {
+		return 0, "", err
+	}
+	minValue, err := strconv.ParseFloat(matches[6], 64)
+	if err != nil {
+		return 0, "", err
+	}
+	maxValue, err := strconv.ParseFloat(matches[7], 64)
+	if err != nil {
+		return 0, "", err
+	}
+	unit := matches[8]
+
+	// Apply the formula
+	decodedValue := float64(value)*scaleFactor + offsetAdjustment
+
+	// Validate the range
+	if decodedValue < minValue || decodedValue > maxValue {
+		return 0, "", fmt.Errorf("decoded value out of range: %.2f (expected range %.2f to %.2f)", decodedValue, minValue, maxValue)
+	}
+
+	return roundToTwoDecimals(decodedValue), unit, nil
+}
+
+func roundToTwoDecimals(f float64) float64 {
+	return math.Round(f*100) / 100
 }
