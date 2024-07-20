@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/DIMO-Network/shared/device"
+
 	"github.com/pkg/errors"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -33,8 +35,8 @@ type TemplateStore interface {
 	ReadPIDsConfig() (*models.TemplatePIDs, error)
 	WritePIDsConfig(settings models.TemplatePIDs) error
 
-	ReadTemplateURLs() (*models.TemplateURLs, error)
-	WriteTemplateURLs(settings models.TemplateURLs) error
+	ReadTemplateURLs() (*device.ConfigResponse, error)
+	WriteTemplateURLs(settings device.ConfigResponse) error
 
 	ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error)
 	WriteTemplateDeviceSettings(settings models.TemplateDeviceSettings) error
@@ -89,12 +91,12 @@ func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
 	return nil
 }
 
-func (ts *templateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
+func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	data, err := ts.readConfig(TemplateURLsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
 	}
-	ls := &models.TemplateURLs{}
+	ls := &device.ConfigResponse{}
 
 	err = json.Unmarshal(data, ls)
 	if err != nil {
@@ -104,7 +106,7 @@ func (ts *templateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
 	return ls, nil
 }
 
-func (ts *templateStore) WriteTemplateURLs(settings models.TemplateURLs) error {
+func (ts *templateStore) WriteTemplateURLs(settings device.ConfigResponse) error {
 	err := ts.writeConfig(TemplateURLsFile, settings)
 	if err != nil {
 		return err

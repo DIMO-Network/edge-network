@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DIMO-Network/shared/device"
+
 	"github.com/google/uuid"
 
 	"github.com/DIMO-Network/edge-network/internal/gateways"
@@ -54,13 +56,14 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 		}
 	}
 
-	templateURLsRemote, err := gateways.Retry[models.TemplateURLs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	templateURLsRemote, err := gateways.Retry[device.ConfigResponse](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetUrlsByEthAddr(addr)
 	})
-
 	if err != nil || templateURLsRemote == nil {
 		vt.logger.Warn().Msgf("unable to get template urls by eth addr:%s", addr.String())
 	}
+
+	vt.logger.Info().Msgf("template urls config from remote:%+v", templateURLsRemote)
 	// at this point, if have not local settings, and templateURLsRemote are empty from local settings, abort mission.
 	if templateURLsLocal == nil && templateURLsRemote == nil {
 		// todo - this is exagerated, let's return default settings, and just pidsConfig variable

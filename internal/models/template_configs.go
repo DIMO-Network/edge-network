@@ -1,13 +1,10 @@
 package models
 
-import "strings"
+import (
+	"strings"
 
-// TemplateURLs holds the urls that point to different settings, version is in url
-type TemplateURLs struct {
-	DbcURL           string `json:"dbcUrl"`
-	DeviceSettingURL string `json:"settingsUrl"`
-	PidURL           string `json:"pidsUrl"`
-}
+	"github.com/DIMO-Network/shared/device"
+)
 
 // TemplatePIDs holds the pid requests we want to make to the vehicle
 type TemplatePIDs struct {
@@ -88,6 +85,6 @@ type VINLoggerSettings struct {
 
 // UpdateDeviceConfig is the request to update the device config
 type UpdateDeviceConfig struct {
-	TemplateURLs
+	device.ConfigResponse
 	FirmwareVersionApplied string `json:"firmwareVersionApplied"`
 }
