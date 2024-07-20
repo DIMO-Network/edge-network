@@ -9,12 +9,13 @@
 package mock_gateways
 
 import (
-	"go.uber.org/mock/gomock"
 	reflect "reflect"
 
 	models "github.com/DIMO-Network/edge-network/internal/models"
+	device "github.com/DIMO-Network/shared/device"
 	common "github.com/ethereum/go-ethereum/common"
 	uuid "github.com/google/uuid"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockVehicleSignalDecoding is a mock of VehicleSignalDecoding interface.
@@ -50,7 +51,7 @@ func (m *MockVehicleSignalDecoding) GetDBC(url string) (*string, error) {
 }
 
 // GetDBC indicates an expected call of GetDBC.
-func (mr *MockVehicleSignalDecodingMockRecorder) GetDBC(url interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) GetDBC(url any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDBC", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).GetDBC), url)
 }
@@ -65,7 +66,7 @@ func (m *MockVehicleSignalDecoding) GetDeviceSettings(url string) (*models.Templ
 }
 
 // GetDeviceSettings indicates an expected call of GetDeviceSettings.
-func (mr *MockVehicleSignalDecodingMockRecorder) GetDeviceSettings(url interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) GetDeviceSettings(url any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceSettings", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).GetDeviceSettings), url)
 }
@@ -80,43 +81,43 @@ func (m *MockVehicleSignalDecoding) GetPIDs(url string) (*models.TemplatePIDs, e
 }
 
 // GetPIDs indicates an expected call of GetPIDs.
-func (mr *MockVehicleSignalDecodingMockRecorder) GetPIDs(url interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) GetPIDs(url any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPIDs", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).GetPIDs), url)
 }
 
 // GetUrlsByEthAddr mocks base method.
-func (m *MockVehicleSignalDecoding) GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error) {
+func (m *MockVehicleSignalDecoding) GetUrlsByEthAddr(ethAddr *common.Address) (*device.ConfigResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUrlsByEthAddr", ethAddr)
-	ret0, _ := ret[0].(*models.TemplateURLs)
+	ret0, _ := ret[0].(*device.ConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUrlsByEthAddr indicates an expected call of GetUrlsByEthAddr.
-func (mr *MockVehicleSignalDecodingMockRecorder) GetUrlsByEthAddr(ethAddr interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) GetUrlsByEthAddr(ethAddr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUrlsByEthAddr", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).GetUrlsByEthAddr), ethAddr)
 }
 
 // GetUrlsByVin mocks base method.
-func (m *MockVehicleSignalDecoding) GetUrlsByVin(vin string) (*models.TemplateURLs, error) {
+func (m *MockVehicleSignalDecoding) GetUrlsByVin(vin string) (*device.ConfigResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUrlsByVin", vin)
-	ret0, _ := ret[0].(*models.TemplateURLs)
+	ret0, _ := ret[0].(*device.ConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUrlsByVin indicates an expected call of GetUrlsByVin.
-func (mr *MockVehicleSignalDecodingMockRecorder) GetUrlsByVin(vin interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) GetUrlsByVin(vin any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUrlsByVin", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).GetUrlsByVin), vin)
 }
 
 // UpdateDeviceConfigStatus mocks base method.
-func (m *MockVehicleSignalDecoding) UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *models.TemplateURLs) error {
+func (m *MockVehicleSignalDecoding) UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *device.ConfigResponse) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateDeviceConfigStatus", ethAddr, fwVersion, unitID, templateUrls)
 	ret0, _ := ret[0].(error)
@@ -124,7 +125,7 @@ func (m *MockVehicleSignalDecoding) UpdateDeviceConfigStatus(ethAddr *common.Add
 }
 
 // UpdateDeviceConfigStatus indicates an expected call of UpdateDeviceConfigStatus.
-func (mr *MockVehicleSignalDecodingMockRecorder) UpdateDeviceConfigStatus(ethAddr, fwVersion, unitID, templateUrls interface{}) *gomock.Call {
+func (mr *MockVehicleSignalDecodingMockRecorder) UpdateDeviceConfigStatus(ethAddr, fwVersion, unitID, templateUrls any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDeviceConfigStatus", reflect.TypeOf((*MockVehicleSignalDecoding)(nil).UpdateDeviceConfigStatus), ethAddr, fwVersion, unitID, templateUrls)
 }

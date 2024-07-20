@@ -12,6 +12,7 @@ import (
 	reflect "reflect"
 
 	models "github.com/DIMO-Network/edge-network/internal/models"
+	device "github.com/DIMO-Network/shared/device"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -98,10 +99,10 @@ func (mr *MockTemplateStoreMockRecorder) ReadTemplateDeviceSettings() *gomock.Ca
 }
 
 // ReadTemplateURLs mocks base method.
-func (m *MockTemplateStore) ReadTemplateURLs() (*models.TemplateURLs, error) {
+func (m *MockTemplateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadTemplateURLs")
-	ret0, _ := ret[0].(*models.TemplateURLs)
+	ret0, _ := ret[0].(*device.ConfigResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -185,7 +186,7 @@ func (mr *MockTemplateStoreMockRecorder) WriteTemplateDeviceSettings(settings an
 }
 
 // WriteTemplateURLs mocks base method.
-func (m *MockTemplateStore) WriteTemplateURLs(settings models.TemplateURLs) error {
+func (m *MockTemplateStore) WriteTemplateURLs(settings device.ConfigResponse) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteTemplateURLs", settings)
 	ret0, _ := ret[0].(error)

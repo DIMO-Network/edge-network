@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DIMO-Network/shared/device"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
@@ -29,11 +31,11 @@ var ErrBadRequest = errors.New("bad request")
 //go:generate mockgen -source vehicle_signal_decoding.go -destination mocks/vehicle_signal_decoding_mock.go
 type VehicleSignalDecoding interface {
 	GetPIDs(url string) (*models.TemplatePIDs, error)
-	GetUrlsByVin(vin string) (*models.TemplateURLs, error)
-	GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error)
+	GetUrlsByVin(vin string) (*device.ConfigResponse, error)
+	GetUrlsByEthAddr(ethAddr *common.Address) (*device.ConfigResponse, error)
 	GetDeviceSettings(url string) (*models.TemplateDeviceSettings, error)
 	GetDBC(url string) (*string, error)
-	UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *models.TemplateURLs) error
+	UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *device.ConfigResponse) error
 }
 
 type vehicleSignalDecodingAPIService struct {
@@ -64,6 +66,9 @@ func NewVehicleSignalDecodingAPIService(conf config.Config) VehicleSignalDecodin
 }
 
 func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplatePIDs, error) {
+	if url == "" {
+		return nil, errors.New("empty url")
+	}
 	res, err := v.httpClient.ExecuteRequest(url, "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -105,7 +110,7 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplateP
 	return response, nil
 }
 
-func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.TemplateURLs, error) {
+func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*device.ConfigResponse, error) {
 	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/vin/%s/urls", v.apiURL, vin), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -126,7 +131,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.Temp
 		return nil, errors.Wrapf(err, "error get URL configurations by vin %s", vin)
 	}
 
-	response := new(models.TemplateURLs)
+	response := new(device.ConfigResponse)
 	if err := json.Unmarshal(bodyBytes, response); err != nil {
 		return nil, errors.Wrapf(err, "error deserializing URL configurations by vin %s", vin)
 	}
@@ -134,7 +139,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByVin(vin string) (*models.Temp
 	return response, nil
 }
 
-func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Address) (*models.TemplateURLs, error) {
+func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Address) (*device.ConfigResponse, error) {
 	res, err := v.httpClient.ExecuteRequest(fmt.Sprintf("%s/v1/device-config/eth-addr/%s/urls", v.apiURL, ethAddr), "GET", nil)
 	if err != nil {
 		if _, ok := err.(shared.HTTPResponseError); !ok {
@@ -155,7 +160,7 @@ func (v *vehicleSignalDecodingAPIService) GetUrlsByEthAddr(ethAddr *common.Addre
 		return nil, errors.Wrapf(err, "error get URL configurations by eth addr %s", ethAddr)
 	}
 
-	response := new(models.TemplateURLs)
+	response := new(device.ConfigResponse)
 	if err := json.Unmarshal(bodyBytes, response); err != nil {
 		return nil, errors.Wrapf(err, "error deserializing URL configurations by eth addr %s", ethAddr)
 	}
@@ -217,10 +222,10 @@ func (v *vehicleSignalDecodingAPIService) GetDBC(url string) (*string, error) {
 	return &resp, nil
 }
 
-func (v *vehicleSignalDecodingAPIService) UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *models.TemplateURLs) error {
+func (v *vehicleSignalDecodingAPIService) UpdateDeviceConfigStatus(ethAddr *common.Address, fwVersion string, unitID uuid.UUID, templateUrls *device.ConfigResponse) error {
 	// Construct the body using TemplateURLs
 	body := &models.UpdateDeviceConfig{
-		TemplateURLs:           *templateUrls,
+		ConfigResponse:         *templateUrls,
 		FirmwareVersionApplied: fwVersion,
 	}
 
