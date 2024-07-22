@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -284,8 +285,8 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "altitude", location.Altitude)
 	}
 
-	// only update Wi-Fi if no error
-	if wifiErr == nil {
+	// only update Wi-Fi if no error and if Wi-Fi is available
+	if wifiErr == nil && !strings.EqualFold(wifi.WPAState, "disconnected") {
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID)
 	}

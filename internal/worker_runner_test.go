@@ -923,6 +923,70 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
+func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
+
+	// mock power status resp
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
+		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
+
+	// mock wifi resp
+	wfPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+wfPath,
+		httpmock.NewStringResponder(200, `{"wpa_state": "DISCONNECTED", "ssid": "", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	expectOnMocks(ts, vl, unitID, ds, 1)
+
+	// assert data sender is called twice with expected payload
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, "fuellevel", data.Vehicle.Signals[0].Name)
+		assert.Equal(t, 6, len(data.Vehicle.Signals))
+	}).Return(nil)
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
+		assert.Equal(t, 5, len(data.Vehicle.Signals))
+	}).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.Cell)
+		assert.NotNil(t, data.Longitude)
+	}).Return(nil)
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 6,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 5 * time.Second
+	wr.stop = make(chan bool)
+
+	// then
+	go wr.Run()
+	time.Sleep(10 * time.Second)
+	wr.Stop()
+}
+
 func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
