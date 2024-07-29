@@ -67,9 +67,24 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	// Setup mqtt connection. Does not connect
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
+	// Set the logger for the MQTT client. Uncomment to enable debug logging
+	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+
 	// Create MQTT client options
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(conf.Mqtt.Broker.Host + ":" + strconv.Itoa(conf.Mqtt.Broker.Port))
+	// this will allow to publish messages even if connection is not established and saving messages in file store.
+	// with waitWithTimeout in place,  on connect failure, we still can publish messages which would be stored in fileStore
+	opts.SetConnectRetry(true)
+	// messages buffering in file store, default is "in memory" store for Qos1 and 2
+	opts.SetStore(mqtt.NewFileStore("/opt/autopi/store"))
+	// indicates that the client should store the messages in the file store after shutdown and pickup messages upon start up from the disk
+	// if we shut down the edge-network and start again, all buffered messages will be deleted on startup unless we set SetCleanSession to false
+	opts.SetCleanSession(false)
+	// ConnectRetryInterval is the time to wait between reconnection attempts. Default is  30 sec
+	opts.SetConnectRetryInterval(time.Second * 10)
+	// If we are using SetCleanSession=false, we need to specify client-id
+	opts.SetClientID(addr.String())
 
 	if isSecureConn {
 		// Load CA certificate
@@ -97,7 +112,8 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	}
 	// Create and start a client
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
+	// with waitWithTimeout on connect failure, we are not blocked(opposite to Wait()) and can publish messages which would be stored in fileStore
+	if token := client.Connect(); token.WaitTimeout(time.Second*5) && token.Error() != nil {
 		logger.Error().Err(token.Error()).Msg("failed to connect to mqtt broker")
 	}
 
@@ -291,19 +307,6 @@ func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) e
 		return fmt.Errorf("payload did not have expected subject cloud event property")
 	}
 
-	// Connect to the MQTT broker
-	if token := ds.client.Connect(); token.Wait() && token.Error() != nil {
-		return errors.Wrap(token.Error(), "failed to connect to mqtt broker")
-	}
-
-	// Wait for the connection to be established
-	for !ds.client.IsConnected() {
-		time.Sleep(100 * time.Millisecond)
-		// todo timeout?
-	}
-	// Disconnect from the MQTT broker
-	defer ds.client.Disconnect(250)
-
 	// signature for the payload
 	payload, err := ds.signPayload(payload, ds.unitID)
 	if err != nil {
@@ -323,8 +326,11 @@ func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) e
 	}
 
 	// Publish the MQTT message
-	token := ds.client.Publish(topic, 0, false, payload)
-	token.Wait() // just waits up until message goes through
+	token := ds.client.Publish(topic, 1, false, payload)
+	// we should not wait for the message to be ack by broker, as this is blocking call
+	//  token.Wait() do not blocking Qos 0, only Qos 1 and Qos 2 is blocking. So if we want to us Qos 1, we should not use token.Wait() after each publish
+	// we will use file store to buffer the messages, and when broker is up, it will send buffered messages on Connection
+	//token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published
 	if token.Error() != nil {
