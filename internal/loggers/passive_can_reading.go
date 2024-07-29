@@ -34,7 +34,7 @@ func newPassiveVinReader() *passiveVinReader {
 	return &passiveVinReader{}
 }
 
-func (a passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
+func (a *passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
 	d, _ := candevice.New("can0")
 	_ = d.SetBitrate(500000)
 	_ = d.SetUp()
@@ -113,9 +113,8 @@ func (a passiveVinReader) ReadCitroenVIN(cycles int) (string, int, string) {
 		return a.completeVIN, a.detectedProtocol, a.VinType
 	} else if a.CitroenVinTypeBsegAfound && a.CitroenVinTypeBsegBfound && a.CitroenVinTypeBsegCfound {
 		return a.completeVIN, a.detectedProtocol, a.VinType
-	} else {
-		return "", 0, ""
 	}
+	return "", 0, ""
 }
 
 /*

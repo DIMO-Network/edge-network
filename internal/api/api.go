@@ -22,9 +22,17 @@ const (
 	GetDiagnosticCodeCommand   = `obd.dtc protocol=auto`
 	ClearDiagnosticCodeCommand = `obd.dtc protocol=auto clear=true`
 	PowerStatusCommand         = `power.status`
-	GetModemCommand            = `config.get modem`
 	Ec2xIMSICommand            = `ec2x.query AT+CIMI`
 	NormalIMSICommand          = `modem.connection execute AT+CIMI`
+	GetModemCommand            = `config.get modem`
+	GetGPSLe910cxCommand       = `modem.connection gnss_location decimal_degrees=True`
+	GetGPSEc2xCommand          = `ec2x.gnss_location`
+	GetQMICellInfoCommand      = `qmi.cell_info`
+	WifiScanNetworksCommand    = `wifi.scan`
+	CellNetworkIPAddrCommand   = `network.ip_addrs wwan0`
+	ObdPIDQueryCommand         = `obd.query`
+	GetIMEILe910cxCommand      = `modem.connection imei`
+	GetIMEIEc2xCommand         = `ec2x.imei`
 )
 
 const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -40,11 +48,15 @@ type ExecuteRawRequest struct {
 	Kwarg   KwargType     `json:"kwarg"`
 }
 
-// For some reason, this only gets returned for some calls.
+// ExecuteRawResponse For some reason, this only gets returned for some calls.
 // Sometimes it's "value", sometimes "data".
 type ExecuteRawResponse struct {
-	Value string `json:"value"`
-	Data  string `json:"data"`
+	// for obd command can be hex, but if formula passed in will be eg. a number 17.78
+	Value any `json:"value"`
+	// used for non obd commands often
+	Data string `json:"data"`
+	// "_stamp": "2024-02-29T17:17:30.534861" in UTC
+	Timestamp string `json:"_stamp"`
 }
 
 type GenericSignalStrengthResponse struct {
@@ -149,6 +161,68 @@ type PowerStatusResponse struct {
 			} `json:"wake_level"`
 		} `json:"volt_triggers"`
 	} `json:"spm"`
+	Stn struct {
+		Battery struct {
+			Level   int     `json:"level"`
+			State   string  `json:"state"`
+			Voltage float64 `json:"voltage"`
+		} `json:"battery"`
+	} `json:"stn"`
+	//VoltageFound is added after by picking wherever we find voltage as it may be in two places
+	VoltageFound float64
+}
+
+// GPSLocationResponse nsat comes as 'nsat' for ec2x modem but as 'nsat_gps' for the le910cx modem
+type GPSLocationResponse struct {
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+	Alt  float64 `json:"alt"`
+	Hdop float64 `json:"hdop"`
+	// ec2x
+	Nsat int64 `json:"nsat"`
+	// le910cx
+	NsatGPS int64 `json:"nsat_gps"`
+}
+
+type QMICellInfoResponse struct {
+	LteInfoNeighboringGsm struct {
+		UeInIdle string `json:"ue_in_idle"`
+	} `json:"lte_info_neighboring_gsm"`
+	InterfrequencyLteInfo struct {
+		UeInIdle string `json:"ue_in_idle"`
+	} `json:"interfrequency_lte_info"`
+	IntrafrequencyLteInfo   IntrafrequencyLteInfo `json:"intrafrequency_lte_info"`
+	LteInfoNeighboringWcdma struct {
+		UeInIdle string `json:"ue_in_idle"`
+	} `json:"lte_info_neighboring_wcdma"`
+}
+
+// IntrafrequencyLteInfo is what we get from the modem, which is also what the cell coverage union firehose expects under data.cell.details
+type IntrafrequencyLteInfo struct {
+	Cell1 struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[1]"`
+	Plmn             int    `json:"plmn"`
+	GlobalCellID     int    `json:"global_cell_id"`
+	UeInIdle         string `json:"ue_in_idle"`
+	TrackingAreaCode int    `json:"tracking_area_code"`
+	Cell0            struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[0]"`
+	EutraAbsoluteRfChannelNumber string `json:"eutra_absolute_rf_channel_number"`
+	ServingCellID                int    `json:"serving_cell_id"`
+	Cell2                        struct {
+		Rssi           string `json:"rssi"`
+		PhysicalCellID int    `json:"physical_cell_id"`
+		Rsrp           string `json:"rsrp"`
+		Rsrq           string `json:"rsrq"`
+	} `json:"cell_[2]"`
 }
 
 func ExecuteRequest(method, path string, reqVal, respVal any) (err error) {

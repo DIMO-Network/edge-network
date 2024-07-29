@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
+	"github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-	"strconv"
-	"time"
+	"github.com/rs/zerolog"
 )
 
 // - To scan can bus and save local copy on autopi:
@@ -42,7 +45,13 @@ func (p *canDumpCmd) SetFlags(f *flag.FlagSet) {
 	f.IntVar(&p.chunkSize, "send", 0, "send result over mqtt to the s3 bucket using <chunk_size>")
 }
 
-func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	log := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Str("app", "edge-network").
+		Str("version", Version).
+		Logger().
+		Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
 	println("cycleCount: " + strconv.Itoa(p.cycleCount))
 	println("chunkSize: " + strconv.Itoa(p.chunkSize))
@@ -52,14 +61,12 @@ func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 
 	ethAddr, ethErr := commands.GetEthereumAddress(unitID)
 	if ethErr != nil {
-		println(ethErr.Error())
-		log.Errorf(ethErr.Error())
+		log.Err(ethErr).Send()
 		return subcommands.ExitFailure
 	}
 
 	if p.chunkSize > p.cycleCount {
-		println("chunkSize cannot be greater than cycleCount")
-		log.Errorf("chunkSize cannot be greater than cycleCount")
+		log.Error().Msg("chunkSize cannot be greater than cycleCount")
 		return subcommands.ExitFailure
 	}
 
@@ -67,30 +74,32 @@ func (p *canDumpCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 
 	canErr := canDumperInstance.ReadCanBus(p.cycleCount, 500000)
 	if canErr != nil {
-		println(canErr.Error())
-		log.Errorf(canErr.Error())
+		log.Fatal().Err(canErr).Msg("canDumperInstance error")
 		return subcommands.ExitFailure
 	}
 
+	// read config file
+	conf, ok := args[0].(config.Config)
+	if !ok {
+		log.Error().Msg("unable to read config file")
+		return subcommands.ExitFailure
+	}
 	if p.chunkSize > 0 && p.save {
-		mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, p.chunkSize, string(currentTime), true)
+		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true, conf)
 		if mqttErr != nil {
-			println(mqttErr.Error())
-			log.Errorf(mqttErr.Error())
+			log.Err(mqttErr).Send()
 			return subcommands.ExitFailure
 		}
 	} else if p.chunkSize > 0 {
-		mqttErr := canDumperInstance.WriteToMQTT(unitID, *ethAddr, p.chunkSize, string(currentTime), false)
+		mqttErr := canDumperInstance.WriteToMQTT(log, unitID, *ethAddr, p.chunkSize, string(currentTime), true, conf)
 		if mqttErr != nil {
-			println(mqttErr.Error())
-			log.Errorf(mqttErr.Error())
+			log.Err(mqttErr).Send()
 			return subcommands.ExitFailure
 		}
 	} else if p.save {
 		fileErr := canDumperInstance.WriteToFile("can_dump_" + string(currentTime))
 		if fileErr != nil {
-			println(fileErr.Error())
-			log.Errorf(fileErr.Error())
+			log.Err(fileErr).Send()
 			return subcommands.ExitFailure
 		}
 	}

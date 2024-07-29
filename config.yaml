@@ -1,0 +1,23 @@
+mqtt:
+  broker:
+    host: tcp://localhost
+    port: 1883
+    tls:
+      enabled: false
+  topics:
+    status: status
+    network: network
+    logs: logs
+    fingerprint: fingerprint
+services:
+  auth:
+    host: https://auth.dimo.zone
+    clientId: step-ca
+    clientSecret: replace-me
+    caFingerprint: replace-me
+  ca:
+    host: https://ca.dimo.zone
+  identity:
+    host: https://identity-api.dimo.zone/query
+  vehicle:
+    host: https://vehicle-signal-decoding.dimo.zone

@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"flag"
+
 	"github.com/DIMO-Network/edge-network/commands"
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
+	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/subcommands"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 type scanVINCmd struct {
 	unitID uuid.UUID
 	send   bool
+	logger zerolog.Logger
 }
 
 func (*scanVINCmd) Name() string { return "scan-vin" }
@@ -29,28 +33,34 @@ func (p *scanVINCmd) SetFlags(f *flag.FlagSet) {
 }
 
 func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	log.Infof("trying to get VIN\n")
+	p.logger.Info().Msg("trying to get VIN\n")
 	// this is purposely left un-refactored
-	vl := loggers.NewVINLogger()
+	vl := loggers.NewVINLogger(p.logger)
 	addr, err := commands.GetEthereumAddress(p.unitID)
 	if err != nil {
-		log.Panicf("could not get eth address %s", err.Error())
+		p.logger.Fatal().Msgf("could not get eth address %s", err.Error())
 	}
-	ds := network.NewDataSender(p.unitID, *addr, "fingerprint")
+	// read config file
+	conf, err := dimoConfig.ReadConfigFromPath("/opt/autopi/config.yaml")
+	if err != nil {
+		p.logger.Error().Msg("unable to read config file")
+		return subcommands.ExitFailure
+	}
+	ds := network.NewDataSender(p.unitID, *addr, p.logger, models.VehicleInfo{}, *conf)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		log.Panicf("could not get vin %s", vinErr.Error())
+		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())
 	}
-	log.Infof("VIN: %s\n", vinResp.VIN)
-	log.Infof("Protocol: %s\n", vinResp.Protocol)
+	p.logger.Info().Msgf("VIN: %s\n", vinResp.VIN)
+	p.logger.Info().Msgf("Protocol: %s\n", vinResp.Protocol)
 	if p.send {
-		data := network.FingerprintData{
+		data := models.FingerprintData{
 			Vin:      vinResp.VIN,
 			Protocol: vinResp.Protocol,
 		}
 		err = ds.SendFingerprintData(data)
 		if err != nil {
-			log.Errorf("failed to send vin over mqtt: %s", err.Error())
+			p.logger.Fatal().Err(err).Msgf("failed to send vin over mqtt: %s", err.Error())
 			return subcommands.ExitFailure
 		}
 	}

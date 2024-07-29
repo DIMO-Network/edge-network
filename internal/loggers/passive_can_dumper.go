@@ -6,16 +6,23 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"github.com/DIMO-Network/edge-network/internal/network"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"go.einride.tech/can"
-	"go.einride.tech/can/pkg/candevice"
-	"go.einride.tech/can/pkg/socketcan"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
+
+	dimoConfig "github.com/DIMO-Network/edge-network/config"
+
+	"github.com/DIMO-Network/edge-network/internal/models"
+
+	"github.com/DIMO-Network/edge-network/internal/network"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"go.einride.tech/can"
+	"go.einride.tech/can/pkg/candevice"
+	"go.einride.tech/can/pkg/socketcan"
 )
 
 type ParsedCanFrame struct {
@@ -38,12 +45,10 @@ type PassiveCanDumper struct {
 	DetailedCanFrames []ParsedCanFrame
 }
 
-const canDumpTopic = "protocol/canbus/dump"
-
 // WriteToMQTT This function writes the contents of PassiveCanDumper.DetailedCanFrames to an mqtt server,
 // and also writes to local files. Can frames from memory will be automatically paginated into appropriate
 // qty of messages/files according to chunkSize. Data is formatted as json, gzip compressed, then base64 compressed.
-func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool) error {
+func (a *PassiveCanDumper) WriteToMQTT(log zerolog.Logger, UnitID uuid.UUID, EthAddr common.Address, chunkSize int, timeStamp string, writeToLocalFiles bool, config dimoConfig.Config) error {
 	unitID := UnitID.String()
 	ethAddr := EthAddr.String()
 
@@ -84,9 +89,9 @@ func (a *PassiveCanDumper) WriteToMQTT(UnitID uuid.UUID, EthAddr common.Address,
 			}
 		}
 
-		ds := network.NewDataSender(UnitID, EthAddr, canDumpTopic)
-		sendErr := ds.SendCanDumpData(network.CanDumpData{
-			CommonData: network.CommonData{
+		ds := network.NewDataSender(UnitID, EthAddr, log, models.VehicleInfo{TokenID: 0}, config)
+		sendErr := ds.SendCanDumpData(models.CanDumpData{
+			CommonData: models.CommonData{
 				Timestamp: time.Now().UTC().UnixMilli(),
 			},
 			Payload: base64.StdEncoding.EncodeToString(buf.Bytes()),
@@ -157,9 +162,18 @@ func (a *PassiveCanDumper) ReadCanBusTest(cycles int, bitrate int) {
 
 // ReadCanBus This function reads frames from the can bus and loads the data into memory. Data is populated to  *a.DetailedCanFrames[]
 func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
-	d, _ := candevice.New("can0")
-	_ = d.SetBitrate(uint32(bitrate))
-	_ = d.SetUp()
+	d, err := candevice.New("can0")
+	if err != nil {
+		return errors.Wrap(err, "failed to new a candevice on can0")
+	}
+	err = d.SetBitrate(uint32(bitrate))
+	if err != nil {
+		return errors.Wrap(err, "failed to set bitrate")
+	}
+	err = d.SetUp()
+	if err != nil {
+		return errors.Wrap(err, "failed to set bitrate")
+	}
 	// nolint
 	defer d.SetDown()
 
@@ -170,6 +184,7 @@ func (a *PassiveCanDumper) ReadCanBus(cycles int, bitrate int) error {
 	println("socketcan.DialContext()")
 
 	recv := socketcan.NewReceiver(conn)
+
 	println("socketcan.NewReceiver(conn)")
 	var loopNumber = 0
 	for recv.Receive() {

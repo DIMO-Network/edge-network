@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/godbus/dbus/v5"
-	log "github.com/sirupsen/logrus"
 )
 
 // Confirm This method doesn't expect a reply so it is just a
@@ -10,7 +9,7 @@ import (
 //
 // Possible Errors: org.bluez.Error.Failed
 func (c *Char) Confirm() *dbus.Error {
-	log.Debug("Char.Confirm")
+	c.logger.Debug().Msg("Char.Confirm")
 	return nil
 }
 
@@ -23,7 +22,7 @@ func (c *Char) Confirm() *dbus.Error {
 //	org.bluez.Error.InProgress
 //	org.bluez.Error.NotSupported
 func (c *Char) StartNotify() *dbus.Error {
-	log.Debug("Char.StartNotify")
+	c.logger.Debug().Msg("Char.StartNotify")
 	return nil
 }
 
@@ -34,7 +33,7 @@ func (c *Char) StartNotify() *dbus.Error {
 //
 // Possible Errors: org.bluez.Error.Failed
 func (c *Char) StopNotify() *dbus.Error {
-	log.Debug("Char.StopNotify")
+	c.logger.Debug().Msg("Char.StopNotify")
 	return nil
 }
 
@@ -55,7 +54,7 @@ func (c *Char) StopNotify() *dbus.Error {
 //	org.bluez.Error.NotSupported
 func (c *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 
-	log.Debug("Characteristic.ReadValue")
+	c.logger.Debug().Msg("Characteristic.ReadValue")
 	if c.readCallback != nil {
 		b, err := c.readCallback(c, options)
 		if err != nil {
@@ -87,18 +86,18 @@ func (c *Char) ReadValue(options map[string]interface{}) ([]byte, *dbus.Error) {
 //	org.bluez.Error.NotSupported
 func (c *Char) WriteValue(value []byte, _ map[string]interface{}) *dbus.Error {
 
-	log.Trace("Characteristic.WriteValue")
+	c.logger.Trace().Msg("Characteristic.WriteValue")
 
 	val := value
 	if c.writeCallback != nil {
-		log.Trace("Used write callback")
+		c.logger.Trace().Msg("Used write callback")
 		b, err := c.writeCallback(c, value)
 		val = b
 		if err != nil {
 			return dbus.MakeFailedError(err)
 		}
 	} else {
-		log.Trace("Store directly to value (no callback)")
+		c.logger.Trace().Msg("Store directly to value (no callback)")
 	}
 
 	// TODO update on Properties interface

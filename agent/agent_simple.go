@@ -6,8 +6,7 @@ import (
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/godbus/dbus/v5"
 	"github.com/muka/go-bluetooth/bluez/profile/adapter"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 var agentInstances = 0
@@ -23,20 +22,22 @@ func NextAgentPath() dbus.ObjectPath {
 }
 
 // NewDefaultSimpleAgent return a SimpleAgent instance with default pincode and passcode
-func NewDefaultSimpleAgent() *SimpleAgent {
+func NewDefaultSimpleAgent(logger zerolog.Logger) *SimpleAgent {
 	ag := &SimpleAgent{
 		path:    NextAgentPath(),
 		passKey: SimpleAgentPassKey,
 		pinCode: SimpleAgentPinCode,
+		logger:  logger,
 	}
-	logrus.SetLevel(logrus.InfoLevel) // modify to trace if need more detail
+	//logrus.SetLevel(logrus.InfoLevel) // modify to trace if need more detail
 	return ag
 }
 
 // NewSimpleAgent return a SimpleAgent instance
-func NewSimpleAgent() *SimpleAgent {
+func NewSimpleAgent(logger zerolog.Logger) *SimpleAgent {
 	ag := &SimpleAgent{
-		path: NextAgentPath(),
+		path:   NextAgentPath(),
+		logger: logger,
 	}
 	return ag
 }
@@ -46,6 +47,7 @@ type SimpleAgent struct {
 	path    dbus.ObjectPath
 	pinCode string
 	passKey uint32
+	logger  zerolog.Logger
 }
 
 func (simpleAgent *SimpleAgent) SetPassKey(passkey uint32) {
@@ -78,26 +80,26 @@ func (simpleAgent *SimpleAgent) Release() *dbus.Error {
 
 func (simpleAgent *SimpleAgent) RequestPinCode(path dbus.ObjectPath) (string, *dbus.Error) {
 
-	log.Debugf("SimpleAgent: RequestPinCode: %s", path)
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: RequestPinCode: %s", path)
 
 	adapterID, err := adapter.ParseAdapterID(path)
 	if err != nil {
-		log.Warnf("SimpleAgent.RequestPinCode: Failed to load adapter %s", err)
+		simpleAgent.logger.Warn().Msgf("SimpleAgent.RequestPinCode: Failed to load adapter %s", err)
 		return "", dbus.MakeFailedError(err)
 	}
 
-	err = SetTrusted(adapterID, path)
+	err = SetTrusted(adapterID, path, simpleAgent.logger)
 	if err != nil {
-		log.Errorf("SimpleAgent.RequestPinCode SetTrusted failed: %s", err)
+		simpleAgent.logger.Error().Msgf("SimpleAgent.RequestPinCode SetTrusted failed: %s", err)
 		return "", dbus.MakeFailedError(err)
 	}
 
-	log.Debugf("SimpleAgent: Returning pin code: %s", simpleAgent.pinCode)
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: Returning pin code: %s", simpleAgent.pinCode)
 	return simpleAgent.pinCode, nil
 }
 
 func (simpleAgent *SimpleAgent) DisplayPinCode(device dbus.ObjectPath, pincode string) *dbus.Error {
-	log.Info(fmt.Sprintf("SimpleAgent: DisplayPinCode (%s, %s)", device, pincode))
+	simpleAgent.logger.Info().Msg(fmt.Sprintf("SimpleAgent: DisplayPinCode (%s, %s)", device, pincode))
 	return nil
 }
 
@@ -105,42 +107,42 @@ func (simpleAgent *SimpleAgent) RequestPasskey(path dbus.ObjectPath) (uint32, *d
 
 	adapterID, err := adapter.ParseAdapterID(path)
 	if err != nil {
-		log.Warnf("SimpleAgent.RequestPassKey: Failed to load adapter %s", err)
+		simpleAgent.logger.Warn().Msgf("SimpleAgent.RequestPassKey: Failed to load adapter %s", err)
 		return 0, dbus.MakeFailedError(err)
 	}
 
-	err = SetTrusted(adapterID, path)
+	err = SetTrusted(adapterID, path, simpleAgent.logger)
 	if err != nil {
-		log.Errorf("SimpleAgent.RequestPassKey: SetTrusted %s", err)
+		simpleAgent.logger.Error().Msgf("SimpleAgent.RequestPassKey: SetTrusted %s", err)
 		return 0, dbus.MakeFailedError(err)
 	}
 
-	log.Debugf("RequestPasskey: returning %d", simpleAgent.passKey)
+	simpleAgent.logger.Debug().Msgf("RequestPasskey: returning %d", simpleAgent.passKey)
 	return simpleAgent.passKey, nil
 }
 
 func (simpleAgent *SimpleAgent) DisplayPasskey(device dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
-	log.Debugf("SimpleAgent: DisplayPasskey %s, %06d entered %d", device, passkey, entered)
-	_, unitID := commands.GetDeviceName()
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: DisplayPasskey %s, %06d entered %d", device, passkey, entered)
+	_, unitID := commands.GetDeviceName(simpleAgent.logger)
 
 	err := commands.ExtendSleepTimer(unitID)
 	if err != nil {
-		log.Warnf("Unable to extend sleep timer %s", err)
+		simpleAgent.logger.Warn().Msgf("Unable to extend sleep timer %s", err)
 	}
 
-	err = commands.AnnounceCode(unitID, "Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Pin Code", passkey, simpleAgent.logger)
 	if err != nil {
-		log.Warnf("Unable to announce the pairing code %s", err)
+		simpleAgent.logger.Warn().Msgf("Unable to announce the pairing code %s", err)
 	}
 
-	err = commands.AnnounceCode(unitID, "Repeating Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Repeating Pin Code", passkey, simpleAgent.logger)
 	if err != nil {
-		log.Warnf("Unable to announce the pairing code %s", err)
+		simpleAgent.logger.Warn().Msgf("Unable to announce the pairing code %s", err)
 	}
 
-	err = commands.AnnounceCode(unitID, "Pin Code", passkey)
+	err = commands.AnnounceCode(unitID, "Pin Code", passkey, simpleAgent.logger)
 	if err != nil {
-		log.Warnf("Unable to announce the pairing code %s", err)
+		simpleAgent.logger.Warn().Msgf("Unable to announce the pairing code %s", err)
 	}
 
 	return nil
@@ -148,42 +150,42 @@ func (simpleAgent *SimpleAgent) DisplayPasskey(device dbus.ObjectPath, passkey u
 
 func (simpleAgent *SimpleAgent) RequestConfirmation(path dbus.ObjectPath, passkey uint32) *dbus.Error {
 
-	log.Debugf("SimpleAgent: RequestConfirmation (%s, %06d)", path, passkey)
-	_, unitID := commands.GetDeviceName()
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: RequestConfirmation (%s, %06d)", path, passkey)
+	_, unitID := commands.GetDeviceName(simpleAgent.logger)
 
 	err := commands.ExtendSleepTimer(unitID)
 	if err != nil {
-		log.Warnf("Unable to extend sleep timer %s", err)
+		simpleAgent.logger.Warn().Msgf("Unable to extend sleep timer %s", err)
 	}
 
 	adapterID, err := adapter.ParseAdapterID(path)
 	if err != nil {
-		log.Warnf("SimpleAgent: Failed to load adapter %s", err)
+		simpleAgent.logger.Warn().Msgf("SimpleAgent: Failed to load adapter %s", err)
 		return dbus.MakeFailedError(err)
 	}
 
-	err = SetTrusted(adapterID, path)
+	err = SetTrusted(adapterID, path, simpleAgent.logger)
 	if err != nil {
-		log.Warnf("Failed to set trust for %s: %s", path, err)
+		simpleAgent.logger.Warn().Msgf("Failed to set trust for %s: %s", path, err)
 		return dbus.MakeFailedError(err)
 	}
 
-	log.Debug("SimpleAgent: RequestConfirmation OK")
-	log.Debug("SimpleAgent: Extending sleep timer by 15 minutes.")
+	simpleAgent.logger.Debug().Msg("SimpleAgent: RequestConfirmation OK")
+	simpleAgent.logger.Debug().Msg("SimpleAgent: Extending sleep timer by 15 minutes.")
 	return nil
 }
 
 func (simpleAgent *SimpleAgent) RequestAuthorization(device dbus.ObjectPath) *dbus.Error {
-	log.Debugf("SimpleAgent: RequestAuthorization (%s)", device)
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: RequestAuthorization (%s)", device)
 	return nil
 }
 
 func (simpleAgent *SimpleAgent) AuthorizeService(device dbus.ObjectPath, uuid string) *dbus.Error {
-	log.Debugf("SimpleAgent: AuthorizeService (%s, %s)", device, uuid) // directly authorized
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: AuthorizeService (%s, %s)", device, uuid) // directly authorized
 	return nil
 }
 
 func (simpleAgent *SimpleAgent) Cancel() *dbus.Error {
-	log.Debugf("SimpleAgent: Cancel")
+	simpleAgent.logger.Debug().Msgf("SimpleAgent: Cancel")
 	return nil
 }
