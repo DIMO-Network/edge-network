@@ -13,7 +13,7 @@ import (
 // The 'limit' field is the maximum number of keys that the store can hold.
 // The 'isRead' field is a flag used to ensure that the counter is only set to the current number of keys in the store once.
 type CustomFileStore struct {
-	mqtt.FileStore
+	*mqtt.FileStore
 	counter int
 	limit   int
 	isRead  bool
