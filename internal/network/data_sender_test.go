@@ -48,14 +48,10 @@ func Test_dataSender_sendPayload(t *testing.T) {
 	payload := `{"subject": "%s", "signature": "", "source":"aftermarket/device/status", "data": {"rpiUptimeSecs":200,"batteryVoltage":13.6,"timestamp":1709140771210 } }`
 	payload = fmt.Sprintf(payload, ds.ethAddr.Hex())
 
-	// expectations
-	mockClient.EXPECT().Connect().Times(1).Return(&mockedToken{})
-	mockClient.EXPECT().IsConnected().Times(1).Return(true)
-	mockClient.EXPECT().Disconnect(gomock.Any())
 	// here we see signature is getting set as expected, otherwise would be empty
 	payload, err := sjson.Set(payload, "signature", "0xb794f5ea0ba39494ce")
 	require.NoError(t, err)
-	mockClient.EXPECT().Publish("topic", uint8(0), false, []byte(payload)).Times(1).Return(&mockedToken{})
+	mockClient.EXPECT().Publish("topic", uint8(1), false, []byte(payload)).Times(1).Return(&mockedToken{})
 
 	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
@@ -108,17 +104,13 @@ func Test_dataSender_sendPayloadWithVehicleInfo(t *testing.T) {
 		},
 	}
 
-	// expectations
-	mockClient.EXPECT().Connect().Times(1).Return(&mockedToken{})
-	mockClient.EXPECT().IsConnected().Times(1).Return(true)
-	mockClient.EXPECT().Disconnect(gomock.Any())
 	status := ds.mqtt.Topics.Status
 	// if the status topic has a %s in it, replace it with the subject
 	// this is needed for backwards compatibility with the old topic format serving by mosquito
 	if strings.Contains(status, "%s") {
 		status = fmt.Sprintf(status, ds.ethAddr.Hex())
 	}
-	mockClient.EXPECT().Publish(status, uint8(0), false, gomock.Any()).Times(1).Return(&mockedToken{})
+	mockClient.EXPECT().Publish(status, uint8(1), false, gomock.Any()).Times(1).Return(&mockedToken{})
 
 	path := fmt.Sprintf("/dongle/%s/execute_raw", ds.unitID.String())
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
