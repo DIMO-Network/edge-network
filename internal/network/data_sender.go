@@ -77,7 +77,9 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	// with waitWithTimeout in place,  on connect failure, we still can publish messages which would be stored in fileStore
 	opts.SetConnectRetry(true)
 	// messages buffering in file store, default is "in memory" store for Qos1 and 2
-	opts.SetStore(mqtt.NewFileStore("/opt/autopi/store"))
+	fileStore := mqtt.NewFileStore("/opt/autopi/store")
+	store := &CustomFileStore{FileStore: *fileStore, limit: 200}
+	opts.SetStore(store)
 	// indicates that the client should store the messages in the file store after shutdown and pickup messages upon start up from the disk
 	// if we shut down the edge-network and start again, all buffered messages will be deleted on startup unless we set SetCleanSession to false
 	opts.SetCleanSession(false)
