@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -158,12 +157,8 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	fingerprint := ds.mqtt.Topics.Fingerprint
-	// if the fingerprint topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(fingerprint, "%s") {
-		fingerprint = fmt.Sprintf(fingerprint, ce.Subject)
-	}
+	fingerprint := fmt.Sprintf(ds.mqtt.Topics.Fingerprint, ce.Subject)
+
 	err = ds.sendPayload(fingerprint, payload, false)
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("failed send payload")
@@ -195,12 +190,7 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	status := ds.mqtt.Topics.Status
-	// if the status topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(status, "%s") {
-		status = fmt.Sprintf(status, ce.Subject)
-	}
+	status := fmt.Sprintf(ds.mqtt.Topics.Status, ce.Subject)
 
 	err = ds.sendPayload(status, payload, true)
 	if err != nil {
@@ -229,12 +219,8 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	network := ds.mqtt.Topics.Network
-	// if the network topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(network, "%s") {
-		network = fmt.Sprintf(network, ce.Subject)
-	}
+	network := fmt.Sprintf(ds.mqtt.Topics.Network, ce.Subject)
+
 	err = ds.sendPayload(network, payload, true)
 	if err != nil {
 		return err
@@ -298,12 +284,8 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	logs := ds.mqtt.Topics.Logs
-	// if the network topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(logs, "%s") {
-		logs = fmt.Sprintf(logs, ce.Subject)
-	}
+	logs := fmt.Sprintf(ds.mqtt.Topics.Logs, ce.Subject)
+
 	err = ds.sendPayload(logs, payload, true)
 	if err != nil {
 		return err
