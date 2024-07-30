@@ -100,7 +100,7 @@ func main() {
 	var confFileName string
 	if ENV == "prod" {
 		env = gateways.Production
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		confFileName = "config.yaml"
 	} else {
 		env = gateways.Development
