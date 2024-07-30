@@ -64,7 +64,24 @@ func (ds *dataSender) SetVehicleInfo(vehicleInfo models.VehicleInfo) {
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
 func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo models.VehicleInfo, conf config.Config) DataSender {
-	// Setup mqtt connection. Does not connect
+	client := setupMqttConnection(conf, addr, logger)
+
+	return &dataSender{
+		client:      client,
+		unitID:      unitID,
+		ethAddr:     addr,
+		logger:      logger,
+		mqtt:        conf.Mqtt,
+		vehicleInfo: vehicleInfo,
+	}
+}
+
+// setupMqttConnection establishes a connection to the MQTT broker based on the provided configuration.
+// The function configures the MQTT client options, sets up the file store for message buffering,
+// and handles the TLS configuration if a secure connection is required.
+// If the connection fails, an error message is logged, but the function still returns the client.
+func setupMqttConnection(conf config.Config, addr common.Address, logger zerolog.Logger) mqtt.Client {
+	// Setup mqtt connection.
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
 	// Set the logger for the MQTT client. Uncomment to enable debug logging
@@ -118,15 +135,7 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	if token := client.Connect(); token.WaitTimeout(time.Second*5) && token.Error() != nil {
 		logger.Error().Err(token.Error()).Msg("failed to connect to mqtt broker")
 	}
-
-	return &dataSender{
-		client:      client,
-		unitID:      unitID,
-		ethAddr:     addr,
-		logger:      logger,
-		mqtt:        conf.Mqtt,
-		vehicleInfo: vehicleInfo,
-	}
+	return client
 }
 
 func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
