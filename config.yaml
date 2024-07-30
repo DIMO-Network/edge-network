@@ -1,7 +1,7 @@
 mqtt:
   broker:
     host: ssl://stream.dimo.zone
-    port: 8884
+    port: 8883
     tls:
       enabled: true
   topics:

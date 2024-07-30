@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -84,7 +85,7 @@ func setupMqttConnection(conf config.Config, addr common.Address, logger zerolog
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
 	// Set the logger for the MQTT client. Uncomment to enable debug logging
-	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+	mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
 
 	// Create MQTT client options
 	opts := mqtt.NewClientOptions()
