@@ -128,11 +128,8 @@ func main() {
 	}
 
 	//  start mqtt certificate verification routine
-	var certErr error
-	if env == gateways.Development {
-		cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
-		certErr = cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
-	}
+	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
+	certErr := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
 	// setup datasender here so we can send errors to it
 	ds := network.NewDataSender(unitID, *ethAddr, logger, models.VehicleInfo{}, *config)

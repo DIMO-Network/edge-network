@@ -13,8 +13,8 @@ services:
   auth:
     host: https://auth.dev.dimo.zone
     clientId: step-ca
-    clientSecret: replace-me
-    caFingerprint: replace-me
+    clientSecret: KsQ7pruHob6D3NLFQEg9
+    caFingerprint: a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f
     generateChallengeURI: /auth/web3/generate_challenge
     submitChallengeURI: /auth/web3/submit_challenge
   ca:
