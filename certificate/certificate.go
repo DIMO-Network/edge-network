@@ -107,7 +107,7 @@ type TokenResponse struct {
 	AccessToken string `json:"access_token"`
 }
 
-// CheckCertAndRenewIfExpiresSoon checks if the certificate exists and renews it if it expires in 1 day
+// CheckCertAndRenewIfExpiresSoon checks if the certificate exists and renews it if it expires in 7 day
 func (cs *Service) CheckCertAndRenewIfExpiresSoon(ethAddr common.Address, unitID uuid.UUID) error {
 	// check if the certificate file exists
 	_, err := cs.fileSys.Stat(cs.certificatePath)
