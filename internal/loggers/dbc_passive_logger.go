@@ -131,7 +131,8 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 				}
 				ch <- s
 			} else {
-				dpl.logger.Warn().Msgf("did not find pid match for data frame: %s", printBytesAsHex(frame.Data))
+				msg := fmt.Sprintf("did not find pid match for data frame: %s", printBytesAsHex(frame.Data))
+				hooks.LogWarn(dpl.logger, msg, hooks.WithStopLogAfter(2))
 			}
 			// this frame won't be processed by the DBC filter
 			continue

@@ -146,6 +146,13 @@ func LogInfo(logger zerolog.Logger, message string, opts ...LogOption) {
 	logger.Info().Ctx(c).Msg(message)
 }
 
+// LogWarn logs a warn message with the provided options.
+func LogWarn(logger zerolog.Logger, message string, opts ...LogOption) {
+	c := applyOptions(opts)
+
+	logger.Warn().Ctx(c).Msg(message)
+}
+
 func applyOptions(opts []LogOption) context.Context {
 	options := &logOptions{}
 	for _, opt := range opts {
