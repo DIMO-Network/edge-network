@@ -224,6 +224,65 @@ If you see this result:
 Start the service manually if didn't start after install:
 `cmd.run 'systemctl start edge-network'` 
 
+## MQTT
+
+### MQTT Topics
+
+The edge-network sends data over MQTT to the DIMO cloud. The MQTT topics are as follows:
+
+`devices/%s/status` - status payload with device signals, e.g. `devices/0x064493aF03c949d58EE03Df0e771B6Eb19A1018A/status`
+
+`devices/%s/network` - network data of the device
+
+`devices/%s/fingerprint` - fingerprint data of the device
+
+`devices/%s/logs` - logs of the device, i.e. error logs
+
+The data is compressed and base64 encoded before being sent over MQTT.
+
+### MQTT Connection
+
+The edge-network connects to the DIMO cloud MQTT broker using [paho.mqtt.golang client](https://github.com/eclipse/paho.mqtt.golang). The connection is secured with TLS and uses certificates for authentication.
+
+On every start-up, edge-network checks if the certificate exists and renews it if it expires in 7 day. The certificate is exchanged for the JWT token, which is issued by the DIMO Dex server.
+See detailed cert exchange flow [here](https://github.com/DIMO-Network/internal-docs/blob/0b48266d6fd4b71d0ab33de44b8d25bef742b986/autopi/cert_exchange_flow.png).
+
+It is essential to provide ClientID in connection options, without it offline buffering will not work.
+The client ID is set to the device address, so the MQTT broker can identify the device.
+
+### Offline buffering
+
+Paho client supports offline buffering only for QoS 1 and QoS 2 messages. The edge-network uses QoS 1 for all messages.
+See more about QoS levels [here](https://www.hivemq.com/blog/mqtt-essentials-part-6-mqtt-quality-of-service-levels/).
+
+The edge-network can starts in offline mode, and will buffer the data until the connection is established.
+It is done by set `SetConnectRetry to true` in the MQTT client options.
+
+The edge network also buffers the data when the connection to the MQTT broker is lost for some reason after the initial successful connection.
+The messages are buffered to fileStorage and saved in `/opt/autopi/store` directory as separate files.
+```
+sudo ls -la /opt/autopi/store/
+-rw-r--r--  1 root root  913 Jul 29 19:04 o.97.msg
+-rw-r--r--  1 root root 1268 Jul 29 19:05 o.98.msg
+-rw-r--r--  1 root root  901 Jul 29 19:05 o.99.msg
+-rw-r--r--  1 root root  932 Jul 29 18:46 o.9.msg
+....
+```
+Once the connection is re-established, the buffered messages are sent to the MQTT broker and the files are deleted.
+
+We implemented  limit on the number of messages that can be buffered. The default limit is 200 messages which is ~1MB of data.
+With default settings, time to buffer 200 messages is ~1 hour.
+**Note**: with current implementation, after limit is reached, the new messages will be dropped.
+
+### Debug logs
+
+For troubleshooting purposes, the edge-network can be started with debug logs enabled for mqtt client.
+To enable debug logs for paho MQTT client we need to uncomment next line in the code:
+```go
+// Set the logger for the MQTT client. Uncomment to enable debug logging
+//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+```
+
 # Gotchas / Notes
 
 The `-v` command is important for the salt stack on the autopi to work correctly for managing the correct version to download.
