@@ -18,6 +18,7 @@ type Config struct {
 type Mqtt struct {
 	Broker Broker `yaml:"broker"`
 	Topics Topics `yaml:"topics"`
+	Client Client `yaml:"client"`
 }
 
 type Broker struct {
@@ -35,6 +36,17 @@ type Topics struct {
 	Network     string `yaml:"network"`
 	Logs        string `yaml:"logs"`
 	Fingerprint string `yaml:"fingerprint"`
+}
+
+type Client struct {
+	Buffering Buffering `yaml:"buffering"`
+}
+
+type Buffering struct {
+	FileStore            string `yaml:"fileStore"`
+	CleanSession         bool   `yaml:"cleanSession"`
+	ConnectRetryInterval int    `yaml:"connectRetryInterval"`
+	Limit                int    `yaml:"limit"`
 }
 
 type Services struct {

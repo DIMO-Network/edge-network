@@ -83,6 +83,9 @@ func setupMqttConnection(conf config.Config, addr common.Address, logger zerolog
 	// Setup mqtt connection.
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
 
+	// offline buffering settings
+	b := conf.Mqtt.Client.Buffering
+
 	// Set the logger for the MQTT client. Uncomment to enable debug logging
 	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
 
@@ -93,14 +96,14 @@ func setupMqttConnection(conf config.Config, addr common.Address, logger zerolog
 	// with waitWithTimeout in place,  on connect failure, we still can publish messages which would be stored in fileStore
 	opts.SetConnectRetry(true)
 	// messages buffering in file store, default is "in memory" store for Qos1 and 2
-	fileStore := mqtt.NewFileStore("/opt/autopi/store")
-	store := &CustomFileStore{FileStore: fileStore, limit: 200}
+	fileStore := mqtt.NewFileStore(b.FileStore)
+	store := &CustomFileStore{FileStore: fileStore, limit: b.Limit}
 	opts.SetStore(store)
 	// indicates that the client should store the messages in the file store after shutdown and pickup messages upon start up from the disk
 	// if we shut down the edge-network and start again, all buffered messages will be deleted on startup unless we set SetCleanSession to false
-	opts.SetCleanSession(false)
+	opts.SetCleanSession(b.CleanSession)
 	// ConnectRetryInterval is the time to wait between reconnection attempts. Default is  30 sec
-	opts.SetConnectRetryInterval(time.Second * 10)
+	opts.SetConnectRetryInterval(time.Second * time.Duration(b.ConnectRetryInterval))
 	// If we are using SetCleanSession=false, we need to specify client-id
 	opts.SetClientID(addr.String())
 

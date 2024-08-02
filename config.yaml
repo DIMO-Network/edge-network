@@ -9,6 +9,12 @@ mqtt:
     network: devices/%s/network
     logs: devices/%s/logs
     fingerprint: devices/%s/fingerprint
+  client:
+    buffering:
+      fileStore: /opt/autopi/store
+      cleanSession: false
+      connectRetryInterval: 10
+      limit: 200
 services:
   auth:
     host: https://auth.dimo.zone
