@@ -98,18 +98,21 @@ func main() {
 	// define environment
 	var env gateways.Environment
 	var confFileName string
+	var configURL string
 	if ENV == "prod" {
 		env = gateways.Production
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		confFileName = "config.yaml"
+		configURL = "https://device-config-prod.dimo-builder.workers.dev/"
 	} else {
 		env = gateways.Development
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		confFileName = "config-dev.yaml"
+		configURL = "https://device-config.dimo-builder.workers.dev/"
 	}
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig(configFiles, confFileName)
+	config, confErr := dimoConfig.ReadConfig(configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")

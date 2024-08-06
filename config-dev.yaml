@@ -18,15 +18,15 @@ mqtt:
 services:
   auth:
     host: https://auth.dev.dimo.zone
-    clientId: step-ca
-    clientSecret: KsQ7pruHob6D3NLFQEg9
-    caFingerprint: a563363f0bc9cc76031695743c059cf1e694f294e4d1548e981d18cb96348f5f
+    clientId: replace-me
+    clientSecret: replace-me
     generateChallengeURI: /auth/web3/generate_challenge
     submitChallengeURI: /auth/web3/submit_challenge
   ca:
     host: https://ca.dev.dimo.zone
     certPath: /opt/autopi/client.crt
     privateKeyPath: /opt/autopi/client.pem
+    caFingerprint: replace-me
   identity:
     host: https://identity-api.dev.dimo.zone/query
   vehicle:
