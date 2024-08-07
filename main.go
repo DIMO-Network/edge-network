@@ -112,7 +112,7 @@ func main() {
 	}
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig(configFiles, configURL, confFileName)
+	config, confErr := dimoConfig.ReadConfig(logger, configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")

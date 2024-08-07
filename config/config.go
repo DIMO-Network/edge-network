@@ -3,10 +3,13 @@ package config
 import (
 	"embed"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/gateways"
+	"github.com/rs/zerolog"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/DIMO-Network/shared"
 )
@@ -83,7 +86,7 @@ type Vehicle struct {
 
 // ReadConfig reads the configuration file from the embedded file system (configFiles),
 // fetches remote configuration from the provided URL (configURL), and merges them.
-func ReadConfig(configFiles embed.FS, configURL, configFileName string) (*Config, error) {
+func ReadConfig(logger zerolog.Logger, configFiles embed.FS, configURL, configFileName string) (*Config, error) {
 	// read config file from embed.FS
 	data, err := fs.ReadFile(configFiles, configFileName)
 	if err != nil {
@@ -104,7 +107,9 @@ func ReadConfig(configFiles embed.FS, configURL, configFileName string) (*Config
 
 	// Get secrets from remote config
 	remoteConfigPathOnDisk := "/opt/autopi/remote-config.json"
-	remoteConfig, err := GetRemoteConfig(configURL, remoteConfigPathOnDisk)
+	remoteConfig, err := gateways.Retry[Config](3, 1*time.Second, logger, func() (interface{}, error) {
+		return GetRemoteConfig(configURL, remoteConfigPathOnDisk)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secrets file: %w", err)
