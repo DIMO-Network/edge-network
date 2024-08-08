@@ -87,7 +87,7 @@ func NewCertificateService(logger zerolog.Logger, conf config.Config, client Sig
 		oauthClientID:        conf.Services.Auth.ClientID,
 		oauthClientSecret:    conf.Services.Auth.ClientSecret,
 		caURL:                conf.Services.Ca.Host,
-		caFingerprint:        conf.Services.Auth.CaFingerprint,
+		caFingerprint:        conf.Services.Ca.CaFingerprint,
 		certificatePath:      conf.Services.Ca.CertPath,
 		privateKeyPath:       conf.Services.Ca.PrivateKeyPath,
 		generateChallengeURI: conf.Services.Auth.GenerateChallengeURI,

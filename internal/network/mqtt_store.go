@@ -2,9 +2,10 @@ package network
 
 import (
 	"fmt"
+	"sync"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"sync"
 )
 
 // CustomFileStore is a custom implementation of the mqtt.FileStore interface.
