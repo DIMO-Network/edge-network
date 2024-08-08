@@ -3,13 +3,14 @@ package config
 import (
 	"embed"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/gateways"
-	"github.com/rs/zerolog"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
+	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/shared"
 )
@@ -107,7 +108,7 @@ func ReadConfig(logger zerolog.Logger, configFiles embed.FS, configURL, configFi
 
 	// Get secrets from remote config
 	remoteConfigPathOnDisk := "/opt/autopi/remote-config.json"
-	remoteConfig, err := gateways.Retry[Config](3, 1*time.Second, logger, func() (interface{}, error) {
+	remoteConfig, err := util.Retry[Config](3, 1*time.Second, logger, func() (interface{}, error) {
 		return GetRemoteConfig(configURL, remoteConfigPathOnDisk)
 	})
 

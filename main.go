@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/util"
 	"os"
 	"os/signal"
 	"strings"
@@ -75,7 +76,7 @@ func main() {
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := gateways.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := util.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
 
@@ -270,7 +271,7 @@ func setupBluez(name string) error {
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
 func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	identityAPIService := gateways.NewIdentityAPIService(logger, conf)
-	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
+	vehicleDefinition, err := util.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
 			return nil, fmt.Errorf("failed to query identity api for vehicle info - tokenId is zero")
