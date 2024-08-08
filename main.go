@@ -103,12 +103,12 @@ func main() {
 		env = gateways.Production
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		confFileName = "config.yaml"
-		configURL = "https://device-config-prod.dimo-builder.workers.dev/"
+		configURL = "https://device-config.dimo.xyz"
 	} else {
 		env = gateways.Development
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		confFileName = "config-dev.yaml"
-		configURL = "https://device-config.dimo-builder.workers.dev/"
+		configURL = "https://device-config-dev.dimo.xyz"
 	}
 
 	// read config file
