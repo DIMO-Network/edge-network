@@ -1,4 +1,4 @@
-package gateways
+package util
 
 import (
 	"time"
@@ -75,5 +75,9 @@ func RetryErrorOnly(attempts int, sleep time.Duration, logger zerolog.Logger, fn
 
 // Stop is an error that wraps an error and is used to indicate that we should not retry
 type Stop struct {
-	error
+	Err error
+}
+
+func (s Stop) Error() string {
+	return s.Err.Error()
 }

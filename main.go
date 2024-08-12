@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/util"
 	"os"
 	"os/signal"
 	"strings"
@@ -75,7 +76,7 @@ func main() {
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := gateways.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := util.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
 
@@ -98,18 +99,45 @@ func main() {
 	// define environment
 	var env gateways.Environment
 	var confFileName string
+	var configURL string
 	if ENV == "prod" {
 		env = gateways.Production
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		confFileName = "config.yaml"
+		configURL = "https://device-config.dimo.xyz"
 	} else {
 		env = gateways.Development
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		confFileName = "config-dev.yaml"
+		configURL = "https://device-config-dev.dimo.xyz"
+	}
+
+	lss := loggers.NewTemplateStore()
+	vinLogger := loggers.NewVINLogger(logger)
+
+	logger.Info().Msgf("Bluetooth name: %s", name)
+	logger.Info().Msgf("Version: %s", Version)
+	logger.Info().Msgf("Environment: %s", env)
+
+	coldBoot, err := isColdBoot(logger, unitID)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
+	}
+	// if hw revision is anything other than 5.2, setup BLE
+	if hwRevision != bleUnsupportedHW {
+		err = setupBluez(name)
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("Failed to setup BlueZ: %s", err)
+		}
+		app, cancel, obCancel := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
+		defer app.Close()
+		defer cancel()
+		defer obCancel()
 	}
 
 	// read config file
-	config, confErr := dimoConfig.ReadConfig(configFiles, confFileName)
+	// will retry for about 1 hour in case if no internet connection, so we are not interrupt device pairing process
+	config, confErr := dimoConfig.ReadConfig(logger, configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
 	if confErr != nil {
 		logger.Fatal().Err(confErr).Msg("unable to read config file")
@@ -140,29 +168,6 @@ func main() {
 	// log certificate errors
 	if certErr != nil {
 		logger.Error().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
-	}
-
-	coldBoot, err := isColdBoot(logger, unitID)
-	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
-	}
-
-	logger.Info().Msgf("Bluetooth name: %s", name)
-	logger.Info().Msgf("Version: %s", Version)
-	logger.Info().Msgf("Environment: %s", env)
-
-	lss := loggers.NewTemplateStore()
-	vinLogger := loggers.NewVINLogger(logger)
-	// if hw revision is anything other than 5.2, setup BLE
-	if hwRevision != bleUnsupportedHW {
-		err = setupBluez(name)
-		if err != nil {
-			logger.Fatal().Err(err).Msgf("Failed to setup BlueZ: %s", err)
-		}
-		app, cancel, obCancel := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
-		defer app.Close()
-		defer cancel()
-		defer obCancel()
 	}
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
@@ -267,7 +272,7 @@ func setupBluez(name string) error {
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
 func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	identityAPIService := gateways.NewIdentityAPIService(logger, conf)
-	vehicleDefinition, err := gateways.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
+	vehicleDefinition, err := util.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
 			return nil, fmt.Errorf("failed to query identity api for vehicle info - tokenId is zero")
