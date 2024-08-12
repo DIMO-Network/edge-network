@@ -108,7 +108,8 @@ func ReadConfig(logger zerolog.Logger, configFiles embed.FS, configURL, configFi
 
 	// Get secrets from remote config
 	remoteConfigPathOnDisk := "/opt/autopi/remote-config.json"
-	remoteConfig, err := util.Retry[Config](3, 1*time.Second, logger, func() (interface{}, error) {
+	// Retry for about 1 hour
+	remoteConfig, err := util.Retry[Config](11, 1*time.Second, logger, func() (interface{}, error) {
 		return GetRemoteConfig(configURL, remoteConfigPathOnDisk)
 	})
 

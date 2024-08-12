@@ -112,7 +112,31 @@ func main() {
 		configURL = "https://device-config-dev.dimo.xyz"
 	}
 
+	lss := loggers.NewTemplateStore()
+	vinLogger := loggers.NewVINLogger(logger)
+
+	logger.Info().Msgf("Bluetooth name: %s", name)
+	logger.Info().Msgf("Version: %s", Version)
+	logger.Info().Msgf("Environment: %s", env)
+
+	coldBoot, err := isColdBoot(logger, unitID)
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
+	}
+	// if hw revision is anything other than 5.2, setup BLE
+	if hwRevision != bleUnsupportedHW {
+		err = setupBluez(name)
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("Failed to setup BlueZ: %s", err)
+		}
+		app, cancel, obCancel := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
+		defer app.Close()
+		defer cancel()
+		defer obCancel()
+	}
+
 	// read config file
+	// will retry for about 1 hour in case if no internet connection, so we are not interrupt device pairing process
 	config, confErr := dimoConfig.ReadConfig(logger, configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
 	if confErr != nil {
@@ -144,29 +168,6 @@ func main() {
 	// log certificate errors
 	if certErr != nil {
 		logger.Error().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
-	}
-
-	coldBoot, err := isColdBoot(logger, unitID)
-	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get power management status: %s", err)
-	}
-
-	logger.Info().Msgf("Bluetooth name: %s", name)
-	logger.Info().Msgf("Version: %s", Version)
-	logger.Info().Msgf("Environment: %s", env)
-
-	lss := loggers.NewTemplateStore()
-	vinLogger := loggers.NewVINLogger(logger)
-	// if hw revision is anything other than 5.2, setup BLE
-	if hwRevision != bleUnsupportedHW {
-		err = setupBluez(name)
-		if err != nil {
-			logger.Fatal().Err(err).Msgf("Failed to setup BlueZ: %s", err)
-		}
-		app, cancel, obCancel := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
-		defer app.Close()
-		defer cancel()
-		defer obCancel()
 	}
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
