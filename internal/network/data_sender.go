@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/commands"
@@ -64,12 +63,49 @@ func (ds *dataSender) SetVehicleInfo(vehicleInfo models.VehicleInfo) {
 
 // NewDataSender instantiates new data sender, does not create a connection to broker
 func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger, vehicleInfo models.VehicleInfo, conf config.Config) DataSender {
-	// Setup mqtt connection. Does not connect
+	client := setupMqttConnection(conf, addr, logger)
+
+	return &dataSender{
+		client:      client,
+		unitID:      unitID,
+		ethAddr:     addr,
+		logger:      logger,
+		mqtt:        conf.Mqtt,
+		vehicleInfo: vehicleInfo,
+	}
+}
+
+// setupMqttConnection establishes a connection to the MQTT broker based on the provided configuration.
+// The function configures the MQTT client options, sets up the file store for message buffering,
+// and handles the TLS configuration if a secure connection is required.
+// If the connection fails, an error message is logged, but the function still returns the client.
+func setupMqttConnection(conf config.Config, addr common.Address, logger zerolog.Logger) mqtt.Client {
+	// Setup mqtt connection.
 	isSecureConn := conf.Mqtt.Broker.TLS.Enabled
+
+	// offline buffering settings
+	b := conf.Mqtt.Client.Buffering
+
+	// Set the logger for the MQTT client. Uncomment to enable debug logging
+	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
 
 	// Create MQTT client options
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(conf.Mqtt.Broker.Host + ":" + strconv.Itoa(conf.Mqtt.Broker.Port))
+	// this will allow to publish messages even if connection is not established and saving messages in file store.
+	// with waitWithTimeout in place,  on connect failure, we still can publish messages which would be stored in fileStore
+	opts.SetConnectRetry(true)
+	// messages buffering in file store, default is "in memory" store for Qos1 and 2
+	fileStore := mqtt.NewFileStore(b.FileStore)
+	store := &CustomFileStore{FileStore: fileStore, limit: b.Limit}
+	opts.SetStore(store)
+	// indicates that the client should store the messages in the file store after shutdown and pickup messages upon start up from the disk
+	// if we shut down the edge-network and start again, all buffered messages will be deleted on startup unless we set SetCleanSession to false
+	opts.SetCleanSession(b.CleanSession)
+	// ConnectRetryInterval is the time to wait between reconnection attempts. Default is  30 sec
+	opts.SetConnectRetryInterval(time.Second * time.Duration(b.ConnectRetryInterval))
+	// If we are using SetCleanSession=false, we need to specify client-id
+	opts.SetClientID(addr.String())
 
 	if isSecureConn {
 		// Load CA certificate
@@ -97,18 +133,11 @@ func NewDataSender(unitID uuid.UUID, addr common.Address, logger zerolog.Logger,
 	}
 	// Create and start a client
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
+	// with waitWithTimeout on connect failure, we are not blocked(opposite to Wait()) and can publish messages which would be stored in fileStore
+	if token := client.Connect(); token.WaitTimeout(time.Second*5) && token.Error() != nil {
 		logger.Error().Err(token.Error()).Msg("failed to connect to mqtt broker")
 	}
-
-	return &dataSender{
-		client:      client,
-		unitID:      unitID,
-		ethAddr:     addr,
-		logger:      logger,
-		mqtt:        conf.Mqtt,
-		vehicleInfo: vehicleInfo,
-	}
+	return client
 }
 
 func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
@@ -131,12 +160,8 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	fingerprint := ds.mqtt.Topics.Fingerprint
-	// if the fingerprint topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(fingerprint, "%s") {
-		fingerprint = fmt.Sprintf(fingerprint, ce.Subject)
-	}
+	fingerprint := fmt.Sprintf(ds.mqtt.Topics.Fingerprint, ce.Subject)
+
 	err = ds.sendPayload(fingerprint, payload, false)
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("failed send payload")
@@ -168,12 +193,7 @@ func (ds *dataSender) SendDeviceStatusData(data any) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	status := ds.mqtt.Topics.Status
-	// if the status topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(status, "%s") {
-		status = fmt.Sprintf(status, ce.Subject)
-	}
+	status := fmt.Sprintf(ds.mqtt.Topics.Status, ce.Subject)
 
 	err = ds.sendPayload(status, payload, true)
 	if err != nil {
@@ -202,12 +222,8 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	network := ds.mqtt.Topics.Network
-	// if the network topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(network, "%s") {
-		network = fmt.Sprintf(network, ce.Subject)
-	}
+	network := fmt.Sprintf(ds.mqtt.Topics.Network, ce.Subject)
+
 	err = ds.sendPayload(network, payload, true)
 	if err != nil {
 		return err
@@ -271,12 +287,8 @@ func (ds *dataSender) SendLogsData(data models.ErrorsData) error {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	logs := ds.mqtt.Topics.Logs
-	// if the network topic has an %s in it, replace it with the subject
-	// this is needed for backwards compatibility with the old topic format serving by mosquito
-	if strings.Contains(logs, "%s") {
-		logs = fmt.Sprintf(logs, ce.Subject)
-	}
+	logs := fmt.Sprintf(ds.mqtt.Topics.Logs, ce.Subject)
+
 	err = ds.sendPayload(logs, payload, true)
 	if err != nil {
 		return err
@@ -290,19 +302,6 @@ func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) e
 	if !gjson.GetBytes(payload, "subject").Exists() {
 		return fmt.Errorf("payload did not have expected subject cloud event property")
 	}
-
-	// Connect to the MQTT broker
-	if token := ds.client.Connect(); token.Wait() && token.Error() != nil {
-		return errors.Wrap(token.Error(), "failed to connect to mqtt broker")
-	}
-
-	// Wait for the connection to be established
-	for !ds.client.IsConnected() {
-		time.Sleep(100 * time.Millisecond)
-		// todo timeout?
-	}
-	// Disconnect from the MQTT broker
-	defer ds.client.Disconnect(250)
 
 	// signature for the payload
 	payload, err := ds.signPayload(payload, ds.unitID)
@@ -323,8 +322,11 @@ func (ds *dataSender) sendPayload(topic string, payload []byte, compress bool) e
 	}
 
 	// Publish the MQTT message
-	token := ds.client.Publish(topic, 0, false, payload)
-	token.Wait() // just waits up until message goes through
+	token := ds.client.Publish(topic, 1, false, payload)
+	// we should not wait for the message to be ack by broker, as this is blocking call
+	//  token.Wait() do not blocking Qos 0, only Qos 1 and Qos 2 is blocking. So if we want to us Qos 1, we should not use token.Wait() after each publish
+	// we will use file store to buffer the messages, and when broker is up, it will send buffered messages on Connection
+	//token.Wait() // just waits up until message goes through
 
 	// Check if the message was successfully published
 	if token.Error() != nil {

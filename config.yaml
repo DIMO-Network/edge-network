@@ -1,22 +1,32 @@
 mqtt:
   broker:
-    host: tcp://localhost
-    port: 1883
+    host: ssl://stream.dimo.zone
+    port: 8883
     tls:
-      enabled: false
+      enabled: true
   topics:
-    status: status
-    network: network
-    logs: logs
-    fingerprint: fingerprint
+    status: devices/%s/status
+    network: devices/%s/network
+    logs: devices/%s/logs
+    fingerprint: devices/%s/fingerprint
+  client:
+    buffering:
+      fileStore: /opt/autopi/store
+      cleanSession: false
+      connectRetryInterval: 10
+      limit: 200
 services:
   auth:
     host: https://auth.dimo.zone
-    clientId: step-ca
+    clientId: replace-me
     clientSecret: replace-me
-    caFingerprint: replace-me
+    generateChallengeURI: /auth/web3/generate_challenge
+    submitChallengeURI: /auth/web3/submit_challenge
   ca:
     host: https://ca.dimo.zone
+    certPath: /opt/autopi/client.crt
+    privateKeyPath: /opt/autopi/client.pem
+    caFingerprint: replace-me
   identity:
     host: https://identity-api.dimo.zone/query
   vehicle:
