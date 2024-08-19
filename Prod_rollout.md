@@ -1,5 +1,9 @@
 # Production Rollout Process
 
+**It is important not to apply updates to all devices at once, as this can cause issues if the code has bugs!**
+
+**It's essential to avoid making a release on Fridays and Holidays!!! If something goes wrong, you don't want to be stuck fixing it over the weekend.**
+
 ## Release to few and Validate
 
 Let's assume your code is all good and you wanna update all the Autopi's in our fleet of devices. 
@@ -20,6 +24,7 @@ First we validate your production build we work and be applied correctly.
    to make sure doesn't keep downloading same update over and over again.
    To check version on device, from terminal in AP Cloud: `cmd.run 'edge-network -v'`
 2. Check that mqtt data is still being sent, can use kibana or clickhouse.
+3. Monitor the [Grafana dashboards](https://grafana.team.dimo.zone/d/fdq1u88iocjy8b/v2-status-pipeline?var-environment=prod&orgId=1&from=now-6h&to=now) for any anomalies. 
 
 ## How to update all devices, once ready:
 
