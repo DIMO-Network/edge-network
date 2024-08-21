@@ -32,3 +32,11 @@ You've passed all the validation steps and are ready to rollout to all devices:
  
 1. Update AutoPi Cloud template 130 (DIMO Device Client), under DIMO section set the latest binary edge-network version.
 2. In the Devices screen under the template, use the Apply All Async button and wait for all to complete.
+
+# Release costs
+
+Example math:
+7.8 MB x ~11500 devices = 89.7 GB lte transfer.
+Twilio costs seems to be about $11.3 / Gb => $1,020.
+
+So every time we release a new edge-network binary it costs us about $1k, given the number of devices as of Aug-2024
