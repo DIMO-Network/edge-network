@@ -16,6 +16,14 @@ First we validate your production build we work and be applied correctly.
 2. Pick a few devices, ideally ones you have some control over. 
 3. Apply the update individually to the device using the Autopi cloud. Do NOT update the template yet.
 
+## Gotchas
+
+The checksum file and the binary must match. We had an issue when releasing v0.7.0 b/c we deleted the binary but not the checksum. Summary investigation from AutoPi:
+
+> Hi guys, we've looked into the v0.7.0 re-download issue. It looks like the devices are getting a file that has the wrong checksum on. The devices were downloading a file with
+> 6d0136bbbdcbe7391624fd3a44e96d61 (https://binaries.dimo.zone/DIMO-Network/edge-network/releases/download/v0.7.0/edge-network-v0.7.0-linux-arm.tar.gz) whereas they were expecting one with 
+> 6aeb158c24c91a2afea09c90ce88e5e3. You can also see that the file you've linked above in the chat has a different md5sum compared to the .md5 file.
+
 ### Validation Steps
 
 1. Check that the update only gets downloaded once, and is installed successfully. Best way is using the twilio index in kibana:
