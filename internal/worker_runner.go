@@ -171,10 +171,15 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
-			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(s)
-			if err != nil {
-				wr.logger.Err(err).Msg("failed to send device status in loop")
+			// send the cloud event only if signals array is not empty
+			if len(s.Vehicle.Signals) > 0 {
+				err = wr.dataSender.SendDeviceStatusData(s)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to send device status")
+				}
+			} else {
+				hooks.LogError(wr.logger, err, "No signals to send", hooks.WithThresholdWhenLogMqtt(5),
+					hooks.WithPowerStatus(powerStatus), hooks.WithStopLogAfter(1))
 			}
 
 			if cellErr == nil || wifiErr == nil {
@@ -197,6 +202,7 @@ func (wr *workerRunner) Run() {
 					}
 				}
 
+				fmt.Println("Network Data: ", networkData)
 				err = wr.dataSender.SendDeviceNetworkData(networkData)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to send device network data")

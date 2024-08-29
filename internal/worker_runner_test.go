@@ -428,6 +428,63 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	wr.Stop()
 }
 
+func Test_workerRunner_Run_donotSendIfNoSignals(t *testing.T) {
+	// when
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	const autoPiBaseURL = "http://192.168.4.1:9000"
+
+	unitID := uuid.New()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
+
+	// mock wifi resp
+	wfPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+wfPath,
+		httpmock.NewStringResponder(200, `{"wpa_state": "DISCONNECTED", "ssid": "", "_stamp": "2024-02-29T17:17:30.534861"}`))
+
+	// mock location resp
+	locPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+locPath,
+		httpmock.NewStringResponder(500, `{"error":"Error on query gps"}`))
+
+	// mock obd resp
+	ethPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+ethPath,
+		httpmock.NewStringResponder(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`))
+
+	expectOnMocks(ts, vl, unitID, ds, 1)
+
+	// assert data sender is called once with multiple fuel level signals
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(0).Return(nil)
+
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
+		assert.NotNil(t, data.Cell)
+	}).Return(nil)
+	// Initialize workerRunner here with mocked dependencies
+	requests := []models.PIDRequest{
+		{
+			Name:            "fuellevel",
+			IntervalSeconds: 3,
+			Formula:         "dbc:31|8@0+ (0.392156862745098,0) [0|100] \"%\"",
+		},
+	}
+
+	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr.pids.Requests = requests
+	wr.sendPayloadInterval = 10 * time.Second
+	wr.stop = make(chan bool)
+
+	// then the data sender should be called twice
+	go wr.Run()
+	time.Sleep(15 * time.Second)
+	wr.Stop()
+}
+
 func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	// when
 	httpmock.Activate()
