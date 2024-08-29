@@ -178,7 +178,7 @@ func (wr *workerRunner) Run() {
 					wr.logger.Err(err).Msg("failed to send device status")
 				}
 			} else {
-				hooks.LogError(wr.logger, err, "No signals to send", hooks.WithThresholdWhenLogMqtt(5),
+				hooks.LogWarn(wr.logger, "No signals to send for about an 5 cycles", hooks.WithThresholdWhenLogMqtt(5),
 					hooks.WithPowerStatus(powerStatus), hooks.WithStopLogAfter(1))
 			}
 
