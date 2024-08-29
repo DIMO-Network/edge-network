@@ -202,7 +202,6 @@ func (wr *workerRunner) Run() {
 					}
 				}
 
-				fmt.Println("Network Data: ", networkData)
 				err = wr.dataSender.SendDeviceNetworkData(networkData)
 				if err != nil {
 					wr.logger.Err(err).Msg("failed to send device network data")
