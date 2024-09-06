@@ -1,6 +1,6 @@
 module github.com/DIMO-Network/edge-network
 
-go 1.21
+go 1.23
 
 require (
 	github.com/DIMO-Network/shared v0.10.21
