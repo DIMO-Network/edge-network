@@ -17,9 +17,6 @@ linters:
 issues:
   fix: true
 
-output:
-  colored-line-number: true
-
 linters-settings:
   gci:
     # Section configuration to compare against.
