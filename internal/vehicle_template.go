@@ -2,8 +2,9 @@ package internal
 
 import (
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/util"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/shared/device"
 

@@ -1,0 +1,10 @@
+BO_ 288 production_odometer_GM120: 5 Vector_XXX
+ SG_ odometer : 7|32@0+ (0.015625,0) [0|67108863.984375] "km"  Vector_XXX
+
+BO_ 1322 Message_52A: 8
+  SG_ tiresFrontLeft : 16|8@1+ (4,0) [0|255] "kpa"
+  SG_ tiresBackLeft : 24|8@1+ (4,0) [0|255] "kpa"
+  SG_ tiresFrontRight : 32|8@1+ (4,0) [0|255] "kpa"
+  SG_ tiresBackRight : 40|8@1+ (4,0) [0|255] "kpa"
+BO_ 1017 Message_3F9: 8
+  SG_ oilLife: 48|8@1+ (0.392157,0) [0|255] "%"

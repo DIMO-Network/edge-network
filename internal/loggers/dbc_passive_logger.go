@@ -38,7 +38,7 @@ type dbcPassiveLogger struct {
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
 	// used for filtering for PIDs
-	respHeaders map[uint32]struct{}
+	pidRespHdrs map[uint32]struct{}
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -49,7 +49,7 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 6} // have only tested in 7+ working, for sure 5.2 nogo
 	if pids != nil {
 		dpl.pids = pids.Requests
-		dpl.respHeaders = getUniqueResponseHeaders(dpl.pids)
+		dpl.pidRespHdrs = getUniqueResponseHeaders(dpl.pids)
 	}
 
 	return dpl
@@ -71,7 +71,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
 	}
 	// add any PID or DID filters
-	for rh := range dpl.respHeaders {
+	for rh := range dpl.pidRespHdrs {
 		filters = append(filters, dbcFilter{
 			header: rh,
 		})
@@ -101,7 +101,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 		return errors.Wrap(err, "could not bind recv socket")
 	}
-	// loop
+	// loop for each frame
 	for {
 		frame, err := dpl.recv.Recv()
 		if err != nil {
@@ -111,7 +111,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		}
 
 		// handle standard PID responses
-		if _, ok := dpl.respHeaders[frame.ID]; ok {
+		if _, ok := dpl.pidRespHdrs[frame.ID]; ok {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
