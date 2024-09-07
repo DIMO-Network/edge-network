@@ -2,7 +2,6 @@ package gateways
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"time"
 
@@ -101,7 +100,7 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 	}
 
 	if vehicleResponse.Data.AfterMarketDevice.Vehicle.TokenID == 0 {
-		return nil, util.Stop{Err: fmt.Errorf(ErrNotFound.Error())}
+		return nil, util.Stop{Err: ErrNotFound}
 	}
 
 	return &vehicleResponse.Data.AfterMarketDevice.Vehicle, nil

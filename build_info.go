@@ -31,7 +31,7 @@ func (p *buildInfoCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interfac
 	p.logger.Info().Msg("printing build info\n\n")
 
 	if info, ok := debug.ReadBuildInfo(); ok {
-		p.logger.Info().Msgf("Build Info\n\n" + info.String())
+		p.logger.Info().Msg("Build Info\n\n" + info.String())
 	}
 
 	return subcommands.ExitSuccess

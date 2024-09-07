@@ -444,7 +444,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol)                                                   // verify using protocol when requesting template
 		logger.Info().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msg("Got VIN via BLE") //note we don't send the VIN to cloud logs for PII
-		logger.Info().Msgf(vinResp.VIN)
+		logger.Info().Msg(vinResp.VIN)
 		lastVIN = vinResp.VIN
 		lastProtocol = vinResp.Protocol
 		resp = []byte(lastVIN)
