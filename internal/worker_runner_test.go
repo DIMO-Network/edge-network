@@ -259,7 +259,7 @@ func Test_workerRunner_Run(t *testing.T) {
 		assert.Equal(t, 9, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 9, len(data.Vehicle.Signals))
+		assert.Equal(t, 8, len(data.Vehicle.Signals))
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {

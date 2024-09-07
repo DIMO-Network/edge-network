@@ -18,7 +18,7 @@ issues:
   fix: true
 
 output:
-  print-issued-lines: true
+  colored-line-number: true
 
 linters-settings:
   gci:
