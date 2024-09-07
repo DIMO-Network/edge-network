@@ -23,6 +23,9 @@ var testgm120dbc string
 //go:embed test_acura_ilx.dbc
 var testacurailxdbc string
 
+//go:embed test_gm_tires_oil.dbc
+var testgmmultipledbc string
+
 func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
@@ -41,6 +44,51 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 						{
 							formula:    `7|32@0+ (0.015625,0) [0|67108863.984375] "km" Vector_XXX`,
 							signalName: "odometer",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "gm odo tires oil",
+			dbcFile: testgmmultipledbc,
+			want: []dbcFilter{
+				{
+					header: 288,
+					signals: []dbcSignal{
+						{
+							formula:    `7|32@0+ (0.015625,0) [0|67108863.984375] "km" Vector_XXX`,
+							signalName: "odometer",
+						},
+					},
+				},
+				{
+					header: 1322,
+					signals: []dbcSignal{
+						{
+							formula:    `16|8@1+ (4,0) [0|255] "kpa"`,
+							signalName: "tiresFrontLeft",
+						},
+						{
+							formula:    `24|8@1+ (4,0) [0|255] "kpa"`,
+							signalName: "tiresBackLeft",
+						},
+						{
+							formula:    `32|8@1+ (4,0) [0|255] "kpa"`,
+							signalName: "tiresFrontRight",
+						},
+						{
+							formula:    `40|8@1+ (4,0) [0|255] "kpa"`,
+							signalName: "tiresBackRight",
+						},
+					},
+				},
+				{
+					header: 1017,
+					signals: []dbcSignal{
+						{
+							formula:    `48|8@1+ (0.392157,0) [0|255] "%"`,
+							signalName: "oilLife",
 						},
 					},
 				},
