@@ -159,15 +159,22 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 
 // ShouldNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
 func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
-	pidsWithCanFlow := false
+	pidsCanFlowOrPython := false
 	for _, pid := range dpl.pids {
 		if pid.CanFlowControlIDPair != "" {
-			pidsWithCanFlow = true
+			pidsCanFlowOrPython = true
+			break
+		}
+		if pid.FormulaType() == models.Python {
+			pidsCanFlowOrPython = true
 			break
 		}
 	}
 	// we could remove the dbcFile check, like this should work with pids
-	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsWithCanFlow
+	// todo wait what about pids with python formulas, but i also want can dump.
+	// when recognize custom pid, first request no formula to obd.query so we can get can response, package it up and send
+	// but how do i enable / disable this? maybe just always enabled and then save something to disk after job is done.
+	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsCanFlowOrPython
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {
