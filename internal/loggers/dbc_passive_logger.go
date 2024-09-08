@@ -166,7 +166,7 @@ func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
 			break
 		}
 	}
-	// we could remove the dbcFile check, like this should work with all others
+	// we could remove the dbcFile check, like this should work with pids
 	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsWithCanFlow
 }
 
