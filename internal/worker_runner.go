@@ -89,7 +89,7 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	if wr.dbcScanner.UseNativeScanLogger() {
+	if wr.dbcScanner.ShouldNativeScanLogger() {
 		wr.logger.Info().Msg("found DBC file, starting DBC passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
@@ -360,7 +360,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 }
 
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
-	useNativeQuery := wr.dbcScanner.UseNativeScanLogger()
+	useNativeQuery := wr.dbcScanner.ShouldNativeScanLogger()
 
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid

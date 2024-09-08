@@ -24,8 +24,8 @@ import (
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
 	StartScanning(ch chan<- models.SignalData) error
-	// UseNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native scanning (they go hand in hand)
-	UseNativeScanLogger() bool
+	// UseNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native Request/Response scanning (they go hand in hand)
+	ShouldNativeScanLogger() bool
 	SendCANQuery(header uint32, mode uint32, pid uint32) error
 	StopScanning() error
 }
@@ -157,10 +157,17 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	}
 }
 
-// UseNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
-func (dpl *dbcPassiveLogger) UseNativeScanLogger() bool {
-	// in next revision this could just be on hw support and if template pids are supported
-	return dpl.hardwareSupport && dpl.dbcFile != nil && *dpl.dbcFile != ""
+// ShouldNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
+func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
+	pidsWithCanFlow := false
+	for _, pid := range dpl.pids {
+		if pid.CanFlowControlIDPair != "" {
+			pidsWithCanFlow = true
+			break
+		}
+	}
+	// we could remove the dbcFile check, like this should work with all others
+	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsWithCanFlow
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {
