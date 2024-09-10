@@ -113,3 +113,14 @@ type DeviceDataStatusCloudEvent[A any] struct {
 	shared.CloudEvent[A]
 	TokenID uint64 `json:"vehicleTokenId"`
 }
+
+// CAN Dump frame project
+
+type SignalCanFrameData struct {
+	Timestamp int64 `json:"timestamp"`
+	// the Signal Name
+	Name     string `json:"name"`
+	HexValue string `json:"hexValue"`
+	Pid      uint32 `json:"pid"`
+	Error    string `json:"error"`
+}

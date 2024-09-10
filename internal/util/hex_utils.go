@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -35,4 +36,32 @@ func UintToHexStr(val uint32) string {
 		return "0" + hexStr // Prepend a "0" if the length is odd
 	}
 	return hexStr
+}
+
+// HexToDecimal takes a hex string and converts it to a uint32 decimal representation.
+func HexToDecimal(hexStr string) (uint32, error) {
+	// Use strconv to parse the hex string (base 16) to an integer
+	result, err := strconv.ParseUint(hexStr, 16, 32)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(result), nil
+}
+
+func SwapLastTwoBytes(hexStr string) (string, error) {
+	// Check if the hex string length is valid (must be even and at least 4 characters)
+	if len(hexStr) < 4 || len(hexStr)%2 != 0 {
+		return "", fmt.Errorf("invalid hex string")
+	}
+
+	// Split the hex string into two parts
+	prefix := hexStr[:len(hexStr)-4]       // Everything except the last two bytes
+	lastTwoBytes := hexStr[len(hexStr)-4:] // The last two bytes (4 hex chars)
+
+	// Swap the last two bytes
+	swappedLastTwoBytes := lastTwoBytes[2:] + lastTwoBytes[:2]
+
+	// Return the result by concatenating the prefix with the swapped bytes
+	return prefix + strings.ToUpper(swappedLastTwoBytes), nil
 }

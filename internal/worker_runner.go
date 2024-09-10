@@ -43,6 +43,7 @@ type workerRunner struct {
 	pids                *models.TemplatePIDs
 	deviceSettings      *models.TemplateDeviceSettings
 	signalsQueue        *SignalsQueue
+	signalFramesQueue   *SignalCanFrameQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
 	device              Device
@@ -60,7 +61,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
-		dbcScanner: dbcScanner}
+		dbcScanner: dbcScanner, signalFramesQueue: &SignalCanFrameQueue{signalFrames: make(map[string][]models.SignalCanFrameData)}}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -396,6 +397,26 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 
 // queryOBDWithAP calls autopi obd.query, waits for response and enques the resp value if any
 func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *api.PowerStatusResponse) {
+	// Python formulas to DBC project - CAN frame dumps for first 2 requests.
+	if request.FormulaType() == models.Python {
+		if wr.wantMoreCanFrameDump(request.Name) {
+			// todo could put all this in a function
+			request.Formula = "" // clear out the formula so we get hex resp
+			obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+
+			scfr := models.SignalCanFrameData{
+				Timestamp: ts.UnixMilli(),
+				Name:      request.Name,
+				Pid:       request.Pid,
+			}
+			if err != nil {
+				scfr.Error = err.Error() // report it
+			} else if obdResp.IsHex {
+				scfr.HexValue = obdResp.ValueHex // todo
+			}
+			wr.signalFramesQueue.Enqueue(scfr)
+		}
+	}
 	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 	// anywhere we call return it is b/c we intend to stop processing any additional code
 	if err != nil {
@@ -450,11 +471,29 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 	return false, status
 }
 
+// wantMoreCanFrameDump true if we want more CAN dumps for this pid. Checks underlying data structure that tracks
+func (wr *workerRunner) wantMoreCanFrameDump(signalName string) bool {
+	const maxCanDumpFrames = 2
+	for i, frame := range wr.signalFramesQueue.signalFrames {
+		// todo
+	}
+	return false
+}
+
 type SignalsQueue struct {
 	signals         []models.SignalData
 	lastTimeChecked map[string]time.Time
 	failureCount    map[string]int
 	sync.RWMutex
+}
+
+// SignalCanFrameQueue part of the CAN frame dumps project for python to DBC formulas
+type SignalCanFrameQueue struct {
+	signalFrames map[string][]models.SignalCanFrameData
+}
+
+func (scf *SignalCanFrameQueue) Enqueue(signal models.SignalCanFrameData) {
+	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
 }
 
 func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
