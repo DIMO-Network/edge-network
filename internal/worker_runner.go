@@ -406,6 +406,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 						wr.logger.Err(err).Msgf("failed to send canDumpData for custom pids. data length: %d", len(bytes))
 					}
 					wr.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
+					wr.signalDumpFramesQ.jobDone = true // persist this somewhere?
 				}
 
 			}

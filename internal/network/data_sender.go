@@ -231,7 +231,6 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 }
 
 // SendCanDumpData sends a byte array, compressed, to mqtt candump topic
-// todo check the pipeline so that all we're doing is stuffing the bytes into s3
 func (ds *dataSender) SendCanDumpData(data json.RawMessage) error {
 	ce := shared.CloudEvent[json.RawMessage]{
 		ID:          ksuid.New().String(),
