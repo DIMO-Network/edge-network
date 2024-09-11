@@ -87,7 +87,6 @@ func main() {
 
 	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
-	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
 	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
 	subcommands.Register(&canDumpV2Cmd{logger: logger}, "decode loggers")
 

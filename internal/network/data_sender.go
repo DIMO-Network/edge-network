@@ -30,7 +30,6 @@ import (
 )
 
 // it is the responsibility of the DataSender to determine what topic to use
-const canDumpTopic = "protocol/canbus/dump"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
@@ -38,7 +37,7 @@ type DataSender interface {
 	SendLogsData(data models.ErrorsData) error
 	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
 	SendFingerprintData(data models.FingerprintData) error
-	SendCanDumpData(data models.CanDumpData) error
+	SendCanDumpData(data json.RawMessage) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api.
 	// The data can be gzip compressed or not
 	SendDeviceStatusData(data any) error
@@ -231,11 +230,10 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 	return nil
 }
 
-func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
-	if data.Timestamp == 0 {
-		data.Timestamp = time.Now().UTC().UnixMilli()
-	}
-	ce := shared.CloudEvent[models.CanDumpData]{
+// SendCanDumpData sends a byte array, compressed, to mqtt candump topic
+// todo check the pipeline so that all we're doing is stuffing the bytes into s3
+func (ds *dataSender) SendCanDumpData(data json.RawMessage) error {
+	ce := shared.CloudEvent[json.RawMessage]{
 		ID:          ksuid.New().String(),
 		Source:      "aftermarket/device/canbus/dump",
 		SpecVersion: "1.0",
@@ -245,14 +243,14 @@ func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
 		DataSchema:  "dimo.zone.status/v2.0",
 		Data:        data,
 	}
-	println("Sending can dump data: (payload)")
+	ds.logger.Info().Msgf("Sending can dump data: %+v", ce)
 	payload, err := json.Marshal(ce)
-	println(payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(canDumpTopic, payload, false)
+	candump := fmt.Sprintf(ds.mqtt.Topics.Candump, ce.Subject)
+	err = ds.sendPayload(candump, payload, true)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -58,6 +59,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
+	// todo set signal dump queue `jobDone` to true if we have something on disk
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
@@ -360,6 +362,9 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	return &location, nil
 }
 
+// queryOBD queries OBD signals based on their designated intervals and power status.
+// It checks if it's ok to query each signal based on the last enqueued time and interval.
+// If a signal has been queried too many times, it will skip querying it.
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 	useNativeQuery := wr.dbcScanner.ShouldNativeScanLogger()
 
@@ -390,6 +395,20 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			}
 		} else {
 			wr.queryOBDWithAP(request, powerStatus)
+			if !wr.signalDumpFramesQ.jobDone {
+				if wr.signalDumpFramesQ.lastEnqueued.Before(time.Now().Add(3 * time.Minute)) {
+					bytes, err := json.Marshal(wr.signalDumpFramesQ.signalFrames)
+					if err != nil {
+						wr.logger.Err(err).Msg("failed to marshal signalDumpFrames")
+					}
+					err = wr.dataSender.SendCanDumpData(bytes)
+					if err != nil {
+						wr.logger.Err(err).Msgf("failed to send canDumpData for custom pids. data length: %d", len(bytes))
+					}
+					wr.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
+				}
+
+			}
 		}
 
 	}
@@ -398,7 +417,7 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 // queryOBDWithAP calls autopi obd.query, waits for response and enques the resp value if any
 func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *api.PowerStatusResponse) {
 	// Python formulas to DBC project - CAN frame dumps for first 2 requests.
-	if request.FormulaType() == models.Python && wr.wantMoreCanFrameDump(request.Name) {
+	if !wr.signalDumpFramesQ.jobDone && request.FormulaType() == models.Python && wr.wantMoreCanFrameDump(request.Name) {
 		wr.queryPIDAndCaptureDump(request)
 		return // skip this one
 	}
@@ -500,10 +519,14 @@ type SignalsQueue struct {
 // SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas
 type SignalFrameDumpQueue struct {
 	signalFrames map[string][]models.SignalCanFrameDump
+	// we will check this to decide when to send the signalFrames over mqtt
+	lastEnqueued time.Time
+	jobDone      bool
 }
 
 func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {
 	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
+	scf.lastEnqueued = time.Now()
 }
 
 func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {

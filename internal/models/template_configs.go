@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/DIMO-Network/edge-network/internal/util"
 	"strings"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/shared/device"
 )

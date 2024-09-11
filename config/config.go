@@ -42,6 +42,7 @@ type Topics struct {
 	Network     string `yaml:"network"`
 	Logs        string `yaml:"logs"`
 	Fingerprint string `yaml:"fingerprint"`
+	Candump     string `yaml:"candump"`
 }
 
 type Client struct {

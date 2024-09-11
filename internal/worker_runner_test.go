@@ -1089,6 +1089,8 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 			},
 		},
 		dbcScanner: dbcS,
+		// for now default to job done true to not impact other tests
+		signalDumpFramesQ: &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump), jobDone: true},
 	}
 	return wr
 }
