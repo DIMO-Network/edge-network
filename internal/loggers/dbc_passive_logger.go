@@ -38,8 +38,6 @@ type dbcPassiveLogger struct {
 	hardwareSupport bool
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
-	// used for filtering for PIDs
-	pidRespHdrs map[uint32]struct{}
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -50,56 +48,42 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 6} // have only tested in 7+ working, for sure 5.2 nogo
 	if pids != nil {
 		dpl.pids = pids.Requests
-		dpl.pidRespHdrs = getUniqueResponseHeaders(dpl.pids)
 	}
 
 	return dpl
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
-	// todo switch here for when we add filters only for pid querying but no DBC file
-	// note currently this is not possible since we only do native querying and pids when there is a dbc file
-	if dpl.dbcFile == nil {
-		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
-		return nil
-	}
 	if !dpl.hardwareSupport {
 		dpl.logger.Info().Msg("hardware support is not enabled due to old hw - not starting DBC passive logger")
 		return nil
 	}
-	filters, err := dpl.parseDBCHeaders(*dpl.dbcFile)
-	if err != nil {
-		return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
+	filters := []dbcFilter{}
+	if dpl.dbcFile != nil {
+		f, err := dpl.parseDBCHeaders(*dpl.dbcFile)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
+		}
+		filters = f
 	}
+	pidRespHdrs := getUniqueResponseHeaders(dpl.pids)
 	// add any PID or DID filters
-	for rh := range dpl.pidRespHdrs {
+	for rh := range pidRespHdrs {
 		filters = append(filters, dbcFilter{
 			header: rh,
 		})
 	}
 
-	dpl.recv, err = canbus.New()
-	if err != nil {
-		return err
-	}
+	dpl.recv, _ = canbus.New()
 
 	// set hardware filters
-	uf := make([]unix.CanFilter, len(filters))
-	for i, filter := range filters {
-		uf[i].Id = filter.header // wants decimal representation of header - not hex
-		if filter.header > 4095 {
-			uf[i].Mask = unix.CAN_EFF_MASK // extended frame
-		} else {
-			uf[i].Mask = unix.CAN_SFF_MASK // standard frame
-		}
-	}
-	err = dpl.recv.SetFilters(uf)
+	uf := buildCanFilters(filters)
+	err := dpl.recv.SetFilters(uf)
 	if err != nil {
 		return fmt.Errorf("cannot set canbus filters: %w", err)
 	}
 	err = dpl.recv.Bind("can0")
 	if err != nil {
-
 		return errors.Wrap(err, "could not bind recv socket")
 	}
 	// loop for each frame
@@ -112,7 +96,7 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		}
 
 		// handle standard PID responses
-		if _, ok := dpl.pidRespHdrs[frame.ID]; ok {
+		if _, ok := pidRespHdrs[frame.ID]; ok {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
@@ -158,24 +142,30 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	}
 }
 
+// buildCanFilters builds an array of unix.CanFilter objects based on the provided dbcFilter array
+func buildCanFilters(filters []dbcFilter) []unix.CanFilter {
+	uf := make([]unix.CanFilter, len(filters))
+	for i, filter := range filters {
+		uf[i].Id = filter.header // wants decimal representation of header - not hex
+		if filter.header > 0xfff {
+			uf[i].Mask = unix.CAN_EFF_MASK // extended frame
+		} else {
+			uf[i].Mask = unix.CAN_SFF_MASK // standard frame
+		}
+	}
+	return uf
+}
+
 // ShouldNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
 func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
-	pidsCanFlowOrPython := false
+	pidsPython := false
 	for _, pid := range dpl.pids {
-		if pid.CanFlowControlIDPair != "" {
-			pidsCanFlowOrPython = true
-			break
-		}
 		if pid.FormulaType() == models.Python {
-			pidsCanFlowOrPython = true
+			pidsPython = true
 			break
 		}
 	}
-	// we could remove the dbcFile check, like this should work with pids
-	// todo wait what about pids with python formulas, but i also want can dump.
-	// when recognize custom pid, first request no formula to obd.query so we can get can response, package it up and send
-	// but how do i enable / disable this? maybe just always enabled and then save something to disk after job is done.
-	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsCanFlowOrPython
+	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsPython
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {
@@ -193,6 +183,7 @@ func getUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
 	hdrs := make(map[uint32]struct{})
 	for _, pid := range pids {
 		hdrs[pid.ResponseHeader()] = struct{}{}
+		// todo if response header is 7e8 should we add the whole list
 	}
 	return hdrs
 }
