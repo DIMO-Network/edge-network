@@ -74,29 +74,21 @@ func (p *PIDRequest) ResponseHeader() uint32 {
 	}
 	// generic response headers
 	// can 11
-	if p.Header < 4095 {
+	if p.Header < 0xfff { // 4095
 		// 7df
-		if p.Header == 2015 {
-			return 2029 // 7e8, supposedly we could get responses on all 7e8, 7e9, 7ea, 7eb, 7ec, 7ed, 7ee, 7ef
+		if p.Header == 0x7df {
+			return 0x7e8 // supposedly we could get responses on all 7e8, 7e9, 7ea, 7eb, 7ec, 7ed, 7ee, 7ef
 		}
 		// handle 0x08 byte mod
 		return p.Header + 8
 	}
 
 	// can 29
-	// 18db33f1
-	if p.Header == 417018865 {
-		return 417001779 // 18DAF133
+	if p.Header == 0x18db33f1 {
+		return 0x18daf133 // default obd2 rx
 	}
-	// handle 29bit last byte swap
-	hexHdr := util.UintToHexStr(p.Header)
-	hexHdr = "18da" + hexHdr[4:] // response is normally in 18da (one to one) instead of 18db (one to many) communications
-	resp29bHdr, _ := util.SwapLastTwoBytes(hexHdr)
-	r, err := util.HexToDecimal(resp29bHdr)
-	if err != nil {
-		return 0
-	}
-	return r
+	// handle 29bit last byte swap, always start with 0x18da for resp hdr
+	return util.ForceFirstTwoBytesAndSwapLast(p.Header)
 }
 
 // TemplateDeviceSettings contains configurations options around power and other device settings. share from: vehicle-signal-decoding.grpc.DeviceSetting

@@ -49,19 +49,19 @@ func HexToDecimal(hexStr string) (uint32, error) {
 	return uint32(result), nil
 }
 
-func SwapLastTwoBytes(hexStr string) (string, error) {
-	// Check if the hex string length is valid (must be even and at least 4 characters)
-	if len(hexStr) < 4 || len(hexStr)%2 != 0 {
-		return "", fmt.Errorf("invalid hex string")
-	}
+// ForceFirstTwoBytesAndSwapLast forces the first two bytes of the input value to be 0x18da.
+// It then masks out the last two bytes and swaps them.
+// Finally, it combines the forced first two bytes with the swapped last two bytes and returns the result.
+func ForceFirstTwoBytesAndSwapLast(val uint32) uint32 {
+	// Force the first two bytes to be 0x18da
+	forcedFirstTwoBytes := uint32(0x18da0000)
 
-	// Split the hex string into two parts
-	prefix := hexStr[:len(hexStr)-4]       // Everything except the last two bytes
-	lastTwoBytes := hexStr[len(hexStr)-4:] // The last two bytes (4 hex chars)
+	// Mask out the last two bytes
+	lastTwoBytes := val & 0xFFFF // Extract the last two bytes (e.g., 0x33f1)
 
 	// Swap the last two bytes
-	swappedLastTwoBytes := lastTwoBytes[2:] + lastTwoBytes[:2]
+	swappedBytes := (lastTwoBytes >> 8) | (lastTwoBytes<<8)&0xFFFF // Swap 0x33 and 0xf1
 
-	// Return the result by concatenating the prefix with the swapped bytes
-	return prefix + strings.ToUpper(swappedLastTwoBytes), nil
+	// Combine forced first two bytes with swapped last two bytes
+	return forcedFirstTwoBytes | swappedBytes
 }
