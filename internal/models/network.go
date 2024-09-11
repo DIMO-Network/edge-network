@@ -116,11 +116,12 @@ type DeviceDataStatusCloudEvent[A any] struct {
 
 // CAN Dump frame project
 
-type SignalCanFrameData struct {
+type SignalCanFrameDump struct {
 	Timestamp int64 `json:"timestamp"`
 	// the Signal Name
-	Name     string `json:"name"`
-	HexValue string `json:"hexValue"`
-	Pid      uint32 `json:"pid"`
-	Error    string `json:"error"`
+	Name          string `json:"name"`
+	HexValue      string `json:"hexValue"`
+	Pid           uint32 `json:"pid"`
+	Error         string `json:"error"`
+	PythonFormula string `json:"pythonFormula"`
 }

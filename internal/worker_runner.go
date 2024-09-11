@@ -43,7 +43,7 @@ type workerRunner struct {
 	pids                *models.TemplatePIDs
 	deviceSettings      *models.TemplateDeviceSettings
 	signalsQueue        *SignalsQueue
-	signalFramesQueue   *SignalCanFrameQueue
+	signalDumpFramesQ   *SignalFrameDumpQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
 	device              Device
@@ -61,7 +61,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
-		dbcScanner: dbcScanner, signalFramesQueue: &SignalCanFrameQueue{signalFrames: make(map[string][]models.SignalCanFrameData)}}
+		dbcScanner: dbcScanner, signalDumpFramesQ: &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump)}}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -398,24 +398,9 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 // queryOBDWithAP calls autopi obd.query, waits for response and enques the resp value if any
 func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *api.PowerStatusResponse) {
 	// Python formulas to DBC project - CAN frame dumps for first 2 requests.
-	if request.FormulaType() == models.Python {
-		if wr.wantMoreCanFrameDump(request.Name) {
-			// todo could put all this in a function
-			request.Formula = "" // clear out the formula so we get hex resp
-			obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
-
-			scfr := models.SignalCanFrameData{
-				Timestamp: ts.UnixMilli(),
-				Name:      request.Name,
-				Pid:       request.Pid,
-			}
-			if err != nil {
-				scfr.Error = err.Error() // report it
-			} else if obdResp.IsHex {
-				scfr.HexValue = obdResp.ValueHex // todo
-			}
-			wr.signalFramesQueue.Enqueue(scfr)
-		}
+	if request.FormulaType() == models.Python && wr.wantMoreCanFrameDump(request.Name) {
+		wr.queryPIDAndCaptureDump(request)
+		return // skip this one
 	}
 	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 	// anywhere we call return it is b/c we intend to stop processing any additional code
@@ -458,6 +443,25 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 	})
 }
 
+// queryPIDAndCaptureDump does a obd.query with a blank formula and logs the hex the response in dump queue
+func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
+	request.Formula = "" // clear out the formula so we get hex resp
+	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+
+	scfr := models.SignalCanFrameDump{
+		Timestamp:     ts.UnixMilli(),
+		Name:          request.Name,
+		Pid:           request.Pid,
+		PythonFormula: request.Formula,
+	}
+	if err != nil {
+		scfr.Error = err.Error() // report it to cloud
+	} else if obdResp.IsHex {
+		scfr.HexValue = strings.Join(obdResp.ValueHex, "\n")
+	}
+	wr.signalDumpFramesQ.Enqueue(scfr)
+}
+
 // isOkToQueryOBD checks once to see if voltage rules pass to issue PID requests
 func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 	status, err := commands.GetPowerStatus(wr.device.UnitID)
@@ -474,9 +478,15 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 // wantMoreCanFrameDump true if we want more CAN dumps for this pid. Checks underlying data structure that tracks
 func (wr *workerRunner) wantMoreCanFrameDump(signalName string) bool {
 	const maxCanDumpFrames = 2
-	for i, frame := range wr.signalFramesQueue.signalFrames {
-		// todo
+
+	if s, ok := wr.signalDumpFramesQ.signalFrames[signalName]; ok {
+		if len(s) < maxCanDumpFrames {
+			return true
+		}
+	} else {
+		return true
 	}
+
 	return false
 }
 
@@ -487,12 +497,12 @@ type SignalsQueue struct {
 	sync.RWMutex
 }
 
-// SignalCanFrameQueue part of the CAN frame dumps project for python to DBC formulas
-type SignalCanFrameQueue struct {
-	signalFrames map[string][]models.SignalCanFrameData
+// SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas
+type SignalFrameDumpQueue struct {
+	signalFrames map[string][]models.SignalCanFrameDump
 }
 
-func (scf *SignalCanFrameQueue) Enqueue(signal models.SignalCanFrameData) {
+func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {
 	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
 }
 

@@ -1092,3 +1092,71 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 	}
 	return wr
 }
+
+func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
+	type fields struct {
+		signalFramesQueue *SignalFrameDumpQueue
+	}
+	type args struct {
+		signalName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "no signal exists, want more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "signal maxed out, no more",
+			want: false,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "different signal maxed out, need more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "odometer",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wr := &workerRunner{
+				signalDumpFramesQ: tt.fields.signalFramesQueue,
+			}
+			assert.Equalf(t, tt.want, wr.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
+		})
+	}
+}
