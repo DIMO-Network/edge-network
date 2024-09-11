@@ -2,6 +2,7 @@ package loggers
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -191,7 +192,7 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 func getUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
 	hdrs := make(map[uint32]struct{})
 	for _, pid := range pids {
-		hdrs[pid.ResponseHeader] = struct{}{}
+		hdrs[pid.ResponseHeader()] = struct{}{}
 	}
 	return hdrs
 }
@@ -233,7 +234,7 @@ func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
 
 	// switch to extended frame if bigger header
 	k := canbus.SFF
-	if header > 4095 {
+	if header > 0xfff {
 		k = canbus.EFF
 	}
 	_, err = send.Send(canbus.Frame{
@@ -315,10 +316,23 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
-		if pid.ResponseHeader == frame.ID {
-			// todo UDS there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
-			if pid.Pid == uint32(frame.Data[2]) {
-				return &pid
+		if pid.ResponseHeader() == frame.ID {
+			if pid.Pid > 0x00 && pid.Pid < 0xff {
+				// obd2 standard PID, known position
+				if pid.Pid == uint32(frame.Data[2]) {
+					return &pid
+				}
+			} else {
+				// assume UDS
+				for i := 0; i < len(frame.Data); i++ {
+					if i+2 < len(frame.Data) {
+						did := frame.Data[i : i+2]
+
+						if pid.Pid == uint32(binary.BigEndian.Uint16(did)) {
+							return &pid
+						}
+					}
+				}
 			}
 		}
 	}

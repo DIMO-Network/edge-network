@@ -176,71 +176,107 @@ func Test_dbcPassiveLogger_parseDBCHeaders(t *testing.T) {
 // - 53: coolant data - 83 - 40 = 43
 func Test_dbcPassiveLogger_matchPID(t *testing.T) {
 	testLogger := zerolog.New(os.Stdout).Output(zerolog.ConsoleWriter{Out: os.Stdout})
-	pids := []models.PIDRequest{
+	pidsObd2 := []models.PIDRequest{
 		{
 			Formula:         "dbc: 31|8@0+ (1,-40) [-40|215]",
-			Header:          2015, // 7df
+			Header:          0x7df, // 7df
 			IntervalSeconds: 60,
 			Mode:            1, // 01
 			Name:            "coolantTemp",
-			Pid:             5, // 05
+			Pid:             0x05, // 05
 			Protocol:        "CAN11_500",
-			ResponseHeader:  2024,
 		},
 		{
 			Formula:         "dbc: 31|8@0+ (1,-40) [-40|215]",
-			Header:          417018865, // 7df
+			Header:          0x18db33f1, // default 29b
 			IntervalSeconds: 60,
 			Mode:            1, // 01
 			Name:            "coolantTemp",
-			Pid:             5, // 05
+			Pid:             0x05, // 05
 			Protocol:        "CAN29_500",
-			ResponseHeader:  417001744,
 		},
 	}
-
-	dpl := &dbcPassiveLogger{
-		logger:          testLogger,
-		dbcFile:         nil,
-		hardwareSupport: true,
-		pids:            pids,
+	pidsUds := []models.PIDRequest{
+		{
+			Formula:  "dbc: 31|8@0+ (1.8,-40) [-40|60]",
+			Header:   0x7e6,
+			Name:     "ambienAirTemp",
+			Pid:      0xdd05,
+			Protocol: "CAN11_500",
+		},
+		{
+			Formula:  "dbc: 31|8@0+ (0.5,0) [0|1]",
+			Header:   0x7e4,
+			Name:     "soh",
+			Pid:      0x490c,
+			Protocol: "CAN11_500",
+		},
 	}
 
 	tests := []struct {
 		name        string
 		frame       canbus.Frame
 		wantPIDName string
+		pids        []models.PIDRequest
 	}{
+		{
+			name: "uds match ambient air temp",
+			frame: canbus.Frame{
+				ID:   0x7ee,
+				Data: hexToByteArray("03 41 dd 05 34", t),
+			},
+			pids:        pidsUds,
+			wantPIDName: "ambienAirTemp",
+		},
+		{
+			name: "uds match soh",
+			frame: canbus.Frame{
+				ID:   0x7ec,
+				Data: hexToByteArray("03 41 49 0c 37", t),
+			},
+			pids:        pidsUds,
+			wantPIDName: "soh",
+		},
 		{
 			name: "match coolant temp",
 			frame: canbus.Frame{
-				ID:   2024,
+				ID:   0x7e8,
 				Data: hexToByteArray("03 41 05 53", t),
 			},
 			wantPIDName: "coolantTemp",
+			pids:        pidsObd2,
 		},
 		{
 			name: "match coolant temp EFF",
 			frame: canbus.Frame{
-				ID:   417001744,
+				ID:   0x18daf133,
 				Data: hexToByteArray("03 41 05 53", t),
 			},
 			wantPIDName: "coolantTemp",
+			pids:        pidsObd2,
 		},
 		{
 			name: "no match unregistered pid",
 			frame: canbus.Frame{
-				ID:   2024,
+				ID:   0x7e8,
 				Data: hexToByteArray("10 14 49 02 01 4C 46 56", t),
 			},
 			wantPIDName: "",
+			pids:        pidsObd2,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			dpl := &dbcPassiveLogger{
+				logger:          testLogger,
+				dbcFile:         nil,
+				hardwareSupport: true,
+				pids:            tt.pids,
+			}
 			match := dpl.matchPID(tt.frame)
 			fmt.Printf("%+v\n", match)
 			if tt.wantPIDName != "" {
+				require.NotNil(t, match, "expected a match")
 				assert.Equalf(t, tt.wantPIDName, match.Name, "matchPID(%v)", tt.frame)
 			} else {
 				assert.Nil(t, match, "expected nil match")
@@ -264,7 +300,8 @@ func TestParseUniqueResponseHeaders(t *testing.T) {
 			name: "Single PID",
 			pids: []models.PIDRequest{
 				{
-					ResponseHeader: 0x123,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,123",
 				},
 			},
 			want: map[uint32]struct{}{
@@ -275,13 +312,16 @@ func TestParseUniqueResponseHeaders(t *testing.T) {
 			name: "Multiple Unique PIDs",
 			pids: []models.PIDRequest{
 				{
-					ResponseHeader: 0x123,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,123",
 				},
 				{
-					ResponseHeader: 0x456,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,456",
 				},
 				{
-					ResponseHeader: 0x789,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,789",
 				},
 			},
 			want: map[uint32]struct{}{
@@ -294,13 +334,16 @@ func TestParseUniqueResponseHeaders(t *testing.T) {
 			name: "Multiple Duplicate PIDs",
 			pids: []models.PIDRequest{
 				{
-					ResponseHeader: 0x123,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,123",
 				},
 				{
-					ResponseHeader: 0x123,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,123",
 				},
 				{
-					ResponseHeader: 0x123,
+					Header:               0x7df,
+					CanFlowControlIDPair: "7df,123",
 				},
 			},
 			want: map[uint32]struct{}{
