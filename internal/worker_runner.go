@@ -93,7 +93,7 @@ func (wr *workerRunner) Run() {
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
 	if wr.dbcScanner.ShouldNativeScanLogger() {
-		wr.logger.Info().Msg("found DBC file, starting DBC passive logger")
+		wr.logger.Info().Msg("starting passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
 		go func() {
@@ -104,12 +104,13 @@ func (wr *workerRunner) Run() {
 			}
 		}()
 		go func() {
+			// any signals picked up by can0 hardware filter logger gets enqueued to be sent
 			for signal := range dbcCh {
 				wr.signalsQueue.Enqueue(signal)
 			}
 		}()
 	} else {
-		wr.logger.Info().Msg("no DBC file found, not starting DBC passive logger")
+		wr.logger.Info().Msg("not starting native logger since ShouldNativeScanLogger() returned false")
 	}
 
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
