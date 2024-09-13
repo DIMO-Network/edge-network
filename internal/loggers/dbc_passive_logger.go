@@ -25,7 +25,7 @@ import (
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
 	StartScanning(ch chan<- models.SignalData) error
-	// UseNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native Request/Response scanning (they go hand in hand)
+	// ShouldNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native Request/Response scanning (they go hand in hand)
 	ShouldNativeScanLogger() bool
 	SendCANQuery(header uint32, mode uint32, pid uint32) error
 	StopScanning() error
@@ -165,6 +165,9 @@ func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
 			break
 		}
 	}
+	dpl.logger.Info().Msgf("hardware support: %v, dbc file not nil: %v, pids with python formula: %v",
+		dpl.hardwareSupport, dpl.dbcFile != nil, pidsPython)
+
 	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsPython
 }
 
