@@ -38,6 +38,8 @@ type dbcPassiveLogger struct {
 	hardwareSupport bool
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
+	// cache what we figure out
+	shouldNativeScanLogger *bool
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -156,8 +158,11 @@ func buildCanFilters(filters []dbcFilter) []unix.CanFilter {
 	return uf
 }
 
-// ShouldNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
+// ShouldNativeScanLogger decide if should enable native scanning / querying based on: hardware support for our impl and no python formulas
 func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
+	if dpl.shouldNativeScanLogger != nil {
+		return *dpl.shouldNativeScanLogger
+	}
 	pidsPython := false
 	for _, pid := range dpl.pids {
 		if pid.FormulaType() == models.Python {
@@ -165,10 +170,13 @@ func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
 			break
 		}
 	}
-	dpl.logger.Info().Msgf("hardware support: %v, dbc file not nil: %v, pids with python formula: %v",
-		dpl.hardwareSupport, dpl.dbcFile != nil, pidsPython)
+	dpl.logger.Debug().Msgf("hardware support: %v, pids with python formula: %v",
+		dpl.hardwareSupport, pidsPython)
 
-	return dpl.hardwareSupport && dpl.dbcFile != nil && !pidsPython
+	allgood := dpl.hardwareSupport && !pidsPython
+	dpl.shouldNativeScanLogger = &allgood
+
+	return allgood
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {

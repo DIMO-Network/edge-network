@@ -384,3 +384,57 @@ func compareMaps(a, b map[uint32]struct{}) bool {
 
 	return true
 }
+
+func Test_dbcPassiveLogger_ShouldNativeScanLogger(t *testing.T) {
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
+	b := true
+	type fields struct {
+		hardwareSupport        bool
+		pids                   []models.PIDRequest
+		shouldNativeScanLogger *bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{
+			name: "no hw support",
+			fields: fields{
+				hardwareSupport: false,
+				pids:            []models.PIDRequest{},
+			},
+			want: false,
+		},
+		{
+			name: "all good",
+			fields: fields{
+				hardwareSupport: true,
+				pids: []models.PIDRequest{
+					{
+						Formula: "dbc: 31|8 ",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "cached yes",
+			fields: fields{
+				shouldNativeScanLogger: &b,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dpl := &dbcPassiveLogger{
+				logger:                 logger,
+				hardwareSupport:        tt.fields.hardwareSupport,
+				pids:                   tt.fields.pids,
+				shouldNativeScanLogger: tt.fields.shouldNativeScanLogger,
+			}
+			assert.Equalf(t, tt.want, dpl.ShouldNativeScanLogger(), "ShouldNativeScanLogger()")
+		})
+	}
+}
