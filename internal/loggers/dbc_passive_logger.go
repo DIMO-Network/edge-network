@@ -173,10 +173,10 @@ func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
 	dpl.logger.Debug().Msgf("hardware support: %v, pids with python formula: %v",
 		dpl.hardwareSupport, pidsPython)
 
-	allgood := dpl.hardwareSupport && !pidsPython
-	dpl.shouldNativeScanLogger = &allgood
+	useNativeLogger := dpl.hardwareSupport && !pidsPython
+	dpl.shouldNativeScanLogger = &useNativeLogger
 
-	return allgood
+	return useNativeLogger
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {

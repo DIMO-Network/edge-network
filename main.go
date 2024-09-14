@@ -47,6 +47,11 @@ var btManager btmgmt.BtMgmt
 //go:embed config.yaml config-dev.yaml
 var configFiles embed.FS
 
+func buildBleName(serial uuid.UUID) string {
+	unitIDStr := serial.String()
+	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
+}
+
 func main() {
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -67,17 +72,27 @@ func main() {
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
 
-	name, unitID = commands.GetDeviceName(logger)
-	logger.Info().Msgf("SerialNumber Number: %s", unitID)
-
-	hwRevision, err := commands.GetHardwareRevision(unitID)
+	serial, err := commands.GetDeviceSerial()
 	if err != nil {
-		logger.Err(err).Msg("error getting hardware rev")
+		logger.Fatal().Err(err).Send()
+	}
+	logger.Info().Msgf("SerialNumber Number: %s", serial)
+	name = buildBleName(serial)
+	unitID = serial
+	hwRevision := "7.0" // assume latest version if can't get it
+	hwRv, err := util.Retry[string](3, 4*time.Second, logger, func() (interface{}, error) {
+		return commands.GetHardwareRevision(unitID)
+	})
+	if err != nil {
+		logger.Err(err).Msgf("error getting hardware rev, defaulting to %s", hwRevision)
+	}
+	if hwRv != nil {
+		hwRevision = *hwRv
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := util.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := util.Retry[common.Address](3, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
 
