@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"context"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"time"
 
 	"github.com/DIMO-Network/edge-network/internal/util"
@@ -94,7 +96,8 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 		return vt.vsd.UpdateDeviceConfigStatus(addr, fwVersion, unitID, templateURLsRemote)
 	})
 	if updateDeviceStatusErr != nil {
-		vt.logger.Err(updateDeviceStatusErr).Msg(fmt.Sprintf("failed to update device config status using ethAddr %s", addr.String()))
+		vt.logger.Err(updateDeviceStatusErr).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
+			Msg(fmt.Sprintf("failed to update device config status using ethAddr %s", addr.String()))
 	}
 
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally

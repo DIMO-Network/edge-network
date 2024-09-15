@@ -80,7 +80,7 @@ func main() {
 	name = buildBleName(serial)
 	unitID = serial
 	hwRevision := "7.0" // assume latest version if can't get it
-	hwRv, err := util.Retry[string](3, 4*time.Second, logger, func() (interface{}, error) {
+	hwRv, err := util.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetHardwareRevision(unitID)
 	})
 	if err != nil {
@@ -92,9 +92,18 @@ func main() {
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := util.Retry[common.Address](3, 4*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := util.Retry[common.Address](4, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
+	// check if we were able to get ethereum address, otherwise fail fast
+	if ethAddr == nil {
+		if ethErr != nil {
+			logger.Err(ethErr).Msg("eth addr error")
+		}
+		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+	}
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
@@ -160,17 +169,7 @@ func main() {
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
-	// check if we were able to get ethereum address, otherwise fail fast
-	if ethAddr == nil {
-		if ethErr != nil {
-			logger.Err(ethErr).Msg("eth addr error")
-		}
-		logger.Fatal().Msgf("could not get ethereum address")
-	} else {
-		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
-	}
-
-	//  start mqtt certificate verification routine
+	// start mqtt certificate verification routine
 	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
 	certErr := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
