@@ -473,7 +473,7 @@ func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
 	scfr := models.SignalCanFrameDump{
 		Timestamp:     time.Now().UnixMilli(),
 		Name:          request.Name,
-		Pid:           request.Pid,
+		PidHex:        util.UintToHexStr(request.Pid),
 		PythonFormula: f,
 	}
 	if err != nil {

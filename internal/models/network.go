@@ -121,7 +121,7 @@ type SignalCanFrameDump struct {
 	// the Signal Name
 	Name          string `json:"name"`
 	HexValue      string `json:"hexValue"`
-	Pid           uint32 `json:"pid"`
+	PidHex        string `json:"pidHex"`
 	Error         string `json:"error"`
 	PythonFormula string `json:"pythonFormula"`
 }
