@@ -466,14 +466,15 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 
 // queryPIDAndCaptureDump does a obd.query with a blank formula and logs the hex the response in dump queue
 func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
+	f := request.Formula
 	request.Formula = "" // clear out the formula so we get hex resp
-	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+	obdResp, _, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 
 	scfr := models.SignalCanFrameDump{
-		Timestamp:     ts.UnixMilli(),
+		Timestamp:     time.Now().UnixMilli(),
 		Name:          request.Name,
 		Pid:           request.Pid,
-		PythonFormula: request.Formula,
+		PythonFormula: f,
 	}
 	if err != nil {
 		scfr.Error = err.Error() // report it to cloud
