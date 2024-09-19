@@ -67,6 +67,8 @@ type SignalData struct {
 	Timestamp int64  `json:"timestamp"`
 	Name      string `json:"name"`
 	Value     any    `json:"value"`
+	// LimitFrequency does not get json serialized. Used for DBC scanning when we get the particular signal too often
+	LimitFrequency bool `json:"-"`
 }
 
 type ErrorsData struct {

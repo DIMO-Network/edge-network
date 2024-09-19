@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	_ "time"
@@ -1161,4 +1162,31 @@ func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
 			assert.Equalf(t, tt.want, wr.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
 		})
 	}
+}
+
+func TestSignalsQueue_Enqueue(t *testing.T) {
+	sq := SignalsQueue{
+		signals:         []models.SignalData{},
+		lastTimeChecked: make(map[string]time.Time),
+		failureCount:    make(map[string]int),
+		RWMutex:         sync.RWMutex{},
+	}
+	// only enqueues once b/c same value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.2,
+	})
+	sq.Enqueue(models.SignalData{
+		Name:           "odometer",
+		Value:          324.2,
+		LimitFrequency: true,
+	})
+	assert.Equal(t, 1, len(sq.signals))
+
+	// allows enqueue since different value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.3,
+	})
+	assert.Equal(t, 2, len(sq.signals))
 }

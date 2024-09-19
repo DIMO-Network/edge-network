@@ -134,9 +134,10 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 				dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
 			}
 			s := models.SignalData{
-				Timestamp: time.Now().UnixMilli(),
-				Name:      signal.signalName,
-				Value:     floatValue,
+				Timestamp:      time.Now().UnixMilli(),
+				Name:           signal.signalName,
+				Value:          floatValue,
+				LimitFrequency: true,
 			}
 			// push to channel
 			ch <- s

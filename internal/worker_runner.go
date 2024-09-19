@@ -396,8 +396,10 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			}
 		} else {
 			wr.queryOBDWithAP(request, powerStatus)
+			// todo i think we need to make this more robust using channels, seperate file probably
 			if !wr.signalDumpFramesQ.jobDone {
-				if wr.signalDumpFramesQ.lastEnqueued.Before(time.Now().Add(3 * time.Minute)) {
+				if wr.signalDumpFramesQ.lastEnqueued.Before(time.Now().Add(3*time.Minute)) &&
+					len(wr.signalDumpFramesQ.signalFrames) > 0 {
 					bytes, err := json.Marshal(wr.signalDumpFramesQ.signalFrames)
 					if err != nil {
 						wr.logger.Err(err).Msg("failed to marshal signalDumpFrames")
@@ -537,12 +539,19 @@ func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
 	defer sq.Unlock()
 	t, ok := sq.lastTimeChecked[key]
 	return t, ok
-
 }
 
 func (sq *SignalsQueue) Enqueue(signal models.SignalData) {
 	sq.Lock()
 	defer sq.Unlock()
+	// only enqueue limit freq signals once if same value
+	if signal.LimitFrequency {
+		for _, s := range sq.signals {
+			if s.Name == signal.Name && s.Value == signal.Value {
+				return
+			}
+		}
+	}
 	sq.lastTimeChecked[signal.Name] = time.Now()
 	sq.signals = append(sq.signals, signal)
 }
