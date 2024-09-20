@@ -395,18 +395,25 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 				hooks.LogError(wr.logger, err, "failed to send CAN query", hooks.WithThresholdWhenLogMqtt(5), hooks.WithPowerStatus(*powerStatus))
 			}
 		} else {
+			// Python formulas to DBC project - CAN frame dumps for first 2 requests.
+			if !wr.signalDumpFramesQ.jobDone && request.FormulaType() == models.Python && wr.signalDumpFramesQ.wantMoreCanFrameDump(request.Name) {
+				wr.queryPIDAndCaptureDump(request)
+				continue // skip this one
+			}
+			// once above is done we'll just query regularly
 			wr.queryOBDWithAP(request, powerStatus)
 			// todo i think we need to make this more robust using channels, seperate file probably
 			if !wr.signalDumpFramesQ.jobDone {
 				if wr.signalDumpFramesQ.lastEnqueued.Before(time.Now().Add(3*time.Minute)) &&
 					len(wr.signalDumpFramesQ.signalFrames) > 0 {
-					bytes, err := json.Marshal(wr.signalDumpFramesQ.signalFrames)
+					bytes, err := json.Marshal(wr.signalDumpFramesQ.Dequeue())
 					if err != nil {
 						wr.logger.Err(err).Msg("failed to marshal signalDumpFrames")
 					}
 					err = wr.dataSender.SendCanDumpData(bytes)
 					if err != nil {
-						wr.logger.Err(err).Msgf("failed to send canDumpData for custom pids. data length: %d", len(bytes))
+						hooks.LogError(wr.logger, err, fmt.Sprintf("failed to send canDumpData for custom pids.data length: %d", len(bytes)),
+							hooks.WithThresholdWhenLogMqtt(5), hooks.WithStopLogAfter(3))
 					}
 					wr.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
 					wr.signalDumpFramesQ.jobDone = true // persist this somewhere?
@@ -419,11 +426,6 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 
 // queryOBDWithAP calls autopi obd.query, waits for response and enques the resp value if any
 func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *api.PowerStatusResponse) {
-	// Python formulas to DBC project - CAN frame dumps for first 2 requests.
-	if !wr.signalDumpFramesQ.jobDone && request.FormulaType() == models.Python && wr.wantMoreCanFrameDump(request.Name) {
-		wr.queryPIDAndCaptureDump(request)
-		return // skip this one
-	}
 	obdResp, ts, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 	// anywhere we call return it is b/c we intend to stop processing any additional code
 	if err != nil {
@@ -498,39 +500,11 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 	return false, status
 }
 
-// wantMoreCanFrameDump true if we want more CAN dumps for this pid. Checks underlying data structure that tracks
-func (wr *workerRunner) wantMoreCanFrameDump(signalName string) bool {
-	const maxCanDumpFrames = 2
-
-	if s, ok := wr.signalDumpFramesQ.signalFrames[signalName]; ok {
-		if len(s) < maxCanDumpFrames {
-			return true
-		}
-	} else {
-		return true
-	}
-
-	return false
-}
-
 type SignalsQueue struct {
 	signals         map[string][]models.SignalData
 	lastTimeChecked map[string]time.Time
 	failureCount    map[string]int
 	sync.RWMutex
-}
-
-// SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas
-type SignalFrameDumpQueue struct {
-	signalFrames map[string][]models.SignalCanFrameDump
-	// we will check this to decide when to send the signalFrames over mqtt
-	lastEnqueued time.Time
-	jobDone      bool
-}
-
-func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {
-	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
-	scf.lastEnqueued = time.Now()
 }
 
 func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
@@ -575,4 +549,50 @@ func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
 	sq.Lock()
 	defer sq.Unlock()
 	sq.failureCount[requestName]++
+}
+
+// SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas. similar to above but for storing can dumps
+type SignalFrameDumpQueue struct {
+	signalFrames map[string][]models.SignalCanFrameDump
+	// we will check this to decide when to send the signalFrames over mqtt
+	lastEnqueued time.Time
+	jobDone      bool
+	sync.RWMutex
+}
+
+func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {
+	scf.Lock()
+	defer scf.Unlock()
+
+	scf.lastEnqueued = time.Now()
+	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
+}
+
+func (scf *SignalFrameDumpQueue) Dequeue() []models.SignalCanFrameDump {
+	scf.Lock()
+	defer scf.Unlock()
+	// iterate over the signals map and return just the []models.SignalsData
+	var data []models.SignalCanFrameDump
+	for _, v := range scf.signalFrames {
+		data = append(data, v...)
+	}
+	// empty the data after dequeue
+	scf.signalFrames = map[string][]models.SignalCanFrameDump{}
+
+	return data
+}
+
+// wantMoreCanFrameDump true if we want more CAN dumps for this pid. Checks underlying data structure that tracks
+func (scf *SignalFrameDumpQueue) wantMoreCanFrameDump(signalName string) bool {
+	const maxCanDumpFrames = 2
+
+	if s, ok := scf.signalFrames[signalName]; ok {
+		if len(s) < maxCanDumpFrames {
+			return true
+		}
+	} else {
+		return true
+	}
+
+	return false
 }
