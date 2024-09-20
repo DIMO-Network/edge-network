@@ -110,8 +110,9 @@ func Test_workerRunner_Obd(t *testing.T) {
 	_, _ = wr.isOkToQueryOBD()
 	wr.queryOBD(nil)
 
+	fmt.Printf("wr.signalsQueue.signals: %+v\n", wr.signalsQueue.signals)
 	// verify
-	assert.Equal(t, "fuellevel", wr.signalsQueue.signals["fuelLevel"][0].Name)
+	assert.Equal(t, "fuellevel", wr.signalsQueue.signals["fuellevel"][0].Name)
 	assert.Equal(t, 2, len(wr.signalsQueue.signals))
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -1018,7 +1019,7 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 6, len(data.Vehicle.Signals))
+		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
@@ -1080,7 +1081,7 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 			UnitID: unitID,
 		},
 		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)},
+		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)},
 		vehicleInfo: &models.VehicleInfo{
 			TokenID: 12345,
 			VehicleDefinition: models.VehicleDefinition{
