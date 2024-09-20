@@ -411,7 +411,6 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 					wr.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
 					wr.signalDumpFramesQ.jobDone = true // persist this somewhere?
 				}
-
 			}
 		}
 
@@ -515,7 +514,7 @@ func (wr *workerRunner) wantMoreCanFrameDump(signalName string) bool {
 }
 
 type SignalsQueue struct {
-	signals         []models.SignalData
+	signals         map[string][]models.SignalData
 	lastTimeChecked map[string]time.Time
 	failureCount    map[string]int
 	sync.RWMutex
@@ -546,23 +545,30 @@ func (sq *SignalsQueue) Enqueue(signal models.SignalData) {
 	defer sq.Unlock()
 	// only enqueue limit freq signals once if same value
 	if signal.LimitFrequency {
-		for _, s := range sq.signals {
-			if s.Name == signal.Name && s.Value == signal.Value {
-				return
+		if data, ok := sq.signals[signal.Name]; ok {
+			for _, s := range data {
+				if s.Value == signal.Value {
+					return
+				}
 			}
 		}
 	}
 	sq.lastTimeChecked[signal.Name] = time.Now()
-	sq.signals = append(sq.signals, signal)
+	sq.signals[signal.Name] = append(sq.signals[signal.Name], signal)
 }
 
 func (sq *SignalsQueue) Dequeue() []models.SignalData {
 	sq.Lock()
 	defer sq.Unlock()
-	signals := sq.signals
+	// iterate over the signals map and return just the []models.SignalsData
+	var data []models.SignalData
+	for _, v := range sq.signals {
+		data = append(data, v...)
+	}
 	// empty the data after dequeue
-	sq.signals = []models.SignalData{}
-	return signals
+	sq.signals = map[string][]models.SignalData{}
+
+	return data
 }
 
 func (sq *SignalsQueue) IncrementFailureCount(requestName string) {

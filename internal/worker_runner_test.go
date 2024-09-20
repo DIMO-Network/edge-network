@@ -111,7 +111,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	wr.queryOBD(nil)
 
 	// verify
-	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "fuellevel", wr.signalsQueue.signals["fuelLevel"][0].Name)
 	assert.Equal(t, 2, len(wr.signalsQueue.signals))
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -168,7 +168,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	wr.queryOBD(nil)
 
 	// verify
-	assert.Equal(t, "foo", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "foo", wr.signalsQueue.signals["foo"][0].Name)
 	assert.Equal(t, 3, len(wr.signalsQueue.signals))
 	assert.Equal(t, 3, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -1166,7 +1166,7 @@ func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
 
 func TestSignalsQueue_Enqueue(t *testing.T) {
 	sq := SignalsQueue{
-		signals:         []models.SignalData{},
+		signals:         map[string][]models.SignalData{},
 		lastTimeChecked: make(map[string]time.Time),
 		failureCount:    make(map[string]int),
 		RWMutex:         sync.RWMutex{},
@@ -1181,12 +1181,12 @@ func TestSignalsQueue_Enqueue(t *testing.T) {
 		Value:          324.2,
 		LimitFrequency: true,
 	})
-	assert.Equal(t, 1, len(sq.signals))
+	assert.Equal(t, 1, len(sq.signals["odometer"]))
 
 	// allows enqueue since different value
 	sq.Enqueue(models.SignalData{
 		Name:  "odometer",
 		Value: 324.3,
 	})
-	assert.Equal(t, 2, len(sq.signals))
+	assert.Equal(t, 2, len(sq.signals["odometer"]))
 }
