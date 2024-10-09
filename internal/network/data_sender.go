@@ -238,8 +238,8 @@ func (ds *dataSender) SendCanDumpData(data json.RawMessage) error {
 		SpecVersion:    "1.0",
 		Subject:        ds.ethAddr.Hex(),
 		Time:           time.Now().UTC(),
-		Type:           "zone.dimo.aftermarket.canbus.dump",
-		DataSchema:     "dimo.zone.status/v2.0",
+		Type:           "com.dimo.aftermarket.canbus.dump",
+		DataSchema:     "dimo.zone.dump/v1.0",
 		Data:           data,
 		VehicleTokenID: uint32(ds.vehicleInfo.TokenID),
 	}

@@ -94,7 +94,8 @@ func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
 	return nil
 }
 
-// ReadTemplateURLs reads from disk, serializes json into object. Checks updated_at and if older than 30d errors to force getting fresh one
+// ReadTemplateURLs reads from disk, serializes json into object.
+// Checks updated_at and if older than 30d errors to force getting fresh one
 func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	data, err := ts.readConfig(TemplateURLsFile)
 	if err != nil {
