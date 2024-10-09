@@ -3,10 +3,13 @@ package loggers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/DIMO-Network/shared/device"
 
@@ -91,10 +94,15 @@ func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
 	return nil
 }
 
+// ReadTemplateURLs reads from disk, serializes json into object. Checks updated_at and if older than 30d errors to force getting fresh one
 func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	data, err := ts.readConfig(TemplateURLsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	updatedAt := gjson.GetBytes(data, "update_at").Time()
+	if time.Now().After(updatedAt.Add(time.Hour * 24 * 30)) {
+		return nil, fmt.Errorf("expired template urls: %s", updatedAt)
 	}
 	ls := &device.ConfigResponse{}
 
@@ -106,13 +114,17 @@ func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	return ls, nil
 }
 
+// WriteTemplateURLs writes the settings to disk and adds a updated_at field
 func (ts *templateStore) WriteTemplateURLs(settings device.ConfigResponse) error {
-	err := ts.writeConfig(TemplateURLsFile, settings)
+	bytes, err := json.Marshal(settings)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal settings: %s", err)
 	}
-
-	return nil
+	bytes, err = sjson.SetBytes(bytes, "update_at", time.Now().Format(time.RFC3339)) // default used by gjson
+	if err != nil {
+		return fmt.Errorf("failed to set update_at: %s", err)
+	}
+	return ts.writeConfig(TemplateURLsFile, string(bytes))
 }
 
 func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error) {
@@ -233,7 +245,8 @@ func (ts *templateStore) readConfig(filePath string) ([]byte, error) {
 	return data, nil
 }
 
-// WriteConfig writes the config file in json format to tmp folder, overwriting anything already existing
+// WriteConfig writes the config file in json format to tmp folder, overwriting anything already existing.
+// if the settings are a string, will not try to json marshal
 func (ts *templateStore) writeConfig(filePath string, settings interface{}) error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
