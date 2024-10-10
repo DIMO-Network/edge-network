@@ -67,6 +67,8 @@ type SignalData struct {
 	Timestamp int64  `json:"timestamp"`
 	Name      string `json:"name"`
 	Value     any    `json:"value"`
+	// LimitFrequency does not get json serialized. Used for DBC scanning when we get the particular signal too often
+	LimitFrequency bool `json:"-"`
 }
 
 type ErrorsData struct {
@@ -112,4 +114,16 @@ type GraphQLRequest struct {
 type DeviceDataStatusCloudEvent[A any] struct {
 	shared.CloudEvent[A]
 	TokenID uint64 `json:"vehicleTokenId"`
+}
+
+// CAN Dump frame project
+
+type SignalCanFrameDump struct {
+	Timestamp int64 `json:"timestamp"`
+	// the Signal Name
+	Name          string `json:"name"`
+	HexValue      string `json:"hexValue"`
+	PidHex        string `json:"pidHex"`
+	Error         string `json:"error"`
+	PythonFormula string `json:"pythonFormula"`
 }

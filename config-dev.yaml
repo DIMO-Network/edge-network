@@ -9,6 +9,7 @@ mqtt:
     network: devices/%s/network
     logs: devices/%s/logs
     fingerprint: devices/%s/fingerprint
+    candump: devices/%s/protocol/canbus/dump
   client:
     buffering:
       fileStore: /opt/autopi/store

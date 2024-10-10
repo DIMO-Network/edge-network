@@ -3,6 +3,8 @@ package models
 import (
 	"strings"
 
+	"github.com/DIMO-Network/edge-network/internal/util"
+
 	"github.com/DIMO-Network/shared/device"
 )
 
@@ -16,7 +18,6 @@ type TemplatePIDs struct {
 type PIDRequest struct {
 	Formula              string `json:"formula"`
 	Header               uint32 `json:"header"`
-	ResponseHeader       uint32 `json:"response_header"`
 	IntervalSeconds      int    `json:"interval_seconds"`
 	Mode                 uint32 `json:"mode"`
 	Name                 string `json:"name"`
@@ -58,6 +59,37 @@ func (p *PIDRequest) FormulaValue() string {
 		return strings.TrimPrefix(p.Formula, "python:")
 	}
 	return p.Formula
+}
+
+// ResponseHeader checks the poorly name can_flow_control_id_pair second hex value to check if exists, otherwise does a 0x08 operation on Header if not 7df / 18db33f1. Returns 0 if bad data
+func (p *PIDRequest) ResponseHeader() uint32 {
+	// check for specific rx specified in can pair field
+	if len(p.CanFlowControlIDPair) > 2 && strings.Contains(p.CanFlowControlIDPair, ",") {
+		split := strings.Split(p.CanFlowControlIDPair, ",")
+		if len(split) == 2 {
+			if decimal, err := util.HexToDecimal(split[1]); err == nil {
+				return decimal
+			}
+			return 0
+		}
+	}
+	// generic response headers
+	// can 11
+	if p.Header < 0xfff { // 4095
+		// 7df
+		if p.Header == 0x7df {
+			return 0x7e8 // supposedly we could get responses on all 7e8, 7e9, 7ea, 7eb, 7ec, 7ed, 7ee, 7ef
+		}
+		// handle 0x08 byte mod
+		return p.Header + 8
+	}
+
+	// can 29
+	if p.Header == 0x18db33f1 {
+		return 0x18daf133 // default obd2 rx
+	}
+	// handle 29bit last byte swap, always start with 0x18da for resp hdr
+	return util.ForceFirstTwoBytesAndSwapLast(p.Header)
 }
 
 // TemplateDeviceSettings contains configurations options around power and other device settings. share from: vehicle-signal-decoding.grpc.DeviceSetting

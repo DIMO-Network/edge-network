@@ -9,6 +9,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// todo doesn't seem any of this is used. Do we want to save it somewhere else or was it an experiment?
+
 var agentInstances = 0
 
 const AgentBasePath = "/agent/simple%d"
