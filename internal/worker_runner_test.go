@@ -1160,7 +1160,7 @@ func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
 			wr := &workerRunner{
 				signalDumpFramesQ: tt.fields.signalFramesQueue,
 			}
-			assert.Equalf(t, tt.want, wr.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
+			assert.Equalf(t, tt.want, wr.signalDumpFramesQ.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
 		})
 	}
 }
