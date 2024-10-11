@@ -398,9 +398,8 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 		} else {
 			// Python formulas to DBC project - CAN frame dumps for first 2 requests.
 			if wr.signalDumpFramesQ.ShouldCaptureReq(request) {
-				// what if we get error responses but then we get a success,
-				// we want to prioritize the successful capture
-				// ok to query multiple times until get successful response
+				// todo improvement: what if we get error responses but then we get a success,
+				// we want to prioritize the successful capture. Should query multiple times until get successful response
 				wr.queryPIDAndCaptureDump(request)
 				continue // skip this one
 			}
@@ -430,10 +429,19 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 	// future: new formula type that could work for proprietary PIDs and could support text, int or float
 	var value interface{}
 	if request.FormulaType() == models.Dbc && obdResp.IsHex {
-		value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], util.UintToHexStr(request.Pid), request.FormulaValue())
+		// in case there are multiple responses
+		lastHex := ""
+		for _, hex := range obdResp.ValueHex {
+			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hex, util.UintToHexStr(request.Pid), request.FormulaValue())
+			lastHex = hex
+			if err == nil {
+				break // if no error just continue
+			}
+		}
+		// the last error will be set
 		if err != nil {
 			msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
-				request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
+				request.FormulaValue(), request.Name, lastHex, wr.pids.TemplateName)
 			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(10), hooks.WithStopLogAfter(1))
 			return
 		}
