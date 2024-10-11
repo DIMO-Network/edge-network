@@ -29,7 +29,7 @@ const (
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go
-type TemplateStore interface {
+type SettingsStore interface {
 	ReadVINConfig() (*models.VINLoggerSettings, error)
 	WriteVINConfig(settings models.VINLoggerSettings) error
 
@@ -50,12 +50,12 @@ type TemplateStore interface {
 	DeleteAllSettings() error
 }
 
-// templateStore wraps reading and writing different configurations locally
-type templateStore struct {
+// settingsStore wraps reading and writing different configurations locally
+type settingsStore struct {
 	mu sync.Mutex
 }
 
-func (ts *templateStore) DeleteAllSettings() error {
+func (ts *settingsStore) DeleteAllSettings() error {
 	var errs []error
 	// Call each method and collect any errors
 	errs = append(errs, ts.deleteConfig(VINLoggerFile))
@@ -72,7 +72,7 @@ func (ts *templateStore) DeleteAllSettings() error {
 	return nil
 }
 
-func (ts *templateStore) ReadDBCFile() (*string, error) {
+func (ts *settingsStore) ReadDBCFile() (*string, error) {
 	data, err := ts.readConfig(DBCFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading dbc file: %s", err)
@@ -83,7 +83,7 @@ func (ts *templateStore) ReadDBCFile() (*string, error) {
 	return &dbc, nil
 }
 
-func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
+func (ts *settingsStore) WriteDBCFile(dbcFile *string) error {
 	if dbcFile == nil {
 		return fmt.Errorf("dbcFile is required")
 	}
@@ -97,7 +97,7 @@ func (ts *templateStore) WriteDBCFile(dbcFile *string) error {
 
 // ReadTemplateURLs reads from disk, serializes json into object.
 // Checks updated_at and if older than 30d errors to force getting fresh one
-func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
+func (ts *settingsStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 	data, err := ts.readConfig(TemplateURLsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -117,7 +117,7 @@ func (ts *templateStore) ReadTemplateURLs() (*device.ConfigResponse, error) {
 }
 
 // WriteTemplateURLs writes the settings to disk and adds a updated_at field
-func (ts *templateStore) WriteTemplateURLs(settings device.ConfigResponse) error {
+func (ts *settingsStore) WriteTemplateURLs(settings device.ConfigResponse) error {
 	bytes, err := json.Marshal(settings)
 	if err != nil {
 		return fmt.Errorf("failed to marshal settings: %s", err)
@@ -129,7 +129,7 @@ func (ts *templateStore) WriteTemplateURLs(settings device.ConfigResponse) error
 	return ts.writeConfig(TemplateURLsFile, string(bytes))
 }
 
-func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error) {
+func (ts *settingsStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSettings, error) {
 	data, err := ts.readConfig(DeviceSettingsFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -149,7 +149,7 @@ func (ts *templateStore) ReadTemplateDeviceSettings() (*models.TemplateDeviceSet
 	return ls, nil
 }
 
-func (ts *templateStore) WriteTemplateDeviceSettings(settings models.TemplateDeviceSettings) error {
+func (ts *settingsStore) WriteTemplateDeviceSettings(settings models.TemplateDeviceSettings) error {
 	err := ts.writeConfig(DeviceSettingsFile, settings)
 	if err != nil {
 		return err
@@ -159,11 +159,11 @@ func (ts *templateStore) WriteTemplateDeviceSettings(settings models.TemplateDev
 }
 
 // NewTemplateStore instantiates new instance of class used to read and write local configuration files
-func NewTemplateStore() TemplateStore {
-	return &templateStore{}
+func NewTemplateStore() SettingsStore {
+	return &settingsStore{}
 }
 
-func (ts *templateStore) ReadVINConfig() (*models.VINLoggerSettings, error) {
+func (ts *settingsStore) ReadVINConfig() (*models.VINLoggerSettings, error) {
 	data, err := ts.readConfig(VINLoggerFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -178,7 +178,7 @@ func (ts *templateStore) ReadVINConfig() (*models.VINLoggerSettings, error) {
 	return ls, nil
 }
 
-func (ts *templateStore) WriteVINConfig(settings models.VINLoggerSettings) error {
+func (ts *settingsStore) WriteVINConfig(settings models.VINLoggerSettings) error {
 	err := ts.writeConfig(VINLoggerFile, settings)
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func (ts *templateStore) WriteVINConfig(settings models.VINLoggerSettings) error
 	return nil
 }
 
-func (ts *templateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
+func (ts *settingsStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 	data, err := ts.readConfig(PIDConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -202,7 +202,7 @@ func (ts *templateStore) ReadPIDsConfig() (*models.TemplatePIDs, error) {
 	return ls, nil
 }
 
-func (ts *templateStore) WritePIDsConfig(settings models.TemplatePIDs) error {
+func (ts *settingsStore) WritePIDsConfig(settings models.TemplatePIDs) error {
 	err := ts.writeConfig(PIDConfigFile, settings)
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (ts *templateStore) WritePIDsConfig(settings models.TemplatePIDs) error {
 	return nil
 }
 
-func (ts *templateStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
+func (ts *settingsStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
 	data, err := ts.readConfig(VehicleInfoFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %s", err)
@@ -226,7 +226,7 @@ func (ts *templateStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
 	return vi, nil
 }
 
-func (ts *templateStore) WriteVehicleInfo(settings models.VehicleInfo) error {
+func (ts *settingsStore) WriteVehicleInfo(settings models.VehicleInfo) error {
 	err := ts.writeConfig(VehicleInfoFile, settings)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func (ts *templateStore) WriteVehicleInfo(settings models.VehicleInfo) error {
 	return nil
 }
 
-func (ts *templateStore) readConfig(filePath string) ([]byte, error) {
+func (ts *settingsStore) readConfig(filePath string) ([]byte, error) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -249,7 +249,7 @@ func (ts *templateStore) readConfig(filePath string) ([]byte, error) {
 
 // WriteConfig writes the config file in json format to tmp folder, overwriting anything already existing.
 // if the settings are a string, will not try to json marshal
-func (ts *templateStore) writeConfig(filePath string, settings interface{}) error {
+func (ts *settingsStore) writeConfig(filePath string, settings interface{}) error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	// Open the file for writing (create if it doesn't exist)
@@ -277,7 +277,7 @@ func (ts *templateStore) writeConfig(filePath string, settings interface{}) erro
 	return nil
 }
 
-func (ts *templateStore) deleteConfig(filePath string) error {
+func (ts *settingsStore) deleteConfig(filePath string) error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	// Open the file for writing (create if it doesn't exist)

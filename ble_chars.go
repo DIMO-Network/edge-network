@@ -55,7 +55,7 @@ var lastSignature []byte
 var lastProtocol string
 var lastDTC string
 
-func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.TemplateStore) (*service.App, context.CancelFunc, context.CancelFunc) {
+func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.SettingsStore) (*service.App, context.CancelFunc, context.CancelFunc) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,

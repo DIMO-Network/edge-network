@@ -3,12 +3,13 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/rs/zerolog"
-	"sync"
-	"time"
 )
 
 // SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas. similar to above but for storing can dumps
@@ -43,9 +44,7 @@ func (scf *SignalFrameDumpQueue) Dequeue() []models.SignalCanFrameDump {
 	// iterate over the signals map and return just the []models.SignalsData
 	var data []models.SignalCanFrameDump
 	for _, signalMap := range scf.signalFrames {
-		for _, frame := range signalMap {
-			data = append(data, frame)
-		}
+		data = append(data, signalMap...)
 	}
 	// empty the data after dequeue
 	scf.signalFrames = map[string][]models.SignalCanFrameDump{}

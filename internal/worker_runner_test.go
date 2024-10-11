@@ -1046,10 +1046,10 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 	wr.Stop()
 }
 
-func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
+func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockSettingsStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	ts := mock_loggers.NewMockSettingsStore(mockCtrl)
 	dbcS := mock_loggers.NewMockDBCPassiveLogger(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -1063,7 +1063,7 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 	return vl, ds, ts, dbcS, ls
 }
 
-func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
+func expectOnMocks(ts *mock_loggers.MockSettingsStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
 	vinQueryName := "vin_7DF_09_02"
 	ts.EXPECT().ReadVINConfig().Times(readVinNum).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
@@ -1071,7 +1071,7 @@ func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINL
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 }
 
-func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
+func createWorkerRunner(ts *mock_loggers.MockSettingsStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
 		dataSender:        ds,

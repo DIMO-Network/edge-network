@@ -28,10 +28,10 @@ type VehicleTemplates interface {
 type vehicleTemplates struct {
 	logger zerolog.Logger
 	vsd    gateways.VehicleSignalDecoding
-	lss    loggers.TemplateStore
+	lss    loggers.SettingsStore
 }
 
-func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecoding, lss loggers.TemplateStore) VehicleTemplates {
+func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecoding, lss loggers.SettingsStore) VehicleTemplates {
 	return &vehicleTemplates{logger: logger, vsd: vsd, lss: lss}
 }
 

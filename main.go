@@ -304,7 +304,7 @@ func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoCon
 // If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
 // which would mean no pairing, then check the local cache since this is likely transient error.
 // If the vehicle info is not retrieved within the retries, a timeout error is returned.
-func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.SettingsStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	for i := 0; i < 60; i++ {
 		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {

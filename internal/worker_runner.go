@@ -35,7 +35,7 @@ type Device struct {
 }
 
 type workerRunner struct {
-	loggerSettingsSvc   loggers.TemplateStore
+	loggerSettingsSvc   loggers.SettingsStore
 	dataSender          network.DataSender
 	logger              zerolog.Logger
 	ethAddr             *common.Address
@@ -51,7 +51,7 @@ type workerRunner struct {
 	dbcScanner          loggers.DBCPassiveLogger
 }
 
-func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
+func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.SettingsStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo,
 	dbcScanner loggers.DBCPassiveLogger) WorkerRunner {
