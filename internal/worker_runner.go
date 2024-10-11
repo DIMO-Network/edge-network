@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -59,11 +58,11 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateSto
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
-	// todo set signal dump queue `jobDone` to true if we have something on disk
+	sdfq := NewSignalFrameDumpQueue(logger, dataSender)
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
-		dbcScanner: dbcScanner, signalDumpFramesQ: &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump)}}
+		dbcScanner: dbcScanner, signalDumpFramesQ: sdfq}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -366,8 +365,10 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 // queryOBD queries OBD signals based on their designated intervals and power status.
 // It checks if it's ok to query each signal based on the last enqueued time and interval.
 // If a signal has been queried too many times, it will skip querying it.
+// Also queries for CAN dump of response frames for python PIDs.
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 	useNativeQuery := wr.dbcScanner.ShouldNativeScanLogger()
+	go wr.signalDumpFramesQ.SenderWorker() // sends response can frame dumps
 
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
@@ -396,29 +397,15 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 			}
 		} else {
 			// Python formulas to DBC project - CAN frame dumps for first 2 requests.
-			if !wr.signalDumpFramesQ.jobDone && request.FormulaType() == models.Python && wr.signalDumpFramesQ.wantMoreCanFrameDump(request.Name) {
+			if wr.signalDumpFramesQ.ShouldCaptureReq(request) {
+				// what if we get error responses but then we get a success,
+				// we want to prioritize the successful capture
+				// ok to query multiple times until get successful response
 				wr.queryPIDAndCaptureDump(request)
 				continue // skip this one
 			}
 			// once above is done we'll just query regularly
 			wr.queryOBDWithAP(request, powerStatus)
-			// todo i think we need to make this more robust using channels, seperate file probably
-			if !wr.signalDumpFramesQ.jobDone {
-				if wr.signalDumpFramesQ.lastEnqueued.Before(time.Now().Add(3*time.Minute)) &&
-					len(wr.signalDumpFramesQ.signalFrames) > 0 {
-					bytes, err := json.Marshal(wr.signalDumpFramesQ.Dequeue())
-					if err != nil {
-						wr.logger.Err(err).Msg("failed to marshal signalDumpFrames")
-					}
-					err = wr.dataSender.SendCanDumpData(bytes)
-					if err != nil {
-						hooks.LogError(wr.logger, err, fmt.Sprintf("failed to send canDumpData for custom pids.data length: %d", len(bytes)),
-							hooks.WithThresholdWhenLogMqtt(5), hooks.WithStopLogAfter(3))
-					}
-					wr.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
-					wr.signalDumpFramesQ.jobDone = true // persist this somewhere?
-				}
-			}
 		}
 
 	}
@@ -549,50 +536,4 @@ func (sq *SignalsQueue) IncrementFailureCount(requestName string) {
 	sq.Lock()
 	defer sq.Unlock()
 	sq.failureCount[requestName]++
-}
-
-// SignalFrameDumpQueue part of the CAN frame dumps project for python to DBC formulas. similar to above but for storing can dumps
-type SignalFrameDumpQueue struct {
-	signalFrames map[string][]models.SignalCanFrameDump
-	// we will check this to decide when to send the signalFrames over mqtt
-	lastEnqueued time.Time
-	jobDone      bool
-	sync.RWMutex
-}
-
-func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {
-	scf.Lock()
-	defer scf.Unlock()
-
-	scf.lastEnqueued = time.Now()
-	scf.signalFrames[signal.Name] = append(scf.signalFrames[signal.Name], signal)
-}
-
-func (scf *SignalFrameDumpQueue) Dequeue() []models.SignalCanFrameDump {
-	scf.Lock()
-	defer scf.Unlock()
-	// iterate over the signals map and return just the []models.SignalsData
-	var data []models.SignalCanFrameDump
-	for _, v := range scf.signalFrames {
-		data = append(data, v...)
-	}
-	// empty the data after dequeue
-	scf.signalFrames = map[string][]models.SignalCanFrameDump{}
-
-	return data
-}
-
-// wantMoreCanFrameDump true if we want more CAN dumps for this pid. Checks underlying data structure that tracks
-func (scf *SignalFrameDumpQueue) wantMoreCanFrameDump(signalName string) bool {
-	const maxCanDumpFrames = 2
-
-	if s, ok := scf.signalFrames[signalName]; ok {
-		if len(s) < maxCanDumpFrames {
-			return true
-		}
-	} else {
-		return true
-	}
-
-	return false
 }
