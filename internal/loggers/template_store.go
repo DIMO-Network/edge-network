@@ -26,6 +26,7 @@ const (
 	DeviceSettingsFile = "/opt/autopi/device-settings.json"
 	VehicleInfoFile    = "/opt/autopi/vehicle-info.json"
 	DBCFile            = "/opt/autopi/dbc-settings.dbc"
+	CANDumpInfoFile    = "/opt/autopi/can-dump-info.json"
 )
 
 //go:generate mockgen -source template_store.go -destination mocks/template_store_mock.go
@@ -48,6 +49,10 @@ type SettingsStore interface {
 	ReadVehicleInfo() (*models.VehicleInfo, error)
 	WriteVehicleInfo(settings models.VehicleInfo) error
 	DeleteAllSettings() error
+
+	ReadCANDumpInfo() (*models.CANDumpInfo, error)
+	// WriteCANDumpInfo sets current date on disk
+	WriteCANDumpInfo() error
 }
 
 // settingsStore wraps reading and writing different configurations locally
@@ -64,6 +69,7 @@ func (ts *settingsStore) DeleteAllSettings() error {
 	errs = append(errs, ts.deleteConfig(VehicleInfoFile))
 	errs = append(errs, ts.deleteConfig(TemplateURLsFile))
 	errs = append(errs, ts.deleteConfig(DBCFile))
+	errs = append(errs, ts.deleteConfig(CANDumpInfoFile))
 
 	// Combine errors and print the result
 	if combinedErr := combineErrors(errs); combinedErr != nil {
@@ -228,6 +234,33 @@ func (ts *settingsStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
 
 func (ts *settingsStore) WriteVehicleInfo(settings models.VehicleInfo) error {
 	err := ts.writeConfig(VehicleInfoFile, settings)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ts *settingsStore) ReadCANDumpInfo() (*models.CANDumpInfo, error) {
+	data, err := ts.readConfig(CANDumpInfoFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	cdi := &models.CANDumpInfo{}
+
+	err = json.Unmarshal(data, cdi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall vehicleInfo: %s", err)
+	}
+
+	return cdi, nil
+}
+
+// WriteCANDumpInfo just sets the date to now
+func (ts *settingsStore) WriteCANDumpInfo() error {
+	d := models.CANDumpInfo{DateExecuted: time.Now()}
+
+	err := ts.writeConfig(CANDumpInfoFile, d)
 	if err != nil {
 		return err
 	}

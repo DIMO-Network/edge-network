@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"sync"
 	"time"
 
@@ -21,13 +22,24 @@ type SignalFrameDumpQueue struct {
 	sync.RWMutex
 	logger     zerolog.Logger
 	dataSender network.DataSender
+	lss        loggers.SettingsStore
 }
 
-func NewSignalFrameDumpQueue(logger zerolog.Logger, sender network.DataSender) *SignalFrameDumpQueue {
-	// todo set signal dump queue `jobDone` to true if we have something on disk
-	// leverage the config service to read something from disk and check
+func NewSignalFrameDumpQueue(logger zerolog.Logger, sender network.DataSender, lss loggers.SettingsStore) *SignalFrameDumpQueue {
+	// check if jobDone should just be marked to true
+	cdi, _ := lss.ReadCANDumpInfo()
+
 	return &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump), logger: logger,
-		dataSender: sender}
+		dataSender: sender, lss: lss, jobDone: determineJobDone(cdi)}
+}
+
+func determineJobDone(cdi *models.CANDumpInfo) bool {
+	jd := false
+	// 2024-10-01 ... now is 2024-10-15 -> false
+	if cdi != nil && cdi.DateExecuted.After(time.Now().Add(-31*24*time.Hour)) {
+		jd = true
+	}
+	return jd
 }
 
 func (scf *SignalFrameDumpQueue) Enqueue(signal models.SignalCanFrameDump) {

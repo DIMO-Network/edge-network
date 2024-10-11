@@ -58,7 +58,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.SettingsSto
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
-	sdfq := NewSignalFrameDumpQueue(logger, dataSender)
+	sdfq := NewSignalFrameDumpQueue(logger, dataSender, loggerSettingsSvc)
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,

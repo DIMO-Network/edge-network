@@ -53,6 +53,21 @@ func (mr *MockSettingsStoreMockRecorder) DeleteAllSettings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllSettings", reflect.TypeOf((*MockSettingsStore)(nil).DeleteAllSettings))
 }
 
+// ReadCANDumpInfo mocks base method.
+func (m *MockSettingsStore) ReadCANDumpInfo() (*models.CANDumpInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadCANDumpInfo")
+	ret0, _ := ret[0].(*models.CANDumpInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadCANDumpInfo indicates an expected call of ReadCANDumpInfo.
+func (mr *MockSettingsStoreMockRecorder) ReadCANDumpInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCANDumpInfo", reflect.TypeOf((*MockSettingsStore)(nil).ReadCANDumpInfo))
+}
+
 // ReadDBCFile mocks base method.
 func (m *MockSettingsStore) ReadDBCFile() (*string, error) {
 	m.ctrl.T.Helper()
@@ -141,6 +156,20 @@ func (m *MockSettingsStore) ReadVehicleInfo() (*models.VehicleInfo, error) {
 func (mr *MockSettingsStoreMockRecorder) ReadVehicleInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadVehicleInfo", reflect.TypeOf((*MockSettingsStore)(nil).ReadVehicleInfo))
+}
+
+// WriteCANDumpInfo mocks base method.
+func (m *MockSettingsStore) WriteCANDumpInfo() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteCANDumpInfo")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteCANDumpInfo indicates an expected call of WriteCANDumpInfo.
+func (mr *MockSettingsStoreMockRecorder) WriteCANDumpInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteCANDumpInfo", reflect.TypeOf((*MockSettingsStore)(nil).WriteCANDumpInfo))
 }
 
 // WriteDBCFile mocks base method.

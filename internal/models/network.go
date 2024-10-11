@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/DIMO-Network/shared"
+	"time"
 )
 
 type CanDumpData struct {
@@ -99,6 +100,10 @@ type CellInfo struct {
 type VehicleInfo struct {
 	TokenID           uint64            `json:"tokenId"`
 	VehicleDefinition VehicleDefinition `json:"definition"`
+}
+
+type CANDumpInfo struct {
+	DateExecuted time.Time `json:"dateExecuted"`
 }
 
 type VehicleDefinition struct {
