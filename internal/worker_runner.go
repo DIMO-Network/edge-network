@@ -92,7 +92,7 @@ func (wr *workerRunner) Run() {
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
 	if wr.dbcScanner.ShouldNativeScanLogger() {
-		wr.logger.Info().Msg("starting passive logger")
+		wr.logger.Info().Msg("using native querying - starting passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
 		go func() {
