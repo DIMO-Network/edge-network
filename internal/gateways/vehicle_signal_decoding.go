@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/DIMO-Network/shared/device"
@@ -92,19 +91,6 @@ func (v *vehicleSignalDecodingAPIService) GetPIDs(url string) (*models.TemplateP
 	response := new(models.TemplatePIDs)
 	if err := json.Unmarshal(bodyBytes, response); err != nil {
 		return nil, errors.Wrapf(err, "error deserializing PID configurations from url %s", url)
-	}
-	// check there is a resp header set
-	for i, req := range response.Requests {
-		// set the default 7e8 if not set, we'll need a way to know if this vehicle is EFF
-		if req.ResponseHeader == 0 {
-			if strings.Contains(req.Protocol, "CAN29") {
-				// extended frame
-				response.Requests[i].ResponseHeader = 417001744 // 0x18DAF110
-			} else {
-				// standard frame, set the default 7e8 if not set
-				response.Requests[i].ResponseHeader = 2024
-			}
-		}
 	}
 
 	return response, nil

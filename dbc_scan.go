@@ -19,7 +19,7 @@ type dbcScanCmd struct {
 
 func (*dbcScanCmd) Name() string { return "dbc-scan" }
 func (*dbcScanCmd) Synopsis() string {
-	return "starts scanning canbus with the passed in dbc file"
+	return "starts scanning canbus with the passed in dbc file or default on in autopi directory if no parameter"
 }
 func (*dbcScanCmd) Usage() string {
 	return `dbc-scan -file <dbc.file path>`
@@ -31,9 +31,13 @@ func (p *dbcScanCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	p.logger.Info().Msg("Start Scanning canbus with a DBC file:")
-	fmt.Println("dbc path:" + p.dbcFilePath)
+	dbc := loggers.DBCFile
+	if p.dbcFilePath != "" {
+		dbc = p.dbcFilePath
+	}
+	fmt.Println("dbc path:" + dbc)
 
-	content, err := os.ReadFile(p.dbcFilePath)
+	content, err := os.ReadFile(dbc)
 	if err != nil {
 		p.logger.Fatal().Err(err).Send()
 	}

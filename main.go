@@ -47,6 +47,11 @@ var btManager btmgmt.BtMgmt
 //go:embed config.yaml config-dev.yaml
 var configFiles embed.FS
 
+func buildBleName(serial uuid.UUID) string {
+	unitIDStr := serial.String()
+	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
+}
+
 func main() {
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -67,19 +72,38 @@ func main() {
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
 
-	name, unitID = commands.GetDeviceName(logger)
-	logger.Info().Msgf("SerialNumber Number: %s", unitID)
-
-	hwRevision, err := commands.GetHardwareRevision(unitID)
+	serial, err := commands.GetDeviceSerial()
 	if err != nil {
-		logger.Err(err).Msg("error getting hardware rev")
+		logger.Fatal().Err(err).Send()
+	}
+	logger.Info().Msgf("SerialNumber Number: %s", serial)
+	name = buildBleName(serial)
+	unitID = serial
+	hwRevision := "7.0" // assume latest version if can't get it
+	hwRv, err := util.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
+		return commands.GetHardwareRevision(unitID)
+	})
+	if err != nil {
+		logger.Err(err).Msgf("error getting hardware rev, defaulting to %s", hwRevision)
+	}
+	if hwRv != nil {
+		hwRevision = *hwRv
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := util.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := util.Retry[common.Address](4, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
+	// check if we were able to get ethereum address, otherwise fail fast
+	if ethAddr == nil {
+		if ethErr != nil {
+			logger.Err(ethErr).Msg("eth addr error")
+		}
+		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+	}
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
@@ -87,7 +111,6 @@ func main() {
 
 	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
-	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
 	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
 	subcommands.Register(&canDumpV2Cmd{logger: logger}, "decode loggers")
 
@@ -146,17 +169,7 @@ func main() {
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
-	// check if we were able to get ethereum address, otherwise fail fast
-	if ethAddr == nil {
-		if ethErr != nil {
-			logger.Err(ethErr).Msg("eth addr error")
-		}
-		logger.Fatal().Msgf("could not get ethereum address")
-	} else {
-		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
-	}
-
-	//  start mqtt certificate verification routine
+	// start mqtt certificate verification routine
 	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
 	certErr := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
@@ -291,7 +304,7 @@ func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoCon
 // If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
 // which would mean no pairing, then check the local cache since this is likely transient error.
 // If the vehicle info is not retrieved within the retries, a timeout error is returned.
-func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.SettingsStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	for i := 0; i < 60; i++ {
 		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	_ "time"
@@ -109,8 +110,9 @@ func Test_workerRunner_Obd(t *testing.T) {
 	_, _ = wr.isOkToQueryOBD()
 	wr.queryOBD(nil)
 
+	fmt.Printf("wr.signalsQueue.signals: %+v\n", wr.signalsQueue.signals)
 	// verify
-	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "fuellevel", wr.signalsQueue.signals["fuellevel"][0].Name)
 	assert.Equal(t, 2, len(wr.signalsQueue.signals))
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -167,7 +169,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	wr.queryOBD(nil)
 
 	// verify
-	assert.Equal(t, "foo", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "foo", wr.signalsQueue.signals["foo"][0].Name)
 	assert.Equal(t, 3, len(wr.signalsQueue.signals))
 	assert.Equal(t, 3, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -1044,10 +1046,10 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 	wr.Stop()
 }
 
-func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
+func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockSettingsStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	ts := mock_loggers.NewMockSettingsStore(mockCtrl)
 	dbcS := mock_loggers.NewMockDBCPassiveLogger(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
@@ -1061,7 +1063,7 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 	return vl, ds, ts, dbcS, ls
 }
 
-func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
+func expectOnMocks(ts *mock_loggers.MockSettingsStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
 	vinQueryName := "vin_7DF_09_02"
 	ts.EXPECT().ReadVINConfig().Times(readVinNum).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 	vl.EXPECT().GetVIN(unitID, nil).Times(1).Return(&loggers.VINResponse{VIN: "TESTVIN123", Protocol: "6", QueryName: vinQueryName}, nil)
@@ -1069,7 +1071,7 @@ func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINL
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 }
 
-func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
+func createWorkerRunner(ts *mock_loggers.MockSettingsStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
 		dataSender:        ds,
@@ -1079,7 +1081,7 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 			UnitID: unitID,
 		},
 		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)},
+		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)},
 		vehicleInfo: &models.VehicleInfo{
 			TokenID: 12345,
 			VehicleDefinition: models.VehicleDefinition{
@@ -1089,6 +1091,103 @@ func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.Moc
 			},
 		},
 		dbcScanner: dbcS,
+		// for now default to job done true to not impact other tests
+		signalDumpFramesQ: &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump), jobDone: true},
 	}
 	return wr
+}
+
+func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
+	type fields struct {
+		signalFramesQueue *SignalFrameDumpQueue
+	}
+	type args struct {
+		signalName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "no signal exists, want more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "signal maxed out, no more",
+			want: false,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "different signal maxed out, need more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "odometer",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wr := &workerRunner{
+				signalDumpFramesQ: tt.fields.signalFramesQueue,
+			}
+			assert.Equalf(t, tt.want, wr.signalDumpFramesQ.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
+		})
+	}
+}
+
+func TestSignalsQueue_Enqueue(t *testing.T) {
+	sq := SignalsQueue{
+		signals:         map[string][]models.SignalData{},
+		lastTimeChecked: make(map[string]time.Time),
+		failureCount:    make(map[string]int),
+		RWMutex:         sync.RWMutex{},
+	}
+	// only enqueues once b/c same value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.2,
+	})
+	sq.Enqueue(models.SignalData{
+		Name:           "odometer",
+		Value:          324.2,
+		LimitFrequency: true,
+	})
+	assert.Equal(t, 1, len(sq.signals["odometer"]))
+
+	// allows enqueue since different value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.3,
+	})
+	assert.Equal(t, 2, len(sq.signals["odometer"]))
 }
