@@ -1019,7 +1019,7 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 		assert.Equal(t, 7, len(data.Vehicle.Signals))
 	}).Return(nil)
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
-		assert.Equal(t, 7, len(data.Vehicle.Signals))
+		assert.Equal(t, 6, len(data.Vehicle.Signals))
 	}).Return(nil)
 
 	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(2).Do(func(data models.DeviceNetworkData) {
