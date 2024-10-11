@@ -459,6 +459,10 @@ func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
 	f := request.Formula
 	request.Formula = "" // clear out the formula so we get hex resp
 	obdResp, _, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+	// query again with formula to get the value - helps with debug/porting
+	time.Sleep(1 * time.Second)
+	request.Formula = f
+	obdRespWithValue, _, _ := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
 
 	scfr := models.SignalCanFrameDump{
 		Timestamp:     time.Now().UnixMilli(),
@@ -470,6 +474,7 @@ func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
 		scfr.Error = err.Error() // report it to cloud
 	} else if obdResp.IsHex {
 		scfr.HexValue = strings.Join(obdResp.ValueHex, "\n")
+		scfr.ActualValue = obdRespWithValue.Value
 	}
 	wr.signalDumpFramesQ.Enqueue(scfr)
 }

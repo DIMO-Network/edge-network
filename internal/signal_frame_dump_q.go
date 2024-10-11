@@ -42,8 +42,10 @@ func (scf *SignalFrameDumpQueue) Dequeue() []models.SignalCanFrameDump {
 	defer scf.Unlock()
 	// iterate over the signals map and return just the []models.SignalsData
 	var data []models.SignalCanFrameDump
-	for _, v := range scf.signalFrames {
-		data = append(data, v...)
+	for _, signalMap := range scf.signalFrames {
+		for _, frame := range signalMap {
+			data = append(data, frame)
+		}
 	}
 	// empty the data after dequeue
 	scf.signalFrames = map[string][]models.SignalCanFrameDump{}
@@ -73,7 +75,8 @@ func (scf *SignalFrameDumpQueue) ShouldCaptureReq(request models.PIDRequest) boo
 
 // SenderWorker checks on a long interval for signal frames that need to be dequeued and sent over MQTT
 func (scf *SignalFrameDumpQueue) SenderWorker() {
-
+	// todo future: what if no custom python PIDs - pretty common
+	loopCount := 0
 	for !scf.jobDone {
 		if scf.lastEnqueued.Before(time.Now().Add(3*time.Minute)) &&
 			len(scf.signalFrames) > 0 {
@@ -90,5 +93,10 @@ func (scf *SignalFrameDumpQueue) SenderWorker() {
 			scf.jobDone = true // persist this somewhere?
 		}
 		time.Sleep(30 * time.Second)
+		loopCount++
+		// control for too many loops
+		if loopCount > 30 {
+			scf.jobDone = true
+		}
 	}
 }

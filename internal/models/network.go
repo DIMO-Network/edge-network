@@ -126,4 +126,5 @@ type SignalCanFrameDump struct {
 	PidHex        string `json:"pidHex"`
 	Error         string `json:"error"`
 	PythonFormula string `json:"pythonFormula"`
+	ActualValue   any    `json:"actualValue"`
 }
