@@ -3,9 +3,10 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"sync"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/loggers"
 
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"github.com/DIMO-Network/edge-network/internal/models"
@@ -28,14 +29,16 @@ type SignalFrameDumpQueue struct {
 func NewSignalFrameDumpQueue(logger zerolog.Logger, sender network.DataSender, lss loggers.SettingsStore) *SignalFrameDumpQueue {
 	// check if jobDone should just be marked to true
 	cdi, _ := lss.ReadCANDumpInfo()
-
+	done := determineJobDone(cdi)
+	if done {
+		logger.Info().Msgf("job done, not running can dumps. %s", cdi.DateExecuted.String())
+	}
 	return &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump), logger: logger,
-		dataSender: sender, lss: lss, jobDone: determineJobDone(cdi)}
+		dataSender: sender, lss: lss, jobDone: done}
 }
 
 func determineJobDone(cdi *models.CANDumpInfo) bool {
 	jd := false
-	// 2024-10-01 ... now is 2024-10-15 -> false
 	if cdi != nil && cdi.DateExecuted.After(time.Now().Add(-31*24*time.Hour)) {
 		jd = true
 	}
@@ -86,7 +89,7 @@ func (scf *SignalFrameDumpQueue) ShouldCaptureReq(request models.PIDRequest) boo
 
 // SenderWorker checks on a long interval for signal frames that need to be dequeued and sent over MQTT
 func (scf *SignalFrameDumpQueue) SenderWorker() {
-	// todo future: what if no custom python PIDs - pretty common
+	// todo future: what if no custom python PIDs - pretty common, could save some cpu loops
 	loopCount := 0
 	for !scf.jobDone {
 		if scf.lastEnqueued.Before(time.Now().Add(3*time.Minute)) &&
@@ -101,7 +104,12 @@ func (scf *SignalFrameDumpQueue) SenderWorker() {
 					hooks.WithThresholdWhenLogMqtt(5), hooks.WithStopLogAfter(3))
 			}
 			scf.logger.Info().Msgf("successfully sent signalDumpFrames. data length: %d", len(bytes))
-			scf.jobDone = true // persist this somewhere?
+			// persist job done so don't do it again
+			scf.jobDone = true
+			err = scf.lss.WriteCANDumpInfo()
+			if err != nil {
+				scf.logger.Err(err).Msg("failed to write CANDumpInfo")
+			}
 		}
 		time.Sleep(30 * time.Second)
 		loopCount++
