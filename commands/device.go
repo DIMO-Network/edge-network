@@ -6,11 +6,28 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/rs/zerolog"
 
 	"github.com/DIMO-Network/edge-network/internal/api"
 	"github.com/google/uuid"
 )
+
+// GetDeviceSerial gets the device unit ID, which we use as the serial number, also used to build the BLE name
+func GetDeviceSerial() (unitID uuid.UUID, err error) {
+	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "could not read unit ID from file")
+	}
+	unitIDBytes = bytes.TrimSpace(unitIDBytes)
+	unitID, err = uuid.ParseBytes(unitIDBytes)
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "could not parse unit ID")
+	}
+
+	return unitID, nil
+}
 
 func GetDeviceName(logger zerolog.Logger) (bluetoothName string, unitID uuid.UUID) {
 	unitIDBytes, err := os.ReadFile("/etc/salt/minion_id")

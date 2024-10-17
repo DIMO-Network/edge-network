@@ -119,3 +119,70 @@ func TestPIDRequest_FormulaValue(t *testing.T) {
 		})
 	}
 }
+
+func TestPIDRequest_ResponseHeader(t *testing.T) {
+	type fields struct {
+		Header               uint32
+		CanFlowControlIDPair string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   uint32
+	}{
+		{
+			name: "default 11b",
+			fields: fields{
+				Header: 0x7df,
+			},
+			want: 0x7e8,
+		},
+		{
+			name: "default 29b",
+			fields: fields{
+				Header: 0x18db33f1,
+			},
+			want: 0x18daf133,
+		},
+		{
+			name: "29b standard swap",
+			fields: fields{
+				Header: 0x18db1234,
+			},
+			want: 0x18da3412,
+		},
+		{
+			name: "11b standard plus 0x08",
+			fields: fields{
+				Header: 0x7e0,
+			},
+			want: 0x7e8,
+		},
+		{
+			name: "11b custom resp hdr",
+			fields: fields{
+				Header:               0x7e0,
+				CanFlowControlIDPair: "7e0,7e1",
+			},
+			want: 0x7e1,
+		}, {
+			name: "29b custom resp hdr",
+			fields: fields{
+				Header:               0x18db1234,
+				CanFlowControlIDPair: "18db1234,18db1236",
+			},
+			want: 0x18db1236,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &PIDRequest{
+				Header:               tt.fields.Header,
+				CanFlowControlIDPair: tt.fields.CanFlowControlIDPair,
+			}
+			if got := p.ResponseHeader(); got != tt.want {
+				t.Errorf("ResponseHeader() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

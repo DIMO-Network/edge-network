@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	_ "time"
@@ -88,8 +89,9 @@ func TestQueryOBD(t *testing.T) {
 	_, _ = wr.isOkToQueryOBD()
 	wr.queryOBD(nil)
 
+	fmt.Printf("wr.signalsQueue.signals: %+v\n", wr.signalsQueue.signals)
 	// verify
-	assert.Equal(t, "fuellevel", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "fuellevel", wr.signalsQueue.signals["fuellevel"][0].Name)
 	assert.Equal(t, 2, len(wr.signalsQueue.signals))
 	assert.Equal(t, 2, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -135,7 +137,7 @@ func TestQueryObdWithPythonFormula(t *testing.T) {
 	wr.queryOBD(nil)
 
 	// verify
-	assert.Equal(t, "foo", wr.signalsQueue.signals[0].Name)
+	assert.Equal(t, "foo", wr.signalsQueue.signals["foo"][0].Name)
 	assert.Equal(t, 3, len(wr.signalsQueue.signals))
 	assert.Equal(t, 3, len(wr.signalsQueue.lastTimeChecked))
 }
@@ -884,7 +886,7 @@ func createWorkerRunner(ts *mockloggers.MockTemplateStore, ds *mocknetwork.MockD
 			UnitID: unitID,
 		},
 		pids:         &models.TemplatePIDs{Requests: nil, TemplateName: "test", Version: "1.0"},
-		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)},
+		signalsQueue: &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)},
 		vehicleInfo: &models.VehicleInfo{
 			TokenID: 12345,
 			VehicleDefinition: models.VehicleDefinition{
@@ -894,6 +896,8 @@ func createWorkerRunner(ts *mockloggers.MockTemplateStore, ds *mocknetwork.MockD
 			},
 		},
 		dbcScanner: dbcS,
+		// for now default to job done true to not impact other tests
+		signalDumpFramesQ: &SignalFrameDumpQueue{signalFrames: make(map[string][]models.SignalCanFrameDump), jobDone: true},
 	}
 	return wr
 }
@@ -956,4 +960,99 @@ func registerResponders(unitID uuid.UUID, failObd bool, disconnectedWifi bool, f
 			return httpmock.NewStringResponse(500, ""), nil
 		},
 	)
+}
+
+func Test_workerRunner_wantMoreCanFrameDump(t *testing.T) {
+	type fields struct {
+		signalFramesQueue *SignalFrameDumpQueue
+	}
+	type args struct {
+		signalName string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "no signal exists, want more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "signal maxed out, no more",
+			want: false,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "soc",
+			},
+		},
+		{
+			name: "different signal maxed out, need more",
+			want: true,
+			fields: fields{
+				signalFramesQueue: &SignalFrameDumpQueue{
+					signalFrames: map[string][]models.SignalCanFrameDump{
+						"soc": {
+							models.SignalCanFrameDump{Name: "soc"},
+							models.SignalCanFrameDump{Name: "soc"},
+						},
+					},
+				},
+			},
+			args: args{
+				signalName: "odometer",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wr := &workerRunner{
+				signalDumpFramesQ: tt.fields.signalFramesQueue,
+			}
+			assert.Equalf(t, tt.want, wr.signalDumpFramesQ.wantMoreCanFrameDump(tt.args.signalName), "wantMoreCanFrameDump(%v)", tt.args.signalName)
+		})
+	}
+}
+
+func TestSignalsQueue_Enqueue(t *testing.T) {
+	sq := SignalsQueue{
+		signals:         map[string][]models.SignalData{},
+		lastTimeChecked: make(map[string]time.Time),
+		failureCount:    make(map[string]int),
+		RWMutex:         sync.RWMutex{},
+	}
+	// only enqueues once b/c same value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.2,
+	})
+	sq.Enqueue(models.SignalData{
+		Name:           "odometer",
+		Value:          324.2,
+		LimitFrequency: true,
+	})
+	assert.Equal(t, 1, len(sq.signals["odometer"]))
+
+	// allows enqueue since different value
+	sq.Enqueue(models.SignalData{
+		Name:  "odometer",
+		Value: 324.3,
+	})
+	assert.Equal(t, 2, len(sq.signals["odometer"]))
 }
