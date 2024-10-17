@@ -25,6 +25,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+const autoPiBaseURL = "http://192.168.4.1:9000"
+
 func TestQueryNonObd(t *testing.T) {
 	// when
 	httpmock.Activate()
@@ -485,7 +487,6 @@ func TestRunFailedToQueryPidButRecover(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	const autoPiBaseURL = "http://192.168.4.1:9000"
 
 	unitID := uuid.New()
 
@@ -495,7 +496,7 @@ func TestRunFailedToQueryPidButRecover(t *testing.T) {
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
 
 	// mock power status resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		httpmock.NewStringResponder(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`))
 
@@ -582,7 +583,6 @@ func TestRunWithNotEnoughVoltage(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	const autoPiBaseURL = "http://192.168.4.1:9000"
 
 	unitID := uuid.New()
 
@@ -592,7 +592,7 @@ func TestRunWithNotEnoughVoltage(t *testing.T) {
 	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
 
 	// mock power status resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	var callCount = 0
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		func(req *http.Request) (*http.Response, error) {
@@ -668,7 +668,6 @@ func TestRunWithNotEnoughVoltage2(t *testing.T) {
 	// when
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
-	const autoPiBaseURL = "http://192.168.4.1:9000"
 
 	unitID := uuid.New()
 
@@ -679,7 +678,7 @@ func TestRunWithNotEnoughVoltage2(t *testing.T) {
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
-	psPath := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 	var callCount = 0
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+psPath,
 		func(req *http.Request) (*http.Response, error) {
@@ -900,7 +899,6 @@ func createWorkerRunner(ts *mockloggers.MockTemplateStore, ds *mocknetwork.MockD
 }
 
 func registerResponders(unitID uuid.UUID, failObd bool, disconnectedWifi bool, failLocation bool, lowPower bool) {
-	const autoPiBaseURL = "http://192.168.4.1:9000"
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
 	// mock obd resp and location resp
