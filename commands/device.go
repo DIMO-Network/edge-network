@@ -130,7 +130,7 @@ func GetSignalStrength(unitID uuid.UUID) (sigStrength string, err error) {
 // Wifi
 func GetWifiStatus(unitID uuid.UUID) (connectionObject api.WifiConnectionsResponse, err error) {
 	req := api.ExecuteRawRequest{Command: api.WifiStatusCommand, Arg: nil}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp api.WifiConnectionsResponse
 	err = api.ExecuteRequest("POST", path, req, &resp)
@@ -164,7 +164,7 @@ func SetWifiConnection(unitID uuid.UUID, newConnectionList []api.WifiEntity) (co
 
 func GetPowerStatus(unitID uuid.UUID) (responseObject api.PowerStatusResponse, err error) {
 	req := api.ExecuteRawRequest{Command: api.PowerStatusCommand}
-	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
+	path := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
 
 	var resp api.PowerStatusResponse
 	err = api.ExecuteRequest("POST", path, req, &resp)

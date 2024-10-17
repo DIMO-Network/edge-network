@@ -903,7 +903,36 @@ func registerResponders(unitID uuid.UUID, failObd bool, disconnectedWifi bool, f
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	path := fmt.Sprintf("/dongle/%s/execute_raw", unitID)
 
+	// mock obd resp and location resp
 	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path,
+		func(req *http.Request) (*http.Response, error) {
+			// Read the request body
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return httpmock.NewStringResponse(500, ""), err
+			}
+			// Convert the body bytes to string
+			bodyString := string(bodyBytes)
+
+			// Match the request body
+			if strings.Contains(bodyString, api.GetGPSEc2xCommand) {
+				if failLocation {
+					return httpmock.NewStringResponse(500, `{"error":"Error on query gps"}`), nil
+				}
+				return httpmock.NewStringResponse(200, `{"lat": 37.7749, "lon": -122.4194, "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+			} else if strings.Contains(bodyString, api.ObdPIDQueryCommand) {
+				if failObd {
+					return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
+				}
+				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
+			}
+
+			return httpmock.NewStringResponse(500, ""), nil
+		},
+	)
+
+	// mock power status and wifi resp
+	httpmock.RegisterResponder(http.MethodPost, autoPiBaseURL+path+"/",
 		func(req *http.Request) (*http.Response, error) {
 			// Read the request body
 			bodyBytes, err := io.ReadAll(req.Body)
@@ -919,21 +948,11 @@ func registerResponders(unitID uuid.UUID, failObd bool, disconnectedWifi bool, f
 					return httpmock.NewStringResponse(200, `{"wpa_state": "DISCONNECTED", "ssid": "test", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 				}
 				return httpmock.NewStringResponse(200, `{"wpa_state": "COMPLETED", "ssid": "test", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
-			} else if strings.Contains(bodyString, api.GetGPSEc2xCommand) {
-				if failLocation {
-					return httpmock.NewStringResponse(500, `{"error":"Error on query gps"}`), nil
-				}
-				return httpmock.NewStringResponse(200, `{"lat": 37.7749, "lon": -122.4194, "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			} else if strings.Contains(bodyString, api.PowerStatusCommand) {
 				if lowPower {
 					return httpmock.NewStringResponse(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 12.3}}}`), nil
 				}
 				return httpmock.NewStringResponse(200, `{"spm": {"last_trigger": {"up": "volt_change"}, "battery": {"voltage": 13.3}}}`), nil
-			} else if strings.Contains(bodyString, api.ObdPIDQueryCommand) {
-				if failObd {
-					return httpmock.NewStringResponse(500, `{"error":"Failed to calculate formula: invalid syntax (<string>, line 1)"}`), nil
-				}
-				return httpmock.NewStringResponse(200, `{"value": "7e803412f6700000000", "_stamp": "2024-02-29T17:17:30.534861"}`), nil
 			}
 
 			return httpmock.NewStringResponse(500, ""), nil
