@@ -163,9 +163,6 @@ func main() {
 	// will retry for about 1 hour in case if no internet connection, so we are not interrupt device pairing process
 	config, confErr := dimoConfig.ReadConfig(logger, configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
-	if confErr != nil {
-		logger.Fatal().Err(confErr).Msg("unable to read config file")
-	}
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
@@ -178,6 +175,11 @@ func main() {
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	fh := hooks.NewLogRateLimiterHook(ds)
 	logger = logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+
+	// log certificate errors
+	if confErr != nil {
+		logger.Fatal().Err(confErr).Msg("unable to read config file")
+	}
 
 	// log certificate errors
 	if certErr != nil {
