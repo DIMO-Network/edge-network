@@ -130,8 +130,15 @@ func GetRemoteConfig(configURL string, filePathOnDisk string) (*Config, error) {
 
 	// Check if the file already exists
 	_, err := os.Stat(filePathOnDisk)
-	if !os.IsNotExist(err) && err == nil {
-		return ReadConfigFromPath(filePathOnDisk)
+	if err == nil {
+		conf, err := ReadConfigFromPath(filePathOnDisk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
+		// check if the config file has the required fields
+		if conf != nil && conf.Services.Auth.ClientID != "" && conf.Services.Auth.ClientSecret != "" && conf.Services.Ca.CaFingerprint != "" {
+			return conf, nil
+		}
 	}
 
 	if configURL == "" {
