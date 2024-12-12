@@ -22,7 +22,7 @@ require (
 	go.einride.tech/can v0.7.0
 	go.step.sm/crypto v0.44.8
 	go.uber.org/mock v0.4.0
-	golang.org/x/sys v0.22.0
+	golang.org/x/sys v0.28.0
 )
 
 require (
@@ -118,12 +118,12 @@ require (
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.step.sm/cli-utils v0.9.0 // indirect
 	go.step.sm/linkedca v0.20.1 // indirect
-	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240318143956-a85f2c67cd81 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240711142825-46eb208f015d // indirect
 	google.golang.org/grpc v1.65.0 // indirect
