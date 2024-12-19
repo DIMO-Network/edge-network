@@ -174,23 +174,24 @@ func main() {
 	ds := network.NewDataSender(unitID, *ethAddr, logger, models.VehicleInfo{}, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	fh := hooks.NewLogRateLimiterHook(ds)
-	logger = logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	logger = logger.Hook(fh)
 
 	// log certificate errors
 	if confErr != nil {
-		logger.Fatal().Err(confErr).Msg("unable to read config file")
+		hooks.LogFatal(logger, confErr, "unable to read config file")
 	}
 
 	// log certificate errors
 	if certErr != nil {
-		logger.Error().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
+		hooks.LogError(logger, err, "Error from SignWeb3Certificate", hooks.WithThresholdWhenLogMqtt(1))
 	}
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, *config)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
+		msg := fmt.Sprintf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
+		hooks.LogFatal(logger, err, msg)
 	}
 
 	// OBD / CAN Loggers
@@ -202,7 +203,7 @@ func main() {
 	// get the template settings from remote, below method handles all the special logic
 	pids, deviceSettings, dbcFile, err := vehicleTemplates.GetTemplateSettings(ethAddr, Version, unitID)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
+		hooks.LogFatal(logger, err, "unable to get device settings (pids, dbc, settings)")
 	}
 	if pids != nil {
 		pj, err := json.Marshal(pids)
@@ -310,7 +311,7 @@ func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss 
 	for i := 0; i < 60; i++ {
 		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {
-			logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("failed to get vehicle info, will retry again in 60s")
+			hooks.LogError(logger, err, "failed to get vehicle info, will retry again in 60s", hooks.WithThresholdWhenLogMqtt(3))
 			// check for local cache but only if error is not of type tokenid zero
 			if !strings.Contains(err.Error(), "tokenId is zero") {
 				vehicleInfo, err = lss.ReadVehicleInfo()

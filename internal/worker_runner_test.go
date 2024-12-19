@@ -549,7 +549,7 @@ func TestRunFailedToQueryPidButRecover(t *testing.T) {
 	wr.stop = make(chan bool)
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
 	fh := hooks.NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	wr.logger = wr.logger.Hook(fh)
 
 	// assert data sender is called without fuel level signal
 	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(1).Do(func(data models.DeviceStatusData) {
@@ -653,7 +653,7 @@ func TestRunWithNotEnoughVoltage(t *testing.T) {
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
 	fh := hooks.NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	wr.logger = wr.logger.Hook(fh)
 
 	// then
 	go wr.Run()
@@ -739,7 +739,7 @@ func TestRunWithNotEnoughVoltage2(t *testing.T) {
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
 	fh := hooks.NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	wr.logger = wr.logger.Hook(fh)
 
 	// then
 	go wr.Run()
@@ -789,7 +789,7 @@ func TestRunWithCantQueryLocation(t *testing.T) {
 	var buf bytes.Buffer
 	wr.logger = zerolog.New(&buf).With().Timestamp().Str("app", "edge-network").Logger()
 	fh := hooks.NewLogRateLimiterHook(ds)
-	wr.logger = wr.logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	wr.logger = wr.logger.Hook(fh)
 
 	// then
 	go wr.Run()

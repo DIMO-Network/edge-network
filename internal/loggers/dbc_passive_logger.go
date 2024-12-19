@@ -1,7 +1,6 @@
 package loggers
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -104,9 +103,8 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
-						Msgf("failed to extract PID data with formula: %s, resp data: %s, name: %s",
-							pid.Formula, printBytesAsHex(frame.Data), pid.Name)
+					msg := fmt.Sprintf("failed to extract PID data with formula: %s, resp data: %s, name: %s", pid.Formula, printBytesAsHex(frame.Data), pid.Name)
+					hooks.LogError(dpl.logger, errFormula, msg, hooks.WithThresholdWhenLogMqtt(1))
 					continue
 				}
 				dpl.logger.Debug().Msgf("%s value: %f", pid.Name, floatVal)
