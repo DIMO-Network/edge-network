@@ -311,7 +311,7 @@ func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss 
 	for i := 0; i < 60; i++ {
 		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {
-			hooks.LogError(logger, err, "failed to get vehicle info, will retry again in 60s", hooks.WithThresholdWhenLogMqtt(1))
+			hooks.LogError(logger, err, "failed to get vehicle info, will retry again in 60s", hooks.WithThresholdWhenLogMqtt(3))
 			// check for local cache but only if error is not of type tokenid zero
 			if !strings.Contains(err.Error(), "tokenId is zero") {
 				vehicleInfo, err = lss.ReadVehicleInfo()
