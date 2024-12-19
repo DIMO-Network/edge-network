@@ -65,7 +65,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.SettingsSto
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
-const maxPidFailures = 30
+const maxPidFailures = 10
 const maxFingerprintFailures = 5
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -345,7 +345,8 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(30))
+		// stop send to mqtt to reduce excessive logging
+		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1))
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -419,8 +420,9 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 		// if we failed too many times, we should send an error to the cloud
 		if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 			// when exporting via mqtt, hook only grabs the message, not the error
+			// stop send to mqtt to reduce excessive logging
 			msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
-			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(1), hooks.WithPowerStatus(*powerStatus))
+			hooks.LogError(wr.logger, err, msg, hooks.WithStopLogAfter(1), hooks.WithPowerStatus(*powerStatus))
 		}
 		return
 	}
