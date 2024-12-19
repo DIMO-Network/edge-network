@@ -471,17 +471,17 @@ func TestRunFailedToQueryPidTooManyTimes(t *testing.T) {
 	wr.logger = zerolog.New(os.Stdout).With().Timestamp().Str("app", "edge-network").Logger()
 
 	// assert data sender is called without fuel level signal
-	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(3).Do(func(data models.DeviceStatusData) {
+	ds.EXPECT().SendDeviceStatusData(gomock.Any()).Times(7).Do(func(data models.DeviceStatusData) {
 		assert.Equal(t, 8, len(data.Vehicle.Signals))
 	}).Return(nil)
-	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(3).Do(func(data models.DeviceNetworkData) {
+	ds.EXPECT().SendDeviceNetworkData(gomock.Any()).Times(7).Do(func(data models.DeviceNetworkData) {
 		assert.NotNil(t, data.Cell)
 	}).Return(nil)
 	// then the data sender should be called twice
 	go wr.Run()
-	time.Sleep(25 * time.Second)
-	assert.Equal(t, 11, wr.signalsQueue.failureCount["fuellevel"])
-	assert.Equal(t, 11, wr.signalsQueue.failureCount["foo"])
+	time.Sleep(70 * time.Second)
+	assert.Equal(t, 31, wr.signalsQueue.failureCount["fuellevel"])
+	assert.Equal(t, 31, wr.signalsQueue.failureCount["foo"])
 	wr.Stop()
 }
 
