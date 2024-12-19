@@ -178,7 +178,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	// Bluetooth revision
 	bluetoothVersionChar, err := deviceService.NewChar(bluetoothVersionUUIDFragment)
 	if err != nil {
-		hooks.LogFatal(logger, err, "failed to create Bluetooth Version characteristic")
+		hooks.LogFatal(logger, err, "failed to create Hardware Revision characteristic")
 	}
 
 	bluetoothVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -206,7 +206,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	// Software version
 	softwareVersionChar, err := deviceService.NewChar(softwareVersionUUIDFragment)
 	if err != nil {
-		hooks.LogFatal(logger, err, "failed to create Software Version characteristic")
+		hooks.LogFatal(logger, err, "failed to create Hardware Revision characteristic")
 	}
 
 	softwareVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -451,7 +451,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		// we want to do this each time in case the device is being paired to a different vehicle
 		errSaveCfg := lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
 		if errSaveCfg != nil {
-			hooks.LogError(logger, errSaveCfg, "error saving VIN query name in settings", hooks.WithThresholdWhenLogMqtt(1))
+			hooks.LogError(logger, errSaveCfg, "failed to save vin query name in settings", hooks.WithThresholdWhenLogMqtt(1))
 		}
 		// todo restart the application?
 		return
@@ -723,7 +723,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
-		hooks.LogFatal(logger, err, "failed to advertise services")
+		hooks.LogFatal(logger, err, "failed advertising")
 	}
 
 	omSignal, omSignalCancel, err := app.Adapter().GetObjectManagerSignal()

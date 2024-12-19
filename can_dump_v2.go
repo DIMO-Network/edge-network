@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -41,7 +40,7 @@ func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interfac
 
 	sck, err := canbus.New()
 	if err != nil {
-		hooks.LogFatal(p.logger, err, "failed to connect to CAN")
+		p.logger.Fatal().Err(err).Msg("failed to connect to CAN")
 	}
 	defer sck.Close()
 
@@ -57,13 +56,13 @@ func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interfac
 		}
 		err = sck.SetFilters(uf)
 		if err != nil {
-			hooks.LogFatal(p.logger, err, "failed to set filters")
+			p.logger.Fatal().Err(err).Msg("failed to set filters")
 		}
 	}
 
 	err = sck.Bind("can0")
 	if err != nil {
-		hooks.LogFatal(p.logger, err, "failed to bind can0")
+		p.logger.Fatal().Err(err).Msg("failed to bind can0")
 	}
 
 	var blank = strings.Repeat(" ", 24)
@@ -75,7 +74,7 @@ func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interfac
 	for i := 0; i < p.cycleCount; i++ {
 		msg, err := sck.Recv()
 		if err != nil {
-			hooks.LogFatal(p.logger, err, "failed to recv")
+			p.logger.Fatal().Err(err).Msg("failed to recv")
 		}
 		ascii := strings.ToUpper(hex.Dump(msg.Data))
 		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
