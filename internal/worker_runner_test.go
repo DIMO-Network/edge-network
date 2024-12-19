@@ -479,7 +479,7 @@ func TestRunFailedToQueryPidTooManyTimes(t *testing.T) {
 	}).Return(nil)
 	// then the data sender should be called twice
 	go wr.Run()
-	time.Sleep(70 * time.Second)
+	time.Sleep(25 * time.Second)
 	assert.Equal(t, 11, wr.signalsQueue.failureCount["fuellevel"])
 	assert.Equal(t, 11, wr.signalsQueue.failureCount["foo"])
 	wr.Stop()
