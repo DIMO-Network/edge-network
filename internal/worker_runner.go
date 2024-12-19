@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -66,7 +65,7 @@ func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.SettingsSto
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
-const maxPidFailures = 10
+const maxPidFailures = 30
 const maxFingerprintFailures = 5
 
 // Run sends a signed status payload every X seconds, that may or may not contain OBD signals.
@@ -131,8 +130,7 @@ func (wr *workerRunner) Run() {
 							allTimeFailures := wr.fingerprintRunner.IncrementFailuresReached()
 							if allTimeFailures < 2 {
 								// send to edge logs first time VIN failure happens
-								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
-									Msgf("failed to do vehicle VIN fingerprint: %s", errFp.Error())
+								hooks.LogError(wr.logger, errFp, "failed to do vehicle VIN fingerprint", hooks.WithThresholdWhenLogMqtt(1))
 							}
 						}
 					} else {
@@ -347,7 +345,7 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(10))
+		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(30))
 		return nil, err
 	}
 	// location fields mapped to separate struct

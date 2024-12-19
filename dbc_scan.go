@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"os"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -39,7 +40,7 @@ func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 
 	content, err := os.ReadFile(dbc)
 	if err != nil {
-		p.logger.Fatal().Err(err).Send()
+		hooks.LogFatal(p.logger, err, "failed to read dbc file")
 	}
 	d := string(content)
 	fmt.Println(d)
@@ -49,7 +50,7 @@ func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	go func() {
 		err := dbcLogger.StartScanning(ch)
 		if err != nil {
-			p.logger.Fatal().Err(err).Msg("failed to start scanning")
+			hooks.LogFatal(p.logger, err, "failed to start scanning")
 		}
 	}()
 	for signal := range ch {

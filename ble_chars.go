@@ -67,7 +67,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	app, err := service.NewApp(opt)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create app: %s", err)
+		hooks.LogFatal(logger, err, "failed to create app")
 	}
 
 	app.SetName(name)
@@ -75,18 +75,18 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	// Device service
 	deviceService, err := app.NewService(deviceServiceUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to create device service")
 	}
 
 	err = app.AddService(deviceService)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add device service to app: %s", err)
+		hooks.LogFatal(logger, err, "failed to add device service to app")
 	}
 
 	// Get serial number
 	unitSerialChar, err := deviceService.NewChar(primaryIDCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Unit ID characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create unit ID characteristic")
 	}
 
 	unitSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -106,13 +106,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(unitSerialChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add SerialNumber characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add SerialNumber characteristic to device service")
 	}
 
 	// Get secondary serial number
 	secondSerialChar, err := deviceService.NewChar(secondaryIDCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Secondary ID characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Secondary ID characteristic")
 	}
 
 	secondSerialChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -139,13 +139,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(secondSerialChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add SerialNumber characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Secondary ID characteristic to device service")
 	}
 
 	// Hardware revision
 	hwRevisionChar, err := deviceService.NewChar(hwVersionUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Hardwware Revision characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Hardware Revision characteristic")
 	}
 
 	hwRevisionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -172,13 +172,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(hwRevisionChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Hardware Revision characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Hardware Revision characteristic to device service")
 	}
 
 	// Bluetooth revision
 	bluetoothVersionChar, err := deviceService.NewChar(bluetoothVersionUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Hardwware Revision characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Bluetooth Version characteristic")
 	}
 
 	bluetoothVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -200,13 +200,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(bluetoothVersionChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Bluetooth Version characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Bluetooth Version characteristic to device service")
 	}
 
 	// Software version
 	softwareVersionChar, err := deviceService.NewChar(softwareVersionUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Hardwware Revision characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Software Version characteristic")
 	}
 
 	softwareVersionChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -233,13 +233,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(softwareVersionChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Software Version characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Software Version characteristic to device service")
 	}
 
 	// Get signal strength
 	signalStrengthChar, err := deviceService.NewChar(signalStrengthUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Signal Strength characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Signal Strength characteristic")
 	}
 
 	signalStrengthChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -266,13 +266,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(signalStrengthChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Signal Strength characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Signal Strength characteristic to device service")
 	}
 
 	// Get wifi connection status
 	wifiStatusChar, err := deviceService.NewChar(wifiStatusUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create Wifi Connection Status characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Wifi Connection Status characteristic")
 	}
 
 	wifiStatusChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
@@ -304,13 +304,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(wifiStatusChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Get Wifi Status characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Wifi Connection Status characteristic to device service")
 	}
 
 	// set wi-fi connection
 	setWifiChar, err := deviceService.NewChar(setWifiUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create set wifi characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create Set Wifi characteristic")
 	}
 
 	setWifiChar.Properties.Flags = []string{
@@ -364,13 +364,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(setWifiChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Set Wifi characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Set Wifi characteristic to device service")
 	}
 
 	// Get IMSI
 	imsiChar, err := deviceService.NewChar(imsiUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create IMSI characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create IMSI characteristic")
 	}
 
 	imsiChar.Properties.Flags = []string{gatt.FlagCharacteristicRead}
@@ -394,24 +394,24 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	})
 
 	if err := deviceService.AddChar(imsiChar); err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add IMSI characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add IMSI characteristic to device service")
 	}
 
 	// Vehicle service
 	vehicleService, err := app.NewService(vehicleServiceUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create vehicle service: %s", err)
+		hooks.LogFatal(logger, err, "failed to create vehicle service")
 	}
 
 	err = app.AddService(vehicleService)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add vehicle service to app: %s", err)
+		hooks.LogFatal(logger, err, "failed to add vehicle service to app")
 	}
 
 	// Get VIN
 	vinChar, err := vehicleService.NewChar(vinCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create VIN characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create VIN characteristic")
 	}
 
 	vinChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
@@ -420,7 +420,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	vinChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("error retrieving VIN via BLE: %s", err)
+				hooks.LogError(logger, err, "error retrieving VIN via BLE", hooks.WithThresholdWhenLogMqtt(1))
 			}
 		}()
 
@@ -442,8 +442,8 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 			return
 		}
 
-		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol)                                                   // verify using protocol when requesting template
-		logger.Info().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msg("Got VIN via BLE") //note we don't send the VIN to cloud logs for PII
+		logger.Info().Msgf("Got Protocol: %s", vinResp.Protocol) // verify using protocol when requesting template
+		hooks.LogInfo(logger, "Got VIN via BLE", hooks.WithThresholdWhenLogMqtt(1))
 		logger.Info().Msg(vinResp.VIN)
 		lastVIN = vinResp.VIN
 		lastProtocol = vinResp.Protocol
@@ -451,8 +451,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 		// we want to do this each time in case the device is being paired to a different vehicle
 		errSaveCfg := lss.WriteVINConfig(models.VINLoggerSettings{VINQueryName: vinResp.QueryName, VIN: lastVIN})
 		if errSaveCfg != nil {
-			logger.Err(errSaveCfg).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
-				Msgf("failed to save vin query name in settings: %s", err)
+			hooks.LogError(logger, errSaveCfg, "error saving VIN query name in settings", hooks.WithThresholdWhenLogMqtt(1))
 		}
 		// todo restart the application?
 		return
@@ -460,20 +459,20 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = vehicleService.AddChar(vinChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add VIN characteristic to vehicle service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add VIN characteristic to vehicle service")
 	}
 
 	// Get Protocol (based on what query worked to get the VIN, must Get VIN before)
 	protocolChar, err := vehicleService.NewChar(protocolCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create protocol characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create protocol characteristic")
 	}
 	protocolChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead}
 
 	protocolChar.OnRead(func(_ *service.Char, _ map[string]interface{}) (resp []byte, err error) {
 		defer func() {
 			if err != nil {
-				logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error retrieving Protocol: %s", err)
+				hooks.LogError(logger, err, "error retrieving protocol via BLE", hooks.WithThresholdWhenLogMqtt(1))
 			}
 		}()
 		if lastProtocol != "" {
@@ -498,13 +497,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	})
 	err = vehicleService.AddChar(protocolChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add protocol characteristic to vehicle service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add protocol characteristic to vehicle service")
 	}
 
 	// Diagnostic codes
 	dtcChar, err := vehicleService.NewChar(diagCodeCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create diagnostic Code characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create diagnostic code characteristic")
 	}
 
 	dtcChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedRead, gatt.FlagCharacteristicEncryptAuthenticatedWrite}
@@ -560,13 +559,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = vehicleService.AddChar(dtcChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add diagnostic characteristic to vehicle service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add diagnostic characteristic to vehicle service")
 	}
 
 	// Sleep Control
 	sleepControlChar, err := deviceService.NewChar(sleepControlUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create sleep control characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create sleep control characteristic")
 	}
 
 	sleepControlChar.Properties.Flags = []string{gatt.FlagCharacteristicEncryptAuthenticatedWrite}
@@ -592,24 +591,24 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = deviceService.AddChar(sleepControlChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add sleep control characteristic to device service: %s", err)
+		hooks.LogFatal(logger, err, "failed to add sleep control characteristic to device service")
 	}
 
 	// Transactions service
 	transactionsService, err := app.NewService(transactionsServiceUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create transaction service: %s", err)
+		hooks.LogFatal(logger, err, "failed to create transaction service")
 	}
 
 	err = app.AddService(transactionsService)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add transaction service to app: %s", err)
+		hooks.LogFatal(logger, err, "failed to add transaction service to app")
 	}
 
 	// Get Ethereum address
 	addrChar, err := transactionsService.NewChar(addrCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create get ethereum address characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create get ethereum address characteristic")
 	}
 
 	addrChar.Properties.Flags = []string{
@@ -631,13 +630,13 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = transactionsService.AddChar(addrChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add Ethereum address characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to add Ethereum address characteristic")
 	}
 
 	// Sign hash
 	signChar, err := transactionsService.NewChar(signCharUUIDFragment)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to create sign hash characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to create sign hash characteristic")
 	}
 
 	signChar.Properties.Flags = []string{
@@ -683,36 +682,36 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	err = transactionsService.AddChar(signChar)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to add hash signing characteristic: %s", err)
+		hooks.LogFatal(logger, err, "failed to add hash signing characteristic")
 	}
 
 	err = app.Run()
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to initialize app: %s", err)
+		hooks.LogFatal(logger, err, "failed to initialize app")
 	}
 
 	//Check if we should disable new connections
 	devices, err := app.Adapter().GetDevices()
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Could not retrieve previously paired devices: %s", err)
+		hooks.LogFatal(logger, err, "could not retrieve previously paired devices")
 	}
 
 	if !coldBoot && hasPairedDevices(logger, devices) {
 		logger.Info().Msgf("Disabling bonding")
 		err = btManager.SetBondable(false)
 		if err != nil {
-			logger.Fatal().Err(err).Msgf("Failed to set bonding status: %s", err)
+			hooks.LogFatal(logger, err, "failed to set bonding status")
 		}
 	}
 
 	adapterName, err := app.Adapter().GetName()
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get adapter name: %s", err)
+		hooks.LogFatal(logger, err, "failed to get adapter name")
 	}
 
 	adapterAlias, err := app.Adapter().GetAlias()
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to get adapter alias: %s", err)
+		hooks.LogFatal(logger, err, "failed to get adapter alias")
 	}
 
 	canBusInformation, err := commands.DetectCanbus(unitID)
@@ -724,12 +723,12 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	cancel, err := app.Advertise(math.MaxUint32, name, advertisedServices)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed advertising: %s", err)
+		hooks.LogFatal(logger, err, "failed to advertise services")
 	}
 
 	omSignal, omSignalCancel, err := app.Adapter().GetObjectManagerSignal()
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("Failed to Get Signal")
+		hooks.LogFatal(logger, err, "failed to get signal")
 	}
 
 	go func() {

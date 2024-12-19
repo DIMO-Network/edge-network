@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 
 	"github.com/DIMO-Network/edge-network/commands"
 	dimoConfig "github.com/DIMO-Network/edge-network/config"
@@ -38,7 +39,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	vl := loggers.NewVINLogger(p.logger)
 	addr, err := commands.GetEthereumAddress(p.unitID)
 	if err != nil {
-		p.logger.Fatal().Msgf("could not get eth address %s", err.Error())
+		hooks.LogFatal(p.logger, err, "could not get eth address")
 	}
 	// read config file
 	conf, err := dimoConfig.ReadConfigFromPath("/opt/autopi/config.yaml")
@@ -49,7 +50,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	ds := network.NewDataSender(p.unitID, *addr, p.logger, models.VehicleInfo{}, *conf)
 	vinResp, vinErr := vl.GetVIN(p.unitID, nil)
 	if vinErr != nil {
-		p.logger.Fatal().Msgf("could not get vin %s", vinErr.Error())
+		hooks.LogFatal(p.logger, vinErr, "could not get vin")
 	}
 	p.logger.Info().Msgf("VIN: %s\n", vinResp.VIN)
 	p.logger.Info().Msgf("Protocol: %s\n", vinResp.Protocol)
@@ -60,7 +61,7 @@ func (p *scanVINCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 		}
 		err = ds.SendFingerprintData(data)
 		if err != nil {
-			p.logger.Fatal().Err(err).Msgf("failed to send vin over mqtt: %s", err.Error())
+			hooks.LogFatal(p.logger, err, "failed to send vin over mqtt")
 			return subcommands.ExitFailure
 		}
 	}
