@@ -215,33 +215,33 @@ func (wr *workerRunner) startLocationQuery(modem string) {
 		for {
 			location, locationErr := wr.queryLocation(modem)
 			if locationErr == nil {
-
+				ts := time.Now().UTC().UnixMilli()
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "longitude",
 					Value:     location.Longitude,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "latitude",
 					Value:     location.Latitude,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "hdop",
 					Value:     location.Hdop,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "nsat",
 					Value:     location.Nsat,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "altitude",
 					Value:     location.Altitude,
 				})
