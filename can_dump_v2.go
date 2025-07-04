@@ -77,7 +77,7 @@ func (p *canDumpV2Cmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interfac
 			p.logger.Fatal().Err(err).Msg("failed to recv")
 		}
 		ascii := strings.ToUpper(hex.Dump(msg.Data))
-		ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+		ascii = strings.TrimRight(strings.ReplaceAll(ascii, blank, ""), "\n")
 		fmt.Printf("%7s  %03x %s\n", sck.Name(), msg.ID, ascii)
 	}
 

@@ -194,7 +194,7 @@ func (dpl *dbcPassiveLogger) SendCANQuery(header uint32, mode uint32, pid uint32
 	}
 	payload := length + modeHex + pidHex
 	padded := fmt.Sprintf("%-16s", payload)
-	paddedWithZeros := strings.Replace(padded, " ", "0", -1)
+	paddedWithZeros := strings.ReplaceAll(padded, " ", "0")
 
 	data, err := hex.DecodeString(paddedWithZeros)
 	if err != nil {
@@ -329,7 +329,7 @@ func addPrevFilter(header string, headerSignals []dbcSignal, filters []dbcFilter
 func printBytesAsHex(data []byte) string {
 	var blank = strings.Repeat(" ", 24)
 	ascii := strings.ToUpper(hex.Dump(data))
-	ascii = strings.TrimRight(strings.Replace(ascii, blank, "", -1), "\n")
+	ascii = strings.TrimRight(strings.ReplaceAll(ascii, blank, ""), "\n")
 	return ascii
 }
 

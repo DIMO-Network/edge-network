@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/DIMO-Network/edge-network/internal/util"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/DIMO-Network/edge-network/internal/util"
 
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 

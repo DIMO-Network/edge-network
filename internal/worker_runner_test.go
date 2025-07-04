@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	_ "time"
 
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 

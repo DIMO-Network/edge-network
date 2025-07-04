@@ -215,33 +215,33 @@ func (wr *workerRunner) startLocationQuery(modem string) {
 		for {
 			location, locationErr := wr.queryLocation(modem)
 			if locationErr == nil {
-
+				ts := time.Now().UTC().UnixMilli()
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "longitude",
 					Value:     location.Longitude,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "latitude",
 					Value:     location.Latitude,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "hdop",
 					Value:     location.Hdop,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "nsat",
 					Value:     location.Nsat,
 				})
 
 				wr.signalsQueue.Enqueue(models.SignalData{
-					Timestamp: time.Now().UTC().UnixMilli(),
+					Timestamp: ts,
 					Name:      "altitude",
 					Value:     location.Altitude,
 				})
@@ -260,9 +260,10 @@ func (wr *workerRunner) Stop() {
 }
 
 func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, locationErr error, location *models.Location, wifiErr error, wifi *models.WiFi) models.DeviceStatusData {
+	ts := time.Now().UTC().UnixMilli()
 	statusData := models.DeviceStatusData{
 		CommonData: models.CommonData{
-			Timestamp: time.Now().UTC().UnixMilli(),
+			Timestamp: ts,
 		},
 		Device: models.Device{
 			RpiUptimeSecs:   powerStatus.Rpi.Uptime.Seconds,
@@ -278,17 +279,17 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	}
 	// only update location if no error
 	if locationErr == nil {
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "longitude", location.Longitude)
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "latitude", location.Latitude)
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "hdop", location.Hdop)
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "nsat", location.Nsat)
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "altitude", location.Altitude)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "longitude", location.Longitude, ts)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "latitude", location.Latitude, ts)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "hdop", location.Hdop, ts)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "nsat", location.Nsat, ts)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "altitude", location.Altitude, ts)
 	}
 
 	// only update Wi-Fi if no error and if Wi-Fi is available
 	if wifiErr == nil && !strings.EqualFold(wifi.WPAState, "disconnected") {
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState)
-		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState, ts)
+		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID, ts)
 	}
 	// add vehicle info if available
 	if wr.vehicleInfo != nil {
@@ -300,9 +301,10 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	return statusData
 }
 
-func appendSignalData(signals []models.SignalData, name string, value interface{}) []models.SignalData {
+// appendSignalData utility to add signals to the data example for ts: time.Now().UTC().UnixMilli()
+func appendSignalData(signals []models.SignalData, name string, value interface{}, ts int64) []models.SignalData {
 	return append(signals, models.SignalData{
-		Timestamp: time.Now().UTC().UnixMilli(),
+		Timestamp: ts,
 		Name:      name,
 		Value:     value,
 	})
