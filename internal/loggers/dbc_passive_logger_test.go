@@ -271,7 +271,7 @@ func TestParseUniqueResponseHeaders(t *testing.T) {
 }
 
 func hexToByteArray(hexString string, t *testing.T) []byte {
-	cleanHex := strings.Replace(hexString, " ", "", -1)
+	cleanHex := strings.ReplaceAll(hexString, " ", "")
 	byteArray, err := hex.DecodeString(cleanHex)
 	if err != nil {
 		t.Fatal(err)

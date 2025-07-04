@@ -254,9 +254,10 @@ func GetModemType(unitID uuid.UUID) (modem string, err error) {
 // GetGPSLocation gets lat long, alt, nsat etc, switches command depending on modem type, will always try to populate nsat regardless of modem type
 func GetGPSLocation(unitID uuid.UUID, modem string) (location api.GPSLocationResponse, err error) {
 	var req api.ExecuteRawRequest
-	if modem == "ec2x" {
+	switch modem {
+	case "ec2x":
 		req = api.ExecuteRawRequest{Command: api.GetGPSEc2xCommand}
-	} else if modem == "le910cx" {
+	case "le910cx":
 		req = api.ExecuteRawRequest{Command: api.GetGPSLe910cxCommand}
 	}
 	url := fmt.Sprintf("/dongle/%s/execute_raw", unitID)

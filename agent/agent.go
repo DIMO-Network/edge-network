@@ -62,7 +62,7 @@ func SetTrusted(adapterID string, devicePath dbus.ObjectPath, logger zerolog.Log
 		}
 	}
 
-	return fmt.Errorf("Cannot trust device %s, not found", path)
+	return fmt.Errorf("cannot trust device %s, not found", path)
 }
 
 // RemoveAgent remove an Agent1 implementation from AgentManager1
