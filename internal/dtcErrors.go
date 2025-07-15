@@ -52,7 +52,7 @@ func (ls *dtcErrorsRunner) DtcErrors() error {
 		s := models.DtcErrorsData{Vehicle: models.Vehicle{Signals: []models.SignalData{
 			{
 				Timestamp: ts,
-				Name:      "dtcErrors",
+				Name:      "obdDTCList", // vss name
 				Value:     codes,
 			},
 		}}}
