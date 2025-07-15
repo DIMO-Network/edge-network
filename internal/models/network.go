@@ -89,6 +89,13 @@ type FingerprintData struct {
 	SoftwareVersion string  `json:"softwareVersion"`
 }
 
+type DtcErrorsData struct {
+	//CommonData
+	//Device  Device  `json:"device,omitempty"`
+	// Vehicle.Signals should contain the dtc errors
+	Vehicle Vehicle `json:"vehicle,omitempty"`
+}
+
 type CellInfo struct {
 	Details api.IntrafrequencyLteInfo `json:"details,omitempty"`
 	IP      string                    `json:"ip,omitempty"`
