@@ -306,12 +306,6 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState, ts)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID, ts)
 	}
-	// add vehicle info if available
-	if wr.vehicleInfo != nil {
-		statusData.Vehicle.Make = wr.vehicleInfo.VehicleDefinition.Make
-		statusData.Vehicle.Model = wr.vehicleInfo.VehicleDefinition.Model
-		statusData.Vehicle.Year = wr.vehicleInfo.VehicleDefinition.Year
-	}
 
 	return statusData
 }

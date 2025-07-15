@@ -43,9 +43,6 @@ type Device struct {
 }
 
 type Vehicle struct {
-	Make    string       `json:"make"`
-	Model   string       `json:"model"`
-	Year    int          `json:"year"`
 	Signals []SignalData `json:"signals,omitempty"`
 }
 
