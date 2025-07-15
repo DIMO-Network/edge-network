@@ -2,13 +2,14 @@ package internal
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/DIMO-Network/edge-network/commands"
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/edge-network/internal/network"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"time"
 )
 
 type DtcErrorsRunner interface {
@@ -23,8 +24,6 @@ type dtcErrorsRunner struct {
 	dataSender network.DataSender
 	// state tracking
 	failureCount int
-	// allTimeFailureCount is loaded from disk from last boot - used to determine edge-logging need. Increments by 1 per boot cycle even if retried many times in one boot
-	allTimeFailureCount int // not sure we'll use this.
 }
 
 func NewDtcErrorsRunner(unitID uuid.UUID, dataSender network.DataSender, logger zerolog.Logger) DtcErrorsRunner {

@@ -144,7 +144,7 @@ func (wr *workerRunner) Run() {
 					errDtc := wr.dtcErrorsRunner.DtcErrors()
 					if errDtc != nil {
 						// keep trying until max failure reach
-						if wr.dtcErrorsRunner.CurrentFailureCount() == maxFingerprintFailures {
+						if wr.dtcErrorsRunner.CurrentFailureCount() == 3 {
 							wr.logger.Err(errDtc).Msg("failed to do vehicle dtc error scan - max failures reached")
 							dtcErrorsDone = true
 						}
