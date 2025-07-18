@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/internal/util"
-
 	"github.com/DIMO-Network/edge-network/internal/hooks"
+	"github.com/DIMO-Network/edge-network/internal/util/retry"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
@@ -77,7 +76,7 @@ func main() {
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := util.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := retry.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
 
@@ -274,7 +273,7 @@ func setupBluez(name string) error {
 // getVehicleInfo queries identity-api with 3 retries logic, to get vehicle to device pairing info (vehicle NFT)
 func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	identityAPIService := gateways.NewIdentityAPIService(logger, conf)
-	vehicleDefinition, err := util.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
+	vehicleDefinition, err := retry.Retry[models.VehicleInfo](3, 1*time.Second, logger, func() (interface{}, error) {
 		v, err := identityAPIService.QueryIdentityAPIForVehicle(*ethAddr)
 		if v != nil && v.TokenID == 0 {
 			return nil, fmt.Errorf("failed to query identity api for vehicle info - tokenId is zero")
