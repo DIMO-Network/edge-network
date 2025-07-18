@@ -40,6 +40,7 @@ type workerRunner struct {
 	logger              zerolog.Logger
 	ethAddr             *common.Address
 	fingerprintRunner   FingerprintRunner
+	dtcErrorsRunner     DtcErrorsRunner
 	pids                *models.TemplatePIDs
 	deviceSettings      *models.TemplateDeviceSettings
 	signalsQueue        *SignalsQueue
@@ -53,14 +54,14 @@ type workerRunner struct {
 func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo,
-	dbcScanner loggers.DBCPassiveLogger) WorkerRunner {
+	dbcScanner loggers.DBCPassiveLogger, dtcRunner DtcErrorsRunner) WorkerRunner {
 	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
-		dbcScanner: dbcScanner}
+		dbcScanner: dbcScanner, dtcErrorsRunner: dtcRunner}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -114,6 +115,7 @@ func (wr *workerRunner) Run() {
 	// battery-voltage also will be checked in non-obd clock because we want to send it with every status payload
 	go func() {
 		fingerprintDone := false
+		dtcErrorsDone := false
 		for {
 			// we will need to check the voltage before we query obd, and then we can query obd if voltage is ok
 			queryOBD, powerStatus := wr.isOkToQueryOBD()
@@ -135,6 +137,19 @@ func (wr *workerRunner) Run() {
 					} else {
 						fingerprintDone = true
 						// note that FingerprintSimple stores success and reports to edge logs when first time success
+					}
+				}
+				if !dtcErrorsDone {
+					// try getting DTC errors from vehicle and send them as signals
+					errDtc := wr.dtcErrorsRunner.DtcErrors()
+					if errDtc != nil {
+						// keep trying until max failure reach
+						if wr.dtcErrorsRunner.CurrentFailureCount() == 3 {
+							wr.logger.Err(errDtc).Msg("failed to do vehicle dtc error scan - max failures reached")
+							dtcErrorsDone = true
+						}
+					} else {
+						dtcErrorsDone = true
 					}
 				}
 				// query OBD signals
@@ -171,10 +186,12 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
-			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(s)
-			if err != nil {
-				wr.logger.Err(err).Msg("failed to send device status in loop")
+			if len(s.Vehicle.Signals) > 0 {
+				// send the cloud event only if it has signals
+				err = wr.dataSender.SendDeviceStatusData(s)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to send device status in loop")
+				}
 			}
 
 			if cellErr == nil || wifiErr == nil {
@@ -290,12 +307,6 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 	if wifiErr == nil && !strings.EqualFold(wifi.WPAState, "disconnected") {
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "wpa_state", wifi.WPAState, ts)
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "ssid", wifi.SSID, ts)
-	}
-	// add vehicle info if available
-	if wr.vehicleInfo != nil {
-		statusData.Vehicle.Make = wr.vehicleInfo.VehicleDefinition.Make
-		statusData.Vehicle.Model = wr.vehicleInfo.VehicleDefinition.Model
-		statusData.Vehicle.Year = wr.vehicleInfo.VehicleDefinition.Year
 	}
 
 	return statusData

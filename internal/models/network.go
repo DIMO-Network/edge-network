@@ -43,9 +43,6 @@ type Device struct {
 }
 
 type Vehicle struct {
-	Make    string       `json:"make"`
-	Model   string       `json:"model"`
-	Year    int          `json:"year"`
 	Signals []SignalData `json:"signals,omitempty"`
 }
 
@@ -87,6 +84,13 @@ type FingerprintData struct {
 	Protocol        string  `json:"protocol"`
 	Odometer        float64 `json:"odometer,omitempty"`
 	SoftwareVersion string  `json:"softwareVersion"`
+}
+
+type DtcErrorsData struct {
+	//CommonData
+	//Device  Device  `json:"device,omitempty"`
+	// Vehicle.Signals should contain the dtc errors
+	Vehicle Vehicle `json:"vehicle,omitempty"`
 }
 
 type CellInfo struct {

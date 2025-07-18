@@ -33,7 +33,7 @@ func Test_workerRunner_NonObd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	_, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	_, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
 	wfPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -46,7 +46,7 @@ func Test_workerRunner_NonObd(t *testing.T) {
 		httpmock.NewStringResponder(200, `{"lat": 37.7749, "lon": -122.4194, "_stamp": "2024-02-29T17:17:30.534861"}`))
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 
 	// then
 	wifi, _, location, _, cellInfo, _ := wr.queryNonObd("ec2x")
@@ -69,7 +69,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	_, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	_, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -101,7 +101,7 @@ func Test_workerRunner_Obd(t *testing.T) {
 	}
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 
 	// then
@@ -124,7 +124,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	_, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	_, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	const autoPiBaseURL = "http://192.168.4.1:9000"
@@ -159,7 +159,7 @@ func Test_workerRunner_Obd_With_Python_Formula(t *testing.T) {
 	}
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 
 	// then
@@ -183,7 +183,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().Return(false)
 
 	// mock powerstatus resp
@@ -207,7 +207,7 @@ func Test_workerRunner_OBD_and_NonObd(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 
 	// then
@@ -237,7 +237,7 @@ func Test_workerRunner_Run(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -274,7 +274,7 @@ func Test_workerRunner_Run(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
@@ -297,7 +297,7 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -355,7 +355,7 @@ func Test_workerRunner_Run_withLocationQuery(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	// since location consists from 4 signals, we should have more than 40 signals in the 5 sec interval
@@ -379,7 +379,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -416,7 +416,7 @@ func Test_workerRunner_Run_sendSameSignalMultipleTimes(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
@@ -438,7 +438,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -488,7 +488,7 @@ func Test_workerRunner_Run_sendSignalsWithDifferentInterval(t *testing.T) {
 	}
 
 	// Initialize workerRunner here with mocked dependencies
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
@@ -510,7 +510,7 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -556,7 +556,7 @@ func Test_workerRunner_Run_failedToQueryPidTooManyTimes(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
@@ -588,7 +588,7 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -637,7 +637,7 @@ func Test_workerRunner_Run_failedToQueryPidButRecover(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
@@ -686,7 +686,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -741,7 +741,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
@@ -773,7 +773,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -828,7 +828,7 @@ func Test_workerRunner_RunWithNotEnoughVoltage2(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
@@ -861,7 +861,7 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -901,7 +901,7 @@ func Test_workerRunner_RunWithCantQueryLocation(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
@@ -933,7 +933,7 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
@@ -975,7 +975,7 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 5 * time.Second
 	wr.stop = make(chan bool)
@@ -986,7 +986,7 @@ func Test_workerRunner_FilterWiFiWhenDisconnected(t *testing.T) {
 	wr.Stop()
 }
 
-func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner) {
+func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_loggers.MockVINLogger, *mock_network.MockDataSender, *mock_loggers.MockTemplateStore, *mock_loggers.MockDBCPassiveLogger, FingerprintRunner, DtcErrorsRunner) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
@@ -1000,7 +1000,8 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mock_logger
 	ts.EXPECT().ReadVINConfig().Times(1).Return(nil, fmt.Errorf("error reading file: open /tmp/logger-settings.json: no such file or directory"))
 
 	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
-	return vl, ds, ts, dbcS, ls
+	dr := NewDtcErrorsRunner(unitID, ds, logger)
+	return vl, ds, ts, dbcS, ls, dr
 }
 
 func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINLogger, unitID uuid.UUID, ds *mock_network.MockDataSender, readVinNum int) {
@@ -1011,12 +1012,13 @@ func expectOnMocks(ts *mock_loggers.MockTemplateStore, vl *mock_loggers.MockVINL
 	ds.EXPECT().SendFingerprintData(gomock.Any()).Times(1).Return(nil)
 }
 
-func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, unitID uuid.UUID) *workerRunner {
+func createWorkerRunner(ts *mock_loggers.MockTemplateStore, ds *mock_network.MockDataSender, dbcS *mock_loggers.MockDBCPassiveLogger, ls FingerprintRunner, dr DtcErrorsRunner, unitID uuid.UUID) *workerRunner {
 	wr := &workerRunner{
 		loggerSettingsSvc: ts,
 		dataSender:        ds,
 		deviceSettings:    &models.TemplateDeviceSettings{},
 		fingerprintRunner: ls,
+		dtcErrorsRunner:   dr,
 		device: Device{
 			UnitID: unitID,
 		},

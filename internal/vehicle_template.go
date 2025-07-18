@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/internal/util"
-
 	"github.com/DIMO-Network/shared/device"
 
 	"github.com/google/uuid"
@@ -13,6 +11,7 @@ import (
 	"github.com/DIMO-Network/edge-network/internal/gateways"
 	"github.com/DIMO-Network/edge-network/internal/loggers"
 	"github.com/DIMO-Network/edge-network/internal/models"
+	"github.com/DIMO-Network/edge-network/internal/util/retry"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 )
@@ -58,7 +57,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 		}
 	}
 
-	templateURLsRemote, err := util.Retry[device.ConfigResponse](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	templateURLsRemote, err := retry.Retry[device.ConfigResponse](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetUrlsByEthAddr(addr)
 	})
 	if err != nil || templateURLsRemote == nil {
@@ -90,7 +89,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 	}
 
 	//  if we downloaded new template from remote, we need to update device config status by calling vehicle-signal-decoding-api
-	updateDeviceStatusErr := util.RetryErrorOnly(3, 1*time.Second, vt.logger, func() error {
+	updateDeviceStatusErr := retry.RetryErrorOnly(3, 1*time.Second, vt.logger, func() error {
 		return vt.vsd.UpdateDeviceConfigStatus(addr, fwVersion, unitID, templateURLsRemote)
 	})
 	if updateDeviceStatusErr != nil {
@@ -98,7 +97,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 	}
 
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally
-	remotePids, err := util.Retry[models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	remotePids, err := retry.Retry[models.TemplatePIDs](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetPIDs(templateURLsRemote.PidURL)
 	})
 	if err != nil {
@@ -111,7 +110,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 		}
 	}
 	// get device settings
-	deviceSettings, err = util.Retry[models.TemplateDeviceSettings](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+	deviceSettings, err = retry.Retry[models.TemplateDeviceSettings](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 		return vt.vsd.GetDeviceSettings(templateURLsRemote.DeviceSettingURL)
 	})
 	if err != nil {
@@ -126,7 +125,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 	}
 	// get dbc file
 	if templateURLsRemote.DbcURL != "" {
-		dbcFile, err = util.Retry[string](3, 1*time.Second, vt.logger, func() (interface{}, error) {
+		dbcFile, err = retry.Retry[string](3, 1*time.Second, vt.logger, func() (interface{}, error) {
 			return vt.vsd.GetDBC(templateURLsRemote.DbcURL)
 		})
 		if err != nil {

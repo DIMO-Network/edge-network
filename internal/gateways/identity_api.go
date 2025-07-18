@@ -5,9 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/DIMO-Network/edge-network/internal/util"
-
 	"github.com/DIMO-Network/edge-network/config"
+	"github.com/DIMO-Network/edge-network/internal/util/retry"
 
 	"github.com/DIMO-Network/edge-network/internal/models"
 	"github.com/DIMO-Network/shared"
@@ -100,7 +99,7 @@ func (i *identityAPIService) fetchVehicleWithQuery(query string) (*models.Vehicl
 	}
 
 	if vehicleResponse.Data.AfterMarketDevice.Vehicle.TokenID == 0 {
-		return nil, util.Stop{Err: errors.New(ErrNotFound.Error())}
+		return nil, retry.Stop{Err: errors.New(ErrNotFound.Error())}
 	}
 
 	return &vehicleResponse.Data.AfterMarketDevice.Vehicle, nil
