@@ -186,10 +186,12 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
-			// send the cloud event
-			err = wr.dataSender.SendDeviceStatusData(s)
-			if err != nil {
-				wr.logger.Err(err).Msg("failed to send device status in loop")
+			if len(s.Vehicle.Signals) > 0 {
+				// send the cloud event only if it has signals
+				err = wr.dataSender.SendDeviceStatusData(s)
+				if err != nil {
+					wr.logger.Err(err).Msg("failed to send device status in loop")
+				}
 			}
 
 			if cellErr == nil || wifiErr == nil {
