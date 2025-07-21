@@ -49,12 +49,12 @@ func Retry[T any](attempts int, sleep time.Duration, logger zerolog.Logger, fn R
 	return nil, err
 }
 
-// RetryErrorOnly attempts to execute the provided function until it succeeds or the maximum number of attempts is reached.
+// ErrorOnly attempts to execute the provided function until it succeeds or the maximum number of attempts is reached.
 // If the function returns an error that is of type Stop, it will not retry and will return the original error.
 // It uses exponential backoff for the sleep duration between retries.
 // Returns:
 // error - The error returned by the function, or nil if the function succeeded.
-func RetryErrorOnly(attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFuncErr) error {
+func ErrorOnly(attempts int, sleep time.Duration, logger zerolog.Logger, fn RetryableFuncErr) error {
 	var err error
 	for i := 0; i < attempts; i++ {
 		if err = fn(); err != nil {

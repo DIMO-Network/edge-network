@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"os"
 
 	"github.com/DIMO-Network/edge-network/internal/loggers"
@@ -19,7 +20,7 @@ type dbcScanCmd struct {
 
 func (*dbcScanCmd) Name() string { return "dbc-scan" }
 func (*dbcScanCmd) Synopsis() string {
-	return "starts scanning canbus with the passed in dbc file"
+	return "starts scanning canbus with the passed in dbc file or default on in autopi directory if no parameter"
 }
 func (*dbcScanCmd) Usage() string {
 	return `dbc-scan -file <dbc.file path>`
@@ -31,11 +32,15 @@ func (p *dbcScanCmd) SetFlags(f *flag.FlagSet) {
 
 func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	p.logger.Info().Msg("Start Scanning canbus with a DBC file:")
-	fmt.Println("dbc path:" + p.dbcFilePath)
+	dbc := loggers.DBCFile
+	if p.dbcFilePath != "" {
+		dbc = p.dbcFilePath
+	}
+	fmt.Println("dbc path:" + dbc)
 
-	content, err := os.ReadFile(p.dbcFilePath)
+	content, err := os.ReadFile(dbc)
 	if err != nil {
-		p.logger.Fatal().Err(err).Send()
+		hooks.LogFatal(p.logger, err, "failed to read dbc file")
 	}
 	d := string(content)
 	fmt.Println(d)
@@ -45,7 +50,7 @@ func (p *dbcScanCmd) Execute(_ context.Context, _ *flag.FlagSet, _ ...interface{
 	go func() {
 		err := dbcLogger.StartScanning(ch)
 		if err != nil {
-			p.logger.Fatal().Err(err).Msg("failed to start scanning")
+			hooks.LogFatal(p.logger, err, "failed to start scanning")
 		}
 	}()
 	for signal := range ch {

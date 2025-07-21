@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DIMO-Network/edge-network/internal/hooks"
+
 	"github.com/DIMO-Network/shared/device"
 
 	"github.com/google/uuid"
@@ -25,10 +27,10 @@ type VehicleTemplates interface {
 type vehicleTemplates struct {
 	logger zerolog.Logger
 	vsd    gateways.VehicleSignalDecoding
-	lss    loggers.TemplateStore
+	lss    loggers.SettingsStore
 }
 
-func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecoding, lss loggers.TemplateStore) VehicleTemplates {
+func NewVehicleTemplates(logger zerolog.Logger, vsd gateways.VehicleSignalDecoding, lss loggers.SettingsStore) VehicleTemplates {
 	return &vehicleTemplates{logger: logger, vsd: vsd, lss: lss}
 }
 
@@ -89,11 +91,12 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 	}
 
 	//  if we downloaded new template from remote, we need to update device config status by calling vehicle-signal-decoding-api
-	updateDeviceStatusErr := retry.RetryErrorOnly(3, 1*time.Second, vt.logger, func() error {
+	updateDeviceStatusErr := retry.ErrorOnly(3, 1*time.Second, vt.logger, func() error {
 		return vt.vsd.UpdateDeviceConfigStatus(addr, fwVersion, unitID, templateURLsRemote)
 	})
 	if updateDeviceStatusErr != nil {
-		vt.logger.Err(updateDeviceStatusErr).Msg(fmt.Sprintf("failed to update device config status using ethAddr %s", addr.String()))
+		hooks.LogError(vt.logger, updateDeviceStatusErr, fmt.Sprintf("failed to update device config status using ethAddr %s", addr.String()),
+			hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(10))
 	}
 
 	// PIDs, device settings, DBC (leave for later). If we can't get any of them, return what we have locally

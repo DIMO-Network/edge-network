@@ -30,7 +30,6 @@ import (
 )
 
 // it is the responsibility of the DataSender to determine what topic to use
-const canDumpTopic = "protocol/canbus/dump"
 
 //go:generate mockgen -source data_sender.go -destination mocks/data_sender_mock.go
 type DataSender interface {
@@ -38,7 +37,7 @@ type DataSender interface {
 	SendLogsData(data models.ErrorsData) error
 	// SendFingerprintData sends VIN and protocol over mqtt to corresponding topic, could add anything else to help identify vehicle
 	SendFingerprintData(data models.FingerprintData) error
-	SendCanDumpData(data models.CanDumpData) error
+	SendCanDumpData(data json.RawMessage) error
 	// SendDeviceStatusData sends queried vehicle data over mqtt, per configuration from vehicle-signal-decoding api.
 	// The data can be gzip compressed or not
 	SendDeviceStatusData(data any) error
@@ -145,14 +144,15 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 		data.Timestamp = time.Now().UTC().UnixMilli()
 	}
 	ce := shared.CloudEvent[models.FingerprintData]{
-		ID:          ksuid.New().String(),
-		Source:      "aftermarket/device/fingerprint",
-		SpecVersion: "1.0",
-		Subject:     ds.ethAddr.Hex(),
-		Time:        time.Now().UTC(),
-		Type:        "zone.dimo.aftermarket.device.fingerprint",
-		DataSchema:  "dimo.zone.status/v2.0",
-		Data:        data,
+		ID:             ksuid.New().String(),
+		Source:         "aftermarket/device/fingerprint",
+		SpecVersion:    "1.0",
+		Subject:        ds.ethAddr.Hex(),
+		Time:           time.Now().UTC(),
+		Type:           "zone.dimo.aftermarket.device.fingerprint",
+		DataSchema:     "dimo.zone.status/v2.0",
+		VehicleTokenID: uint32(ds.vehicleInfo.TokenID),
+		Data:           data,
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
@@ -172,20 +172,18 @@ func (ds *dataSender) SendFingerprintData(data models.FingerprintData) error {
 
 func (ds *dataSender) SendDeviceStatusData(data any) error {
 	ce := models.DeviceDataStatusCloudEvent[any]{
+		TokenID: ds.vehicleInfo.TokenID,
 		CloudEvent: shared.CloudEvent[any]{
-			ID:          ksuid.New().String(),
-			Source:      "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk",
-			SpecVersion: "1.0",
-			Subject:     ds.ethAddr.Hex(),
-			Time:        time.Now().UTC(),
-			Type:        "com.dimo.device.status.v2",
-			DataSchema:  "dimo.zone.status/v2.0",
-			Data:        data,
+			ID:             ksuid.New().String(),
+			Source:         "dimo/integration/27qftVRWQYpVDcO5DltO5Ojbjxk",
+			SpecVersion:    "1.0",
+			Subject:        ds.ethAddr.Hex(),
+			Time:           time.Now().UTC(),
+			Type:           "com.dimo.device.status.v2",
+			DataSchema:     "dimo.zone.status/v2.0",
+			Data:           data,
+			VehicleTokenID: uint32(ds.vehicleInfo.TokenID),
 		},
-	}
-
-	if ds.vehicleInfo.TokenID != 0 {
-		ce.TokenID = ds.vehicleInfo.TokenID
 	}
 
 	payload, err := json.Marshal(ce)
@@ -208,14 +206,15 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 	}
 
 	ce := shared.CloudEvent[models.DeviceNetworkData]{
-		ID:          ksuid.New().String(),
-		Source:      "aftermarket/device/network",
-		SpecVersion: "1.0",
-		Subject:     ds.ethAddr.Hex(),
-		Time:        time.Now().UTC(),
-		Type:        "com.dimo.device.network",
-		DataSchema:  "dimo.zone.status/v2.0",
-		Data:        data,
+		ID:             ksuid.New().String(),
+		Source:         "aftermarket/device/network",
+		SpecVersion:    "1.0",
+		Subject:        ds.ethAddr.Hex(),
+		Time:           time.Now().UTC(),
+		Type:           "com.dimo.device.network",
+		DataSchema:     "dimo.zone.status/v2.0",
+		Data:           data,
+		VehicleTokenID: uint32(ds.vehicleInfo.TokenID),
 	}
 	payload, err := json.Marshal(ce)
 	if err != nil {
@@ -231,28 +230,27 @@ func (ds *dataSender) SendDeviceNetworkData(data models.DeviceNetworkData) error
 	return nil
 }
 
-func (ds *dataSender) SendCanDumpData(data models.CanDumpData) error {
-	if data.Timestamp == 0 {
-		data.Timestamp = time.Now().UTC().UnixMilli()
+// SendCanDumpData sends a byte array, compressed, to mqtt candump topic
+func (ds *dataSender) SendCanDumpData(data json.RawMessage) error {
+	ce := shared.CloudEvent[json.RawMessage]{
+		ID:             ksuid.New().String(),
+		Source:         "aftermarket/device/canbus/dump",
+		SpecVersion:    "1.0",
+		Subject:        ds.ethAddr.Hex(),
+		Time:           time.Now().UTC(),
+		Type:           "com.dimo.aftermarket.canbus.dump",
+		DataSchema:     "dimo.zone.dump/v1.0",
+		Data:           data,
+		VehicleTokenID: uint32(ds.vehicleInfo.TokenID),
 	}
-	ce := shared.CloudEvent[models.CanDumpData]{
-		ID:          ksuid.New().String(),
-		Source:      "aftermarket/device/canbus/dump",
-		SpecVersion: "1.0",
-		Subject:     ds.ethAddr.Hex(),
-		Time:        time.Now().UTC(),
-		Type:        "zone.dimo.aftermarket.canbus.dump",
-		DataSchema:  "dimo.zone.status/v2.0",
-		Data:        data,
-	}
-	println("Sending can dump data: (payload)")
+	ds.logger.Info().Msgf("Sending can dump data: %+v", ce)
 	payload, err := json.Marshal(ce)
-	println(payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshall cloudevent")
 	}
 
-	err = ds.sendPayload(canDumpTopic, payload, false)
+	candump := fmt.Sprintf(ds.mqtt.Topics.Candump, ce.Subject)
+	err = ds.sendPayload(candump, payload, true)
 	if err != nil {
 		return err
 	}

@@ -19,32 +19,6 @@ const StopLogAfter keyType = "stopLogAfter"
 const ThresholdWhenLogMqtt keyType = "threshold"
 const PowerStatus keyType = "powerStatus"
 
-type LogHook struct {
-	DataSender network.DataSender
-}
-
-// Run All fatal log level will be sent to mqtt,
-// if we want error log level be sent to mqtt bus, we need to log it like:
-// logger.Error().Ctx(context.WithValue(context.Background(), internal.LogToMqtt, "true")).Msgf("Error msg: %s", err.Error())
-func (h *LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	// This is where you can modify the event by adding fields, changing
-	// existing ones, or even decide to not log the event.
-	if level == zerolog.FatalLevel {
-		err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
-		if err != nil {
-			return
-		}
-	}
-
-	if e.GetCtx().Value(LogToMqtt) != nil {
-		err := h.DataSender.SendErrorPayload(errors.New(msg), nil)
-		if err != nil {
-			return
-		}
-		e.Str(string(LogToMqtt), "send message over the mqtt bus")
-	}
-}
-
 // LogRateLimiterHook is a log hook that filters log events based on the number of times an error message has occurred.
 // The hook keeps track of the number of times an error message has occurred and sends the error payload to MQTT when the count reaches a certain threshold.
 type LogRateLimiterHook struct {
@@ -137,6 +111,16 @@ func LogError(logger zerolog.Logger, err error, message string, opts ...LogOptio
 	c := applyOptions(opts)
 
 	logger.Err(err).Ctx(c).Msg(message)
+}
+
+// LogFatal logs a fatal message with the provided options.
+func LogFatal(logger zerolog.Logger, err error, message string) {
+	opts := []LogOption{
+		WithThresholdWhenLogMqtt(1),
+	}
+	c := applyOptions(opts)
+
+	logger.Fatal().Err(err).Ctx(c).Msg(message)
 }
 
 // LogInfo logs an info message with the provided options.

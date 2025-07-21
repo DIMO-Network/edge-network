@@ -46,6 +46,11 @@ var btManager btmgmt.BtMgmt
 //go:embed config.yaml config-dev.yaml
 var configFiles embed.FS
 
+func buildBleName(serial uuid.UUID) string {
+	unitIDStr := serial.String()
+	return "autopi-" + unitIDStr[len(unitIDStr)-12:]
+}
+
 func main() {
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -66,19 +71,38 @@ func main() {
 	// Used by go-bluetooth, and we use this to set how much it logs. Not for this project.
 	logrus.SetLevel(logrus.InfoLevel)
 
-	name, unitID = commands.GetDeviceName(logger)
-	logger.Info().Msgf("SerialNumber Number: %s", unitID)
-
-	hwRevision, err := commands.GetHardwareRevision(unitID)
+	serial, err := commands.GetDeviceSerial()
 	if err != nil {
-		logger.Err(err).Msg("error getting hardware rev")
+		logger.Fatal().Err(err).Send()
+	}
+	logger.Info().Msgf("SerialNumber Number: %s", serial)
+	name = buildBleName(serial)
+	unitID = serial
+	hwRevision := "7.0" // assume latest version if can't get it
+	hwRv, err := retry.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
+		return commands.GetHardwareRevision(unitID)
+	})
+	if err != nil {
+		logger.Err(err).Msgf("error getting hardware rev, defaulting to %s", hwRevision)
+	}
+	if hwRv != nil {
+		hwRevision = *hwRv
 	}
 	logger.Info().Msgf("hardware version found: %s", hwRevision)
 
 	// retry logic for getting ethereum address
-	ethAddr, ethErr := retry.Retry[common.Address](3, 5*time.Second, logger, func() (interface{}, error) {
+	ethAddr, ethErr := retry.Retry[common.Address](4, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetEthereumAddress(unitID)
 	})
+	// check if we were able to get ethereum address, otherwise fail fast
+	if ethAddr == nil {
+		if ethErr != nil {
+			logger.Err(ethErr).Msg("eth addr error")
+		}
+		logger.Fatal().Msgf("could not get ethereum address")
+	} else {
+		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
+	}
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
@@ -86,7 +110,6 @@ func main() {
 
 	subcommands.Register(&scanVINCmd{unitID: unitID, logger: logger}, "decode loggers")
 	subcommands.Register(&buildInfoCmd{logger: logger}, "info")
-	subcommands.Register(&canDumpCmd{unitID: unitID}, "canDump operations")
 	subcommands.Register(&dbcScanCmd{logger: logger}, "decode loggers")
 	subcommands.Register(&canDumpV2Cmd{logger: logger}, "decode loggers")
 
@@ -139,23 +162,10 @@ func main() {
 	// will retry for about 1 hour in case if no internet connection, so we are not interrupt device pairing process
 	config, confErr := dimoConfig.ReadConfig(logger, configFiles, configURL, confFileName)
 	logger.Debug().Msgf("Config: %+v\n", config)
-	if confErr != nil {
-		logger.Fatal().Err(confErr).Msg("unable to read config file")
-	}
 
 	logger.Info().Msgf("Starting DIMO Edge Network, with log level: %s", zerolog.GlobalLevel())
 
-	// check if we were able to get ethereum address, otherwise fail fast
-	if ethAddr == nil {
-		if ethErr != nil {
-			logger.Err(ethErr).Msg("eth addr error")
-		}
-		logger.Fatal().Msgf("could not get ethereum address")
-	} else {
-		logger.Info().Msgf("Device Ethereum Address: %s", ethAddr.Hex())
-	}
-
-	//  start mqtt certificate verification routine
+	// start mqtt certificate verification routine
 	cs := certificate.NewCertificateService(logger, *config, nil, certificate.CertFileWriter{})
 	certErr := cs.CheckCertAndRenewIfExpiresSoon(*ethAddr, unitID)
 
@@ -163,18 +173,24 @@ func main() {
 	ds := network.NewDataSender(unitID, *ethAddr, logger, models.VehicleInfo{}, *config)
 	//  From this point forward, any log events produced by this logger will pass through the hook.
 	fh := hooks.NewLogRateLimiterHook(ds)
-	logger = logger.Hook(&hooks.LogHook{DataSender: ds}).Hook(fh)
+	logger = logger.Hook(fh)
+
+	// log certificate errors
+	if confErr != nil {
+		hooks.LogFatal(logger, confErr, "unable to read config file")
+	}
 
 	// log certificate errors
 	if certErr != nil {
-		logger.Error().Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("Error from SignWeb3Certificate : %s", certErr.Error())
+		hooks.LogError(logger, err, "Error from SignWeb3Certificate", hooks.WithThresholdWhenLogMqtt(1))
 	}
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
 	// and we want to loosen some assumptions, eg. doesn't matter if not paired.
 	vehicleInfo, err := blockingGetVehicleInfo(logger, ethAddr, lss, *config)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
+		msg := fmt.Sprintf("cannot start edge-network because no on-chain pairing was found for this device addr: %s", ethAddr.Hex())
+		hooks.LogFatal(logger, err, msg)
 	}
 
 	// OBD / CAN Loggers
@@ -186,7 +202,7 @@ func main() {
 	// get the template settings from remote, below method handles all the special logic
 	pids, deviceSettings, dbcFile, err := vehicleTemplates.GetTemplateSettings(ethAddr, Version, unitID)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("unable to get device settings (pids, dbc, settings)")
+		hooks.LogFatal(logger, err, "unable to get device settings (pids, dbc, settings)")
 	}
 	if pids != nil {
 		pj, err := json.Marshal(pids)
@@ -291,11 +307,11 @@ func getVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, conf dimoCon
 // If the vehicle info is retrieved successfully, it is written to a temporary cache. If the error is not tokenId zero,
 // which would mean no pairing, then check the local cache since this is likely transient error.
 // If the vehicle info is not retrieved within the retries, a timeout error is returned.
-func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.TemplateStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
+func blockingGetVehicleInfo(logger zerolog.Logger, ethAddr *common.Address, lss loggers.SettingsStore, conf dimoConfig.Config) (*models.VehicleInfo, error) {
 	for i := 0; i < 60; i++ {
 		vehicleInfo, err := getVehicleInfo(logger, ethAddr, conf)
 		if err != nil {
-			logger.Err(err).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).Msgf("failed to get vehicle info, will retry again in 60s")
+			hooks.LogError(logger, err, "failed to get vehicle info, will retry again in 60s", hooks.WithThresholdWhenLogMqtt(3))
 			// check for local cache but only if error is not of type tokenid zero
 			if !strings.Contains(err.Error(), "tokenId is zero") {
 				vehicleInfo, err = lss.ReadVehicleInfo()
