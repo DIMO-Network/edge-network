@@ -6,8 +6,6 @@ import (
 
 	"github.com/DIMO-Network/edge-network/internal/hooks"
 
-	"github.com/DIMO-Network/edge-network/internal/util"
-
 	"github.com/DIMO-Network/shared/device"
 
 	"github.com/google/uuid"
