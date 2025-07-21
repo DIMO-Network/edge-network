@@ -91,7 +91,7 @@ func (vt *vehicleTemplates) GetTemplateSettings(addr *common.Address, fwVersion 
 	}
 
 	//  if we downloaded new template from remote, we need to update device config status by calling vehicle-signal-decoding-api
-	updateDeviceStatusErr := retry.RetryErrorOnly(3, 1*time.Second, vt.logger, func() error {
+	updateDeviceStatusErr := retry.ErrorOnly(3, 1*time.Second, vt.logger, func() error {
 		return vt.vsd.UpdateDeviceConfigStatus(addr, fwVersion, unitID, templateURLsRemote)
 	})
 	if updateDeviceStatusErr != nil {
