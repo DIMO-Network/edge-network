@@ -1,7 +1,7 @@
 package loggers
 
 import (
-	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -24,8 +24,8 @@ import (
 //go:generate mockgen -source dbc_passive_logger.go -destination mocks/dbc_passive_logger_mock.go
 type DBCPassiveLogger interface {
 	StartScanning(ch chan<- models.SignalData) error
-	// UseNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native scanning (they go hand in hand)
-	UseNativeScanLogger() bool
+	// ShouldNativeScanLogger uses a variety of logic to decide if we should enable DBC file support as well as native Request/Response scanning (they go hand in hand)
+	ShouldNativeScanLogger() bool
 	SendCANQuery(header uint32, mode uint32, pid uint32) error
 	StopScanning() error
 }
@@ -37,8 +37,8 @@ type dbcPassiveLogger struct {
 	hardwareSupport bool
 	pids            []models.PIDRequest
 	recv            *canbus.Socket
-	// used for filtering for PIDs
-	respHeaders map[uint32]struct{}
+	// cache what we figure out
+	shouldNativeScanLogger *bool
 }
 
 func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion string, pids *models.TemplatePIDs) DBCPassiveLogger {
@@ -49,59 +49,45 @@ func NewDBCPassiveLogger(logger zerolog.Logger, dbcFile *string, hwVersion strin
 	dpl := &dbcPassiveLogger{logger: logger, dbcFile: dbcFile, hardwareSupport: v >= 6} // have only tested in 7+ working, for sure 5.2 nogo
 	if pids != nil {
 		dpl.pids = pids.Requests
-		dpl.respHeaders = getUniqueResponseHeaders(dpl.pids)
 	}
 
 	return dpl
 }
 
 func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
-	// todo switch here for when we add filters only for pid querying but no DBC file
-	// note currently this is not possible since we only do native querying and pids when there is a dbc file
-	if dpl.dbcFile == nil {
-		dpl.logger.Info().Msg("dbcFile is nil - not starting DBC passive logger")
-		return nil
-	}
 	if !dpl.hardwareSupport {
 		dpl.logger.Info().Msg("hardware support is not enabled due to old hw - not starting DBC passive logger")
 		return nil
 	}
-	filters, err := dpl.parseDBCHeaders(*dpl.dbcFile)
-	if err != nil {
-		return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
+	filters := []dbcFilter{}
+	if dpl.dbcFile != nil {
+		f, err := dpl.parseDBCHeaders(*dpl.dbcFile)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse dbc file: %s", *dpl.dbcFile)
+		}
+		filters = f
 	}
+	pidRespHdrs := getUniqueResponseHeaders(dpl.pids)
 	// add any PID or DID filters
-	for rh := range dpl.respHeaders {
+	for rh := range pidRespHdrs {
 		filters = append(filters, dbcFilter{
 			header: rh,
 		})
 	}
 
-	dpl.recv, err = canbus.New()
-	if err != nil {
-		return err
-	}
+	dpl.recv, _ = canbus.New()
 
 	// set hardware filters
-	uf := make([]unix.CanFilter, len(filters))
-	for i, filter := range filters {
-		uf[i].Id = filter.header // wants decimal representation of header - not hex
-		if filter.header > 4095 {
-			uf[i].Mask = unix.CAN_EFF_MASK // extended frame
-		} else {
-			uf[i].Mask = unix.CAN_SFF_MASK // standard frame
-		}
-	}
-	err = dpl.recv.SetFilters(uf)
+	uf := buildCanFilters(filters)
+	err := dpl.recv.SetFilters(uf)
 	if err != nil {
 		return fmt.Errorf("cannot set canbus filters: %w", err)
 	}
 	err = dpl.recv.Bind("can0")
 	if err != nil {
-
 		return errors.Wrap(err, "could not bind recv socket")
 	}
-	// loop
+	// loop for each frame
 	for {
 		frame, err := dpl.recv.Recv()
 		if err != nil {
@@ -111,15 +97,14 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 		}
 
 		// handle standard PID responses
-		if _, ok := dpl.respHeaders[frame.ID]; ok {
+		if _, ok := pidRespHdrs[frame.ID]; ok {
 			pid := dpl.matchPID(frame)
 			if pid != nil {
 				dpl.logger.Debug().Msgf("found pid match: %+v", pid)
 				floatVal, _, errFormula := ParsePIDBytesWithDBCFormula(frame.Data, pid.Pid, pid.Formula)
 				if errFormula != nil {
-					dpl.logger.Err(errFormula).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
-						Msgf("failed to extract PID data with formula: %s, resp data: %s, name: %s",
-							pid.Formula, printBytesAsHex(frame.Data), pid.Name)
+					msg := fmt.Sprintf("failed to extract PID data with formula: %s, resp data: %s, name: %s", pid.Formula, printBytesAsHex(frame.Data), pid.Name)
+					hooks.LogError(dpl.logger, errFormula, msg, hooks.WithThresholdWhenLogMqtt(1))
 					continue
 				}
 				dpl.logger.Debug().Msgf("%s value: %f", pid.Name, floatVal)
@@ -147,9 +132,10 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 				dpl.logger.Err(err).Msg("failed to extract float value. hex: " + hexStr)
 			}
 			s := models.SignalData{
-				Timestamp: time.Now().UnixMilli(),
-				Name:      signal.signalName,
-				Value:     floatValue,
+				Timestamp:      time.Now().UnixMilli(),
+				Name:           signal.signalName,
+				Value:          floatValue,
+				LimitFrequency: true,
 			}
 			// push to channel
 			ch <- s
@@ -157,10 +143,39 @@ func (dpl *dbcPassiveLogger) StartScanning(ch chan<- models.SignalData) error {
 	}
 }
 
-// UseNativeScanLogger decide if should enable native scanning / querying based on: dbc file existing and hardware support for our impl
-func (dpl *dbcPassiveLogger) UseNativeScanLogger() bool {
-	// in next revision this could just be on hw support and if template pids are supported
-	return dpl.hardwareSupport && dpl.dbcFile != nil && *dpl.dbcFile != ""
+// buildCanFilters builds an array of unix.CanFilter objects based on the provided dbcFilter array
+func buildCanFilters(filters []dbcFilter) []unix.CanFilter {
+	uf := make([]unix.CanFilter, len(filters))
+	for i, filter := range filters {
+		uf[i].Id = filter.header // wants decimal representation of header - not hex
+		if filter.header > 0xfff {
+			uf[i].Mask = unix.CAN_EFF_MASK // extended frame
+		} else {
+			uf[i].Mask = unix.CAN_SFF_MASK // standard frame
+		}
+	}
+	return uf
+}
+
+// ShouldNativeScanLogger decide if should enable native scanning / querying based on: hardware support for our impl and no python formulas
+func (dpl *dbcPassiveLogger) ShouldNativeScanLogger() bool {
+	if dpl.shouldNativeScanLogger != nil {
+		return *dpl.shouldNativeScanLogger
+	}
+	pidsPython := false
+	for _, pid := range dpl.pids {
+		if pid.FormulaType() == models.Python {
+			pidsPython = true
+			break
+		}
+	}
+	dpl.logger.Debug().Msgf("hardware support: %v, pids with python formula: %v",
+		dpl.hardwareSupport, pidsPython)
+
+	useNativeLogger := dpl.hardwareSupport && !pidsPython
+	dpl.shouldNativeScanLogger = &useNativeLogger
+
+	return useNativeLogger
 }
 
 func (dpl *dbcPassiveLogger) StopScanning() error {
@@ -177,7 +192,8 @@ func (dpl *dbcPassiveLogger) StopScanning() error {
 func getUniqueResponseHeaders(pids []models.PIDRequest) map[uint32]struct{} {
 	hdrs := make(map[uint32]struct{})
 	for _, pid := range pids {
-		hdrs[pid.ResponseHeader] = struct{}{}
+		hdrs[pid.ResponseHeader()] = struct{}{}
+		// todo if response header is 7e8 should we add the whole list
 	}
 	return hdrs
 }
@@ -219,7 +235,7 @@ func (dpl *dbcPassiveLogger) SendCANFrame(header uint32, data []byte) error {
 
 	// switch to extended frame if bigger header
 	k := canbus.SFF
-	if header > 4095 {
+	if header > 0xfff {
 		k = canbus.EFF
 	}
 	_, err = send.Send(canbus.Frame{
@@ -301,10 +317,23 @@ func (dpl *dbcPassiveLogger) parseDBCHeaders(dbcFile string) ([]dbcFilter, error
 
 func (dpl *dbcPassiveLogger) matchPID(frame canbus.Frame) *models.PIDRequest {
 	for _, pid := range dpl.pids {
-		if pid.ResponseHeader == frame.ID {
-			// todo UDS there can be two byte PIDs in the frame, but need examples of this - is it UDS DID only? No standard OBD2 pids do this
-			if pid.Pid == uint32(frame.Data[2]) {
-				return &pid
+		if pid.ResponseHeader() == frame.ID {
+			if pid.Pid > 0x00 && pid.Pid < 0xff {
+				// obd2 standard PID, known position
+				if pid.Pid == uint32(frame.Data[2]) {
+					return &pid
+				}
+			} else {
+				// assume UDS
+				for i := 0; i < len(frame.Data); i++ {
+					if i+2 < len(frame.Data) {
+						did := frame.Data[i : i+2]
+
+						if pid.Pid == uint32(binary.BigEndian.Uint16(did)) {
+							return &pid
+						}
+					}
+				}
 			}
 		}
 	}

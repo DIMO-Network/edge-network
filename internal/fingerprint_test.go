@@ -33,7 +33,7 @@ func Test_fungerprintRunner_VINLoggers(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	ts := mock_loggers.NewMockSettingsStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -73,7 +73,7 @@ func Test_fingerprintRunner_VINLoggers_nilSettings(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 	unitID := uuid.New()
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	ts := mock_loggers.NewMockSettingsStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().
@@ -115,7 +115,7 @@ func Test_fingerprintRunner_VINLoggers_noVINResponse(t *testing.T) {
 	vl := mock_loggers.NewMockVINLogger(mockCtrl)
 	ds := mock_network.NewMockDataSender(mockCtrl)
 
-	ts := mock_loggers.NewMockTemplateStore(mockCtrl)
+	ts := mock_loggers.NewMockSettingsStore(mockCtrl)
 
 	logger := zerolog.New(os.Stdout).With().
 		Timestamp().

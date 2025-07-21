@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"github.com/DIMO-Network/edge-network/internal/hooks"
 	"math/big"
 	"net/http"
 	"os"
@@ -42,7 +43,7 @@ func TestCertificateService_GetOauthToken(t *testing.T) {
 	// read config file
 	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
 	if confErr != nil {
-		logger.Fatal().Err(confErr).Msg("unable to read config file")
+		hooks.LogFatal(logger, confErr, "unable to read config file")
 	}
 	cs := NewCertificateService(logger, *config, nil, mockFileSystem())
 
@@ -87,7 +88,7 @@ func TestCertificateService_SignWeb3Certificate(t *testing.T) {
 	// read config file
 	config, confErr := dimoConfig.ReadConfigFromPath("../config-dev.yaml")
 	if confErr != nil {
-		logger.Fatal().Err(confErr).Msg("unable to read config file")
+		hooks.LogFatal(logger, confErr, "unable to read config file")
 	}
 	cs := NewCertificateService(logger, *config, mockSigner, mockFileSystem())
 

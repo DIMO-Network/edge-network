@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -35,7 +34,7 @@ type Device struct {
 }
 
 type workerRunner struct {
-	loggerSettingsSvc   loggers.TemplateStore
+	loggerSettingsSvc   loggers.SettingsStore
 	dataSender          network.DataSender
 	logger              zerolog.Logger
 	ethAddr             *common.Address
@@ -44,6 +43,7 @@ type workerRunner struct {
 	pids                *models.TemplatePIDs
 	deviceSettings      *models.TemplateDeviceSettings
 	signalsQueue        *SignalsQueue
+	signalDumpFramesQ   *SignalFrameDumpQueue
 	stop                chan bool
 	sendPayloadInterval time.Duration
 	device              Device
@@ -51,17 +51,18 @@ type workerRunner struct {
 	dbcScanner          loggers.DBCPassiveLogger
 }
 
-func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.TemplateStore,
+func NewWorkerRunner(addr *common.Address, loggerSettingsSvc loggers.SettingsStore,
 	dataSender network.DataSender, logger zerolog.Logger, fpRunner FingerprintRunner,
 	pids *models.TemplatePIDs, settings *models.TemplateDeviceSettings, device Device, vehicleInfo *models.VehicleInfo,
 	dbcScanner loggers.DBCPassiveLogger, dtcRunner DtcErrorsRunner) WorkerRunner {
-	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int)}
+	signalsQueue := &SignalsQueue{lastTimeChecked: make(map[string]time.Time), failureCount: make(map[string]int), signals: make(map[string][]models.SignalData)}
 	// Interval for sending status payload to cloud. Status payload contains obd signals and non-obd signals.
 	interval := 20 * time.Second
+	sdfq := NewSignalFrameDumpQueue(logger, dataSender, loggerSettingsSvc)
 	return &workerRunner{ethAddr: addr, loggerSettingsSvc: loggerSettingsSvc,
 		dataSender: dataSender, logger: logger, fingerprintRunner: fpRunner, pids: pids, deviceSettings: settings,
 		signalsQueue: signalsQueue, sendPayloadInterval: interval, device: device, vehicleInfo: vehicleInfo,
-		dbcScanner: dbcScanner, dtcErrorsRunner: dtcRunner}
+		dbcScanner: dbcScanner, signalDumpFramesQ: sdfq, dtcErrorsRunner: dtcRunner}
 }
 
 // Max failures allowed for a PID before sending an error to the cloud
@@ -90,8 +91,8 @@ func (wr *workerRunner) Run() {
 	}
 	wr.logger.Info().Msgf("found modem: %s", modem)
 
-	if wr.dbcScanner.UseNativeScanLogger() {
-		wr.logger.Info().Msg("found DBC file, starting DBC passive logger")
+	if wr.dbcScanner.ShouldNativeScanLogger() {
+		wr.logger.Info().Msg("using native querying - starting passive logger")
 		// start dbc passive logger, pass through any messages on the channel
 		dbcCh := make(chan models.SignalData)
 		go func() {
@@ -102,12 +103,13 @@ func (wr *workerRunner) Run() {
 			}
 		}()
 		go func() {
+			// any signals picked up by can0 hardware filter logger gets enqueued to be sent
 			for signal := range dbcCh {
 				wr.signalsQueue.Enqueue(signal)
 			}
 		}()
 	} else {
-		wr.logger.Info().Msg("no DBC file found, not starting DBC passive logger")
+		wr.logger.Info().Msg("not starting native logger since ShouldNativeScanLogger() returned false")
 	}
 
 	// we will need two clocks, one for non-obd (every 20s) and one for obd (continuous, based on each signal interval)
@@ -130,8 +132,7 @@ func (wr *workerRunner) Run() {
 							allTimeFailures := wr.fingerprintRunner.IncrementFailuresReached()
 							if allTimeFailures < 2 {
 								// send to edge logs first time VIN failure happens
-								wr.logger.Err(errFp).Ctx(context.WithValue(context.Background(), hooks.LogToMqtt, "true")).
-									Msgf("failed to do vehicle VIN fingerprint: %s", errFp.Error())
+								hooks.LogError(wr.logger, errFp, "failed to do vehicle VIN fingerprint", hooks.WithThresholdWhenLogMqtt(1))
 							}
 						}
 					} else {
@@ -186,12 +187,15 @@ func (wr *workerRunner) Run() {
 			// compose the device event
 			s := wr.composeDeviceEvent(powerStatus, locationErr, location, wifiErr, wifi)
 
+			// send the cloud event only if signals array is not empty
 			if len(s.Vehicle.Signals) > 0 {
-				// send the cloud event only if it has signals
 				err = wr.dataSender.SendDeviceStatusData(s)
 				if err != nil {
-					wr.logger.Err(err).Msg("failed to send device status in loop")
+					wr.logger.Err(err).Msg("failed to send device status")
 				}
+			} else {
+				hooks.LogWarn(wr.logger, "No signals to send for about an 5 cycles", hooks.WithThresholdWhenLogMqtt(5),
+					hooks.WithPowerStatus(powerStatus), hooks.WithStopLogAfter(1))
 			}
 
 			if cellErr == nil || wifiErr == nil {
@@ -294,6 +298,8 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 			Signals: wr.signalsQueue.Dequeue(),
 		},
 	}
+	// add batteryVoltage to signals
+	statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "batteryVoltage", powerStatus.VoltageFound)
 	// only update location if no error
 	if locationErr == nil {
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "longitude", location.Longitude, ts)
@@ -350,7 +356,8 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	gspLocation, err := commands.GetGPSLocation(wr.device.UnitID, modem)
 	location := models.Location{}
 	if err != nil {
-		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1), hooks.WithThresholdWhenLogMqtt(10))
+		// stop send to mqtt to reduce excessive logging
+		hooks.LogError(wr.logger, err, "failed to get gps location", hooks.WithStopLogAfter(1))
 		return nil, err
 	}
 	// location fields mapped to separate struct
@@ -365,8 +372,13 @@ func (wr *workerRunner) queryLocation(modem string) (*models.Location, error) {
 	return &location, nil
 }
 
+// queryOBD queries OBD signals based on their designated intervals and power status.
+// It checks if it's ok to query each signal based on the last enqueued time and interval.
+// If a signal has been queried too many times, it will skip querying it.
+// Also queries for CAN dump of response frames for python PIDs.
 func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
-	useNativeQuery := wr.dbcScanner.UseNativeScanLogger()
+	useNativeQuery := wr.dbcScanner.ShouldNativeScanLogger()
+	go wr.signalDumpFramesQ.SenderWorker() // sends response can frame dumps
 
 	for _, request := range wr.pids.Requests {
 		// check if ok to query this pid
@@ -394,6 +406,14 @@ func (wr *workerRunner) queryOBD(powerStatus *api.PowerStatusResponse) {
 				hooks.LogError(wr.logger, err, "failed to send CAN query", hooks.WithThresholdWhenLogMqtt(5), hooks.WithPowerStatus(*powerStatus))
 			}
 		} else {
+			// Python formulas to DBC project - CAN frame dumps for first 2 requests.
+			if wr.signalDumpFramesQ.ShouldCaptureReq(request) {
+				// todo improvement: what if we get error responses but then we get a success,
+				// we want to prioritize the successful capture. Should query multiple times until get successful response
+				wr.queryPIDAndCaptureDump(request)
+				continue // skip this one
+			}
+			// once above is done we'll just query regularly
 			wr.queryOBDWithAP(request, powerStatus)
 		}
 
@@ -411,18 +431,28 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 		// if we failed too many times, we should send an error to the cloud
 		if wr.signalsQueue.failureCount[request.Name] > maxPidFailures {
 			// when exporting via mqtt, hook only grabs the message, not the error
+			// stop send to mqtt to reduce excessive logging
 			msg := fmt.Sprintf("failed to query pid name: %s.%s %d times: %+v. error: %s", wr.pids.TemplateName, request.Name, wr.signalsQueue.failureCount[request.Name], request, err.Error())
-			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(1), hooks.WithPowerStatus(*powerStatus))
+			hooks.LogError(wr.logger, err, msg, hooks.WithStopLogAfter(1), hooks.WithPowerStatus(*powerStatus))
 		}
 		return
 	}
 	// future: new formula type that could work for proprietary PIDs and could support text, int or float
 	var value interface{}
 	if request.FormulaType() == models.Dbc && obdResp.IsHex {
-		value, _, err = loggers.ExtractAndDecodeWithDBCFormula(obdResp.ValueHex[0], util.UintToHexStr(request.Pid), request.FormulaValue())
+		// in case there are multiple responses
+		lastHex := ""
+		for _, hex := range obdResp.ValueHex {
+			value, _, err = loggers.ExtractAndDecodeWithDBCFormula(hex, util.UintToHexStr(request.Pid), request.FormulaValue())
+			lastHex = hex
+			if err == nil {
+				break // if no error just continue
+			}
+		}
+		// the last error will be set
 		if err != nil {
 			msg := fmt.Sprintf("failed to convert hex response with formula: %s. signal: %s. hex: %s. template: %s",
-				request.FormulaValue(), request.Name, obdResp.ValueHex[0], wr.pids.TemplateName)
+				request.FormulaValue(), request.Name, lastHex, wr.pids.TemplateName)
 			hooks.LogError(wr.logger, err, msg, hooks.WithThresholdWhenLogMqtt(10), hooks.WithStopLogAfter(1))
 			return
 		}
@@ -443,6 +473,31 @@ func (wr *workerRunner) queryOBDWithAP(request models.PIDRequest, powerStatus *a
 	})
 }
 
+// queryPIDAndCaptureDump does a obd.query with a blank formula and logs the hex the response in dump queue
+func (wr *workerRunner) queryPIDAndCaptureDump(request models.PIDRequest) {
+	f := request.Formula
+	request.Formula = "" // clear out the formula so we get hex resp
+	obdResp, _, err := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+	// query again with formula to get the value - helps with debug/porting
+	time.Sleep(1 * time.Second)
+	request.Formula = f
+	obdRespWithValue, _, _ := commands.RequestPIDRaw(&wr.logger, wr.device.UnitID, request)
+
+	scfr := models.SignalCanFrameDump{
+		Timestamp:     time.Now().UnixMilli(),
+		Name:          request.Name,
+		PidHex:        util.UintToHexStr(request.Pid),
+		PythonFormula: f,
+	}
+	if err != nil {
+		scfr.Error = err.Error() // report it to cloud
+	} else if obdResp.IsHex {
+		scfr.HexValue = strings.Join(obdResp.ValueHex, "\n")
+		scfr.ActualValue = obdRespWithValue.Value
+	}
+	wr.signalDumpFramesQ.Enqueue(scfr)
+}
+
 // isOkToQueryOBD checks once to see if voltage rules pass to issue PID requests
 func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 	status, err := commands.GetPowerStatus(wr.device.UnitID)
@@ -457,7 +512,7 @@ func (wr *workerRunner) isOkToQueryOBD() (bool, api.PowerStatusResponse) {
 }
 
 type SignalsQueue struct {
-	signals         []models.SignalData
+	signals         map[string][]models.SignalData
 	lastTimeChecked map[string]time.Time
 	failureCount    map[string]int
 	sync.RWMutex
@@ -468,23 +523,37 @@ func (sq *SignalsQueue) lastEnqueuedTime(key string) (time.Time, bool) {
 	defer sq.Unlock()
 	t, ok := sq.lastTimeChecked[key]
 	return t, ok
-
 }
 
 func (sq *SignalsQueue) Enqueue(signal models.SignalData) {
 	sq.Lock()
 	defer sq.Unlock()
+	// only enqueue limit freq signals once if same value
+	if signal.LimitFrequency {
+		if data, ok := sq.signals[signal.Name]; ok {
+			for _, s := range data {
+				if s.Value == signal.Value {
+					return
+				}
+			}
+		}
+	}
 	sq.lastTimeChecked[signal.Name] = time.Now()
-	sq.signals = append(sq.signals, signal)
+	sq.signals[signal.Name] = append(sq.signals[signal.Name], signal)
 }
 
 func (sq *SignalsQueue) Dequeue() []models.SignalData {
 	sq.Lock()
 	defer sq.Unlock()
-	signals := sq.signals
+	// iterate over the signals map and return just the []models.SignalsData
+	var data []models.SignalData
+	for _, v := range sq.signals {
+		data = append(data, v...)
+	}
 	// empty the data after dequeue
-	sq.signals = []models.SignalData{}
-	return signals
+	sq.signals = map[string][]models.SignalData{}
+
+	return data
 }
 
 func (sq *SignalsQueue) IncrementFailureCount(requestName string) {

@@ -16,7 +16,7 @@ This is so that the socket can library we use for dbc filtering works, but neede
 
 ### Running tests locally
 
-Needs to run on an arm linux go image. I used: `arm32v7/golang:1.21-bookworm`.
+Needs to run on an arm linux go image. I used: `arm32v7/golang:1.23-bookworm`.
 In goland, can "Edit Configurations" for build configs, and then choose a Docker target that uses the above image.
 Use Pull option instead of Build. Default settings after that seemed to be fine.  
 [Video showing config steps](https://www.loom.com/share/03e27f64594d4490aea8035aa05ad68a?sid=52e3e078-390d-49a5-8770-ca2f61d73e8a)

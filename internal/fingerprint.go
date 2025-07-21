@@ -29,7 +29,7 @@ type fingerprintRunner struct {
 	unitID        uuid.UUID
 	vinLog        loggers.VINLogger
 	dataSender    network.DataSender
-	templateStore loggers.TemplateStore
+	templateStore loggers.SettingsStore
 	logger        zerolog.Logger
 	// state tracking
 	failureCount int
@@ -39,7 +39,7 @@ type fingerprintRunner struct {
 	pastVINQueryName *string
 }
 
-func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, templateStore loggers.TemplateStore, logger zerolog.Logger) FingerprintRunner {
+func NewFingerprintRunner(unitID uuid.UUID, vinLog loggers.VINLogger, dataSender network.DataSender, templateStore loggers.SettingsStore, logger zerolog.Logger) FingerprintRunner {
 	fpr := &fingerprintRunner{unitID: unitID, vinLog: vinLog, dataSender: dataSender, templateStore: templateStore, logger: logger}
 	fpr.failureCount = 0
 	fpr.allTimeFailureCount = 0

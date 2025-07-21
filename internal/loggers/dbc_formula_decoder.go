@@ -35,6 +35,7 @@ func ExtractAndDecodeWithDBCFormula(hexData, pid, formula string) (float64, stri
 	// Find the index of PID in the sliced hex string
 	pidIndex := strings.Index(strings.ToLower(slicedHexData), strings.ToLower(pid))
 	if pidIndex == -1 {
+		// todo - is this always the case that the PID will be returned in resp?
 		return 0, "", errors.New("PID not found")
 	}
 
