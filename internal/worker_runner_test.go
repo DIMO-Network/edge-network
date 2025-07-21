@@ -341,7 +341,7 @@ func TestRunSendsBatteryIfNoSignals(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
+	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 
 	registerResponders(unitID, true, false, false, false)
 
@@ -362,7 +362,7 @@ func TestRunSendsBatteryIfNoSignals(t *testing.T) {
 		},
 	}
 
-	wr := createWorkerRunner(ts, ds, dbcS, ls, unitID)
+	wr := createWorkerRunner(ts, ds, dbcS, ls, dr, unitID)
 	wr.pids.Requests = requests
 	wr.sendPayloadInterval = 10 * time.Second
 	wr.stop = make(chan bool)
@@ -762,7 +762,6 @@ func TestRunWithCantQueryLocation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	vl, ds, ts, dbcS, ls := mockComponents(mockCtrl, unitID)
 	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
 	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 

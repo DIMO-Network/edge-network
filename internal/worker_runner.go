@@ -299,7 +299,7 @@ func (wr *workerRunner) composeDeviceEvent(powerStatus api.PowerStatusResponse, 
 		},
 	}
 	// add batteryVoltage to signals
-	statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "batteryVoltage", powerStatus.VoltageFound)
+	statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "batteryVoltage", powerStatus.VoltageFound, ts)
 	// only update location if no error
 	if locationErr == nil {
 		statusData.Vehicle.Signals = appendSignalData(statusData.Vehicle.Signals, "longitude", location.Longitude, ts)
