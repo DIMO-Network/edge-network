@@ -79,7 +79,7 @@ func main() {
 	name = buildBleName(serial)
 	unitID = serial
 	hwRevision := "7.0" // assume latest version if can't get it
-	hwRv, err := util.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
+	hwRv, err := retry.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
 		return commands.GetHardwareRevision(unitID)
 	})
 	if err != nil {
