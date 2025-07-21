@@ -676,7 +676,6 @@ func TestRunWithNotEnoughVoltage2(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
-	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	// mock power status resp
 	psPath := fmt.Sprintf("/dongle/%s/execute_raw/", unitID)
@@ -763,7 +762,6 @@ func TestRunWithCantQueryLocation(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	vl, ds, ts, dbcS, ls, dr := mockComponents(mockCtrl, unitID)
-	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 
 	registerResponders(unitID, false, false, true, false)
 
@@ -865,6 +863,7 @@ func mockComponents(mockCtrl *gomock.Controller, unitID uuid.UUID) (*mockloggers
 
 	ls := NewFingerprintRunner(unitID, vl, ds, ts, logger)
 	dr := NewDtcErrorsRunner(unitID, ds, logger)
+	dbcS.EXPECT().UseNativeScanLogger().AnyTimes().Return(false)
 	return vl, ds, ts, dbcS, ls, dr
 }
 
