@@ -80,7 +80,12 @@ func main() {
 	unitID = serial
 	hwRevision := "7.0" // assume latest version if can't get it
 	hwRv, err := retry.Retry[string](4, 4*time.Second, logger, func() (interface{}, error) {
-		return commands.GetHardwareRevision(unitID)
+		hwRev, err := commands.GetHardwareRevision(unitID)
+		if err != nil {
+			return nil, err
+		}
+		// Retry asserts on *T, so return a pointer
+		return &hwRev, nil
 	})
 	if err != nil {
 		logger.Err(err).Msgf("error getting hardware rev, defaulting to %s", hwRevision)
@@ -152,10 +157,15 @@ func main() {
 		if err != nil {
 			logger.Fatal().Err(err).Msgf("Failed to setup BlueZ: %s", err)
 		}
-		app, cancel, obCancel := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
-		defer app.Close()
-		defer cancel()
-		defer obCancel()
+		app, cancel, obCancel, err := setupBluetoothApplication(logger, coldBoot, vinLogger, lss)
+		if err != nil {
+			// BLE is not required to send data over mqtt, so keep going
+			logger.Err(err).Msg("bluetooth unavailable, continuing without BLE")
+		} else {
+			defer app.Close()
+			defer cancel()
+			defer obCancel()
+		}
 	}
 
 	// read config file
@@ -182,7 +192,7 @@ func main() {
 
 	// log certificate errors
 	if certErr != nil {
-		hooks.LogError(logger, err, "Error from SignWeb3Certificate", hooks.WithThresholdWhenLogMqtt(1))
+		hooks.LogError(logger, certErr, "Error from SignWeb3Certificate", hooks.WithThresholdWhenLogMqtt(1))
 	}
 
 	// block here until satisfy condition. future - way to know if device is being used as decoding device, eg. mapped to a specific template
