@@ -55,7 +55,7 @@ var lastSignature []byte
 var lastProtocol string
 var lastDTC string
 
-func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.SettingsStore) (*service.App, context.CancelFunc, context.CancelFunc) {
+func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger loggers.VINLogger, lss loggers.SettingsStore) (*service.App, context.CancelFunc, context.CancelFunc, error) {
 	opt := service.AppOptions{
 		AdapterID:         adapterID,
 		AgentCaps:         agent.CapDisplayYesNo,
@@ -67,7 +67,8 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 
 	app, err := service.NewApp(opt)
 	if err != nil {
-		hooks.LogFatal(logger, err, "failed to create app")
+		// no usable adapter (eg. hw without bluetooth); let the caller continue without BLE
+		return nil, nil, nil, fmt.Errorf("failed to create app: %w", err)
 	}
 
 	app.SetName(name)
@@ -781,7 +782,7 @@ func setupBluetoothApplication(logger zerolog.Logger, coldBoot bool, vinLogger l
 	logger.Debug().Msgf("  Get ethereum address characteristic: %s", addrChar.Properties.UUID)
 	logger.Debug().Msgf("  Sign hash characteristic: %s", signChar.Properties.UUID)
 
-	return app, cancel, omSignalCancel
+	return app, cancel, omSignalCancel, nil
 }
 
 // Utility Function
